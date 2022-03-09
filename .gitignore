@@ -1,0 +1,5 @@
+build/*
+tcc/*
+*.pdb
+*.exp
+*.dll
