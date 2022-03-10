@@ -18,6 +18,10 @@ void dcore_init(void)
 
     //Initialize Time
     dtime_init();
+
+
+    //Threading Initialization (none needed) + testing
+    assert(threads_ok());
 }
 
 void dcore_update(void)

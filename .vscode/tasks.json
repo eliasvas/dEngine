@@ -12,6 +12,7 @@
 				"src/dcore.c",
 				"src/dthread.c",
 				"${workspaceFolder}/build/fiber_context.o",
+				"-pthread",
 				"-Iext/SDL2/include/",
 				"-Lbuild/",
 				"-lSDL2",

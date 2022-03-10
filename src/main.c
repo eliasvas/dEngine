@@ -19,36 +19,10 @@
 
 
 
-u64 mult_job(u64 number, u64 amount)
-{
-    //we mult so that order matters
-    u64 n = number * 1.1 + amount * 2;
-    return n;
-}
-
 void print_nonsense(void)
 {
     printf("nonsense\n");
     exit(10);
-}
-
-void call_context_func(void)
-{
-    Context c;// = {0};
-    memset(&c, 0, sizeof(c));
-    char data[4096];
-    //this points to the end of data, because stack grows downwards
-    char *sp = (char*)(data + sizeof(data)); 
-    //align stack pointer to 16 byte boundary
-    sp = (char*)((uintptr_t)sp & -16L);
-    //make 128 byte scratch space for the Red Zone
-    sp -= 128;
-
-    //make the context
-    //c.rip = (void*)print_nonsense;
-    //c.rsp = (void*)sp;
-    //set_context(&c);
-
 }
 
 void init(void)
@@ -126,7 +100,6 @@ int main(void)
     c.rip = (void*)print_nonsense;
     c.rsp = (void*)sp;
     set_context(&c);
-
 
     destroy();
     return 0;
