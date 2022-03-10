@@ -2,11 +2,17 @@
 #define TOOLS_H
 
 #if defined(_WIN32) || defined(__CYGWIN__)
-#define BUILD_WIN
+    #define BUILD_WIN
 #elif defined(MACOSX)
-#define BUILD_MACOSX
+    #define BUILD_MACOSX
 #else
-#define BUILD_UNIX
+    #define BUILD_UNIX
+#endif
+
+#if !defined(NDEBUG)
+    #define DEBUG_BUILD
+#else
+    #define RELEASE_BUILD 
 #endif
 
 
@@ -23,7 +29,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <string.h>
-#include <stddef.h>
+#include <stddef.h> //this though?? @check
 
 typedef uint8_t   u8;
 typedef int8_t    s8;

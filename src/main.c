@@ -55,8 +55,6 @@ void init(void)
 
 b32 update(void)
 {
-    //call_context_func();
-
     return 0;
 }
 
@@ -82,24 +80,15 @@ int main(void)
     init();
     while(update())
         dcore_update();//update the state of the engine for each step
-    volatile int x = 0;
-    Context c = {0};    
-    
-    get_context(&c);
-    
-    
-    
-    printf("All Systems initialization Complete!\n");
-    if (x == 0)
-    {
-        x++;
-        set_context(&c);
-    }
 
+
+    Context c = {0};
     //make the context
     c.rip = (void*)print_nonsense;
     c.rsp = (void*)sp;
+    //swap_context(&c);
     set_context(&c);
+    //printf("all finished up!!!!!!!!\n");
 
     destroy();
     return 0;

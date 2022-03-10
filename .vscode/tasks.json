@@ -11,6 +11,7 @@
 				"src/main.c",
 				"src/dcore.c",
 				"src/dthread.c",
+				"src/dfiber.c",
 				"${workspaceFolder}/build/fiber_context.o",
 				"-pthread",
 				"-Iext/SDL2/include/",

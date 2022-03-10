@@ -9,7 +9,7 @@
             "type": "cppdbg",
             "request": "launch",
             "program": "${workspaceFolder}/build/engine",
-            "args": [],
+            "args": ["-tui"],
             "stopAtEntry": false,
             "cwd": "${workspaceFolder}",
             "environment": [],

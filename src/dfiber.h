@@ -21,6 +21,8 @@ extern int get_context(Context *c);
 extern void set_context(Context *c);
 extern void swap_context(Context *c);
 
+b32 fibers_ok(void);
+
 //adds another job to the fiber system
 //dfiber_add_job()
 

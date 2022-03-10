@@ -20,8 +20,11 @@ void dcore_init(void)
     dtime_init();
 
 
-    //Threading Initialization (none needed) + testing
+    //Threading Initialization (none needed) + Testing
     assert(threads_ok());
+
+    //Fiber Initialization + Testing
+    assert(fibers_ok());
 }
 
 void dcore_update(void)
