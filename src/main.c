@@ -22,7 +22,8 @@
 void print_nonsense(void)
 {
     printf("nonsense\n");
-    exit(10);
+
+    djob_request(REQ_EXIT, 0);
 }
 
 void init(void)
@@ -63,7 +64,6 @@ void destroy(void)
     dcore_destroy();
 }
 
-
 int main(void)
 {
     
@@ -82,13 +82,12 @@ int main(void)
         dcore_update();//update the state of the engine for each step
 
 
-    Context c = {0};
-    //make the context
-    c.rip = (void*)print_nonsense;
-    c.rsp = (void*)sp;
-    //swap_context(&c);
-    set_context(&c);
-    //printf("all finished up!!!!!!!!\n");
+    memset(&main_context, 0, sizeof(main_context));
+    memset(&task_context, 0, sizeof(task_context));
+    task_context.rip = print_nonsense;
+    task_context.rsp = sp;
+
+    djob_manager_main();
 
     destroy();
     return 0;

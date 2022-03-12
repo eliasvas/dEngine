@@ -69,7 +69,6 @@ swap_context:
     movq 8*1(%rsi), %rsp
 
     #load preserved registers
-    movq 8*1(%rsi), %rsp
     movq 8*2(%rsi), %rbx
     movq 8*3(%rsi), %rbp
     movq 8*4(%rsi), %r12
