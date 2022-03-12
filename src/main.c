@@ -27,9 +27,12 @@ void print_foo(void *data)
 }
 void print_nonsense(void *data)
 {
-    printf("nonsense\n");
+    printf("nonsense1\n");
+    djob_request(REQ_YIELD, 0);
 
+    printf("nonsense2\n");
     djob_request(REQ_EXIT, 0);
+    printf("we should never get here????");
 }
 
 void init(void)
@@ -73,35 +76,18 @@ void destroy(void)
 int main(void)
 {
     
-    char data[4096];
-    //this points to the end of data, because stack grows downwards
-    char *sp = (char*)(data + sizeof(data)); 
-    //align stack pointer to 16 byte boundary
-    sp = (char*)((uintptr_t)sp & -16L);
-    //make 128 byte scratch space for the Red Zone
-    sp -= 128;
-
-
-    
     init();
     while(update())
         dcore_update();//update the state of the engine for each step
 
 
-    memset(&main_context, 0, sizeof(main_context));
-    //memset(&task_context, 0, sizeof(task_context));
-    //task_context.rip = print_nonsense;
-    //task_context.rsp = sp;
 
-    dJobDecl job_decl;
-    job_decl.data = NULL;
-    job_decl.task = print_nonsense;
-    djob_queue_add_job(&job_manager.job_queue, job_decl);
-    djob_queue_add_job(&job_manager.job_queue, job_decl);
+    dJobDecl job_decl = {print_nonsense, NULL};
+    dJobDecl job_decl2 = {print_foo, NULL};
 
-    job_decl.task = print_foo;
     djob_queue_add_job(&job_manager.job_queue, job_decl);
-
+    djob_queue_add_job(&job_manager.job_queue, job_decl2);
+    djob_queue_add_job(&job_manager.job_queue, job_decl);
     djob_manager_work(&job_manager);
 
     destroy();

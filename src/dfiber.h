@@ -16,7 +16,7 @@ typedef struct
 #endif
 }Context;
 
-Context main_context, **task_context;
+Context main_context, *task_context;
 
 //these are implemented in assembly and linked afterwards
 
@@ -28,14 +28,6 @@ extern void swap_context(Context *c1,Context *c2); //saves current context in 'c
 
 b32 fibers_ok(void);
 
-//adds another job to the fiber system
-//dfiber_add_job()
-
-//executes ALL jobs dispatched
-//dfiber_exec_jobs()
-
-//clears ALL jobs (end of frame??)
-//dfiber_clear_jobs()
 typedef struct dJobDecl
 {
   void (*task)(void *data);
@@ -52,16 +44,23 @@ typedef struct dJobQueue
   u32 start_index;
 }dJobQueue;
 
-static void djob_queue_init(dJobQueue *job_queue)
+
+static void *stack_basic(void)
 {
-  char *data = malloc(JOB_QUEUE_STACK_SIZE);
+  char *data = malloc(JOB_QUEUE_STACK_SIZE/8);
   //this points to the end of data, because stack grows downwards
   char *sp = (char*)(data + sizeof(JOB_QUEUE_STACK_SIZE)); 
   //align stack pointer to 16 byte boundary
   sp = (char*)((uintptr_t)sp & -16L);
   //make 128 byte scratch space for the Red Zone
   sp -= 128;
-  job_queue->sp = sp;
+
+  return sp;
+}
+
+static void djob_queue_init(dJobQueue *job_queue)
+{
+  job_queue->sp = stack_basic();
 
   job_queue->start_index = 0;
   job_queue->end_index = 0;
@@ -72,7 +71,13 @@ static void djob_queue_add_job(dJobQueue *job_queue, dJobDecl job)
   //if (job_queue->current_index >= JOB_QUEUE_SIZE)
   Context c = {0};
   c.rip = job.task;
-  c.rsp = job_queue->sp; 
+  //c.rsp = job_queue->sp; 
+  c.rsp = stack_basic(); 
+  job_queue->jobs[job_queue->end_index++ % JOB_QUEUE_SIZE] = c;
+}
+
+static void djob_queue_add_context(dJobQueue *job_queue, Context c)
+{
   job_queue->jobs[job_queue->end_index++ % JOB_QUEUE_SIZE] = c;
 }
 
@@ -109,10 +114,10 @@ dJobRequest global_request;
 u32 global_arg;
 
 //task ---request---> main
-b32 djob_request(dJobRequest req, u32 arg);
+void djob_request(dJobRequest req, u32 arg);
 
 //main ---handle---> task 
-b32 djob_handle(dJobRequest req,u32 arg);
+b32 djob_handle(dJobManager *m, dJobRequest req,u32 arg);
 
 void djob_manager_work(dJobManager *m);
 

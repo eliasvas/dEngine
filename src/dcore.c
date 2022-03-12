@@ -25,6 +25,7 @@ void dcore_init(void)
 
     //Job System/Fiber Initialization + Testing
     djob_manager_init(&job_manager);
+    memset(&main_context, 0, sizeof(main_context));
     assert(fibers_ok());
 }
 
