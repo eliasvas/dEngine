@@ -17,16 +17,17 @@
 
 
 
+int numberr = 122;
 
-
-void print_foo(void *data)
+void print_number(void *data)
 {
-    printf("foo\n");
+    printf("%i\n", numberr);
 
     djob_request(REQ_EXIT, 0);
 }
 void print_nonsense(void *data)
 {
+    printf("%s\n", (char*)data);
     printf("nonsense1\n");
     djob_request(REQ_YIELD, 0);
 
@@ -82,8 +83,8 @@ int main(void)
 
 
 
-    dJobDecl job_decl = {print_nonsense, NULL};
-    dJobDecl job_decl2 = {print_foo, NULL};
+    dJobDecl job_decl = {print_nonsense, arg00};
+    dJobDecl job_decl2 = {print_number, &numberr};
 
     djob_queue_add_job(&job_manager.job_queue, job_decl);
     djob_queue_add_job(&job_manager.job_queue, job_decl2);

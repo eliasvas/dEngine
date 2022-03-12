@@ -20,9 +20,15 @@ b32 fibers_ok(void)
 //and switch to main to handle them
 void djob_request(dJobRequest req, u32 arg)
 {
-    //printf("djob_request\n");
-    if (req == REQ_YIELD)global_request = REQ_YIELD;
-    if (req == REQ_EXIT)global_request = REQ_EXIT;
+    switch(req)
+    {
+        case REQ_YIELD:
+            global_request = REQ_YIELD;
+            break;
+        case REQ_EXIT:
+            global_request = REQ_EXIT;
+            break;
+    }
     swap_context(task_context, &main_context);
     //set_context(&main_context);
 }
@@ -57,7 +63,7 @@ void djob_manager_work(dJobManager *m)
         swap_context(&main_context, task_context);
         djob_handle(&job_manager, global_request, global_arg);
     }
-    printf("djob_manager finished all jobs");
+    printf("djob_manager finished all jobs\n");
 }
 
 void djob_manager_init(dJobManager *m)

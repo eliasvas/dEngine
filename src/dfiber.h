@@ -10,7 +10,7 @@
 typedef struct 
 {
   void *rip, *rsp;
-  void *rbx, *rbp, *r12, *r13, *r14, *r15;//, *rdi, *rsi;
+  void *rbx, *rbp, *r12, *r13, *r14, *r15, *rdi, *rsi;
 #if defined(BUILD_WIN)
   __m128i xmm6, xmm7, xmm8, xmm9, xmm10, xmm11, xmm12, xmm13, xmm14, xmm15;
 #endif
@@ -66,6 +66,7 @@ static void djob_queue_init(dJobQueue *job_queue)
   job_queue->end_index = 0;
 }
 
+static char *arg00 = "ARG0";
 static void djob_queue_add_job(dJobQueue *job_queue, dJobDecl job)
 {
   //if (job_queue->current_index >= JOB_QUEUE_SIZE)
@@ -73,6 +74,7 @@ static void djob_queue_add_job(dJobQueue *job_queue, dJobDecl job)
   c.rip = job.task;
   //c.rsp = job_queue->sp; 
   c.rsp = stack_basic(); 
+  c.rdi = job.data; 
   job_queue->jobs[job_queue->end_index++ % JOB_QUEUE_SIZE] = c;
 }
 

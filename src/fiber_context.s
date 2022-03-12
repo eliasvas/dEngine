@@ -14,6 +14,7 @@ get_context:
   movq %r13, 8*5(%rdi)
   movq %r14, 8*6(%rdi)
   movq %r15, 8*7(%rdi)
+  movq %rdi, 8*8(%rdi)
 
   # Return.
   xorl %eax, %eax
@@ -37,6 +38,7 @@ set_context:
     movq 8*5(%rdi), %r13
     movq 8*6(%rdi), %r14
     movq 8*7(%rdi), %r15
+    movq 8*8(%rdi), %rdi
 
     #push RIP to stack for RET
     pushq %r8
@@ -61,6 +63,7 @@ swap_context:
     movq %r13, 8*5(%rdi)
     movq %r14, 8*6(%rdi)
     movq %r15, 8*7(%rdi)
+    movq %rdi, 8*8(%rdi)
 
     #should return to the address set with get/swap_context
     movq 8*0(%rsi), %r8
@@ -75,6 +78,8 @@ swap_context:
     movq 8*5(%rsi), %r13
     movq 8*6(%rsi), %r14
     movq 8*7(%rsi), %r15
+    movq 8*8(%rsi), %rdi
+    #movq 8*9(%rsi), %rsi
 
     #push RIP to stack for RET
     pushq %r8
