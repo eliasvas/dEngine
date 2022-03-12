@@ -23,7 +23,8 @@ void dcore_init(void)
     //Threading Initialization (none needed) + Testing
     assert(threads_ok());
 
-    //Fiber Initialization + Testing
+    //Job System/Fiber Initialization + Testing
+    djob_manager_init(&job_manager);
     assert(fibers_ok());
 }
 

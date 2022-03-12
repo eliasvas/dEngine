@@ -22,7 +22,7 @@ b32 djob_request(dJobRequest req, u32 arg)
 {
     //printf("djob_request\n");
     if (req == REQ_EXIT)global_request = REQ_EXIT;
-    swap_context(&task_context, &main_context);
+    swap_context(*(task_context), &main_context);
     return 0;
 }
 
@@ -38,14 +38,24 @@ b32 djob_handle(dJobRequest req,u32 arg)
     return FALSE;
 }
 
-void djob_manager_main(void)
+void djob_manager_work(dJobManager *m)
 {
     printf("djob_manager main start\n");
     volatile b32 exit = FALSE;
     while(!exit)
     {
-        swap_context(&main_context, &task_context);
-        exit = djob_handle(global_request, global_arg);
+        if (job_manager.job_queue.start_index == job_manager.job_queue.end_index)break;
+        Context *current_task = djob_queue_remove_job(&m->job_queue);
+        //@investigate
+        task_context = &current_task;
+        swap_context(&main_context, *task_context);
+        djob_handle(global_request, global_arg);
     }
     printf("djob_manager finished all jobs");
+}
+
+void djob_manager_init(dJobManager *m)
+{
+    djob_queue_init(&m->job_queue);
+    m->next_index = 0;
 }

@@ -19,7 +19,13 @@
 
 
 
-void print_nonsense(void)
+void print_foo(void *data)
+{
+    printf("foo\n");
+
+    djob_request(REQ_EXIT, 0);
+}
+void print_nonsense(void *data)
 {
     printf("nonsense\n");
 
@@ -83,11 +89,20 @@ int main(void)
 
 
     memset(&main_context, 0, sizeof(main_context));
-    memset(&task_context, 0, sizeof(task_context));
-    task_context.rip = print_nonsense;
-    task_context.rsp = sp;
+    //memset(&task_context, 0, sizeof(task_context));
+    //task_context.rip = print_nonsense;
+    //task_context.rsp = sp;
 
-    djob_manager_main();
+    dJobDecl job_decl;
+    job_decl.data = NULL;
+    job_decl.task = print_nonsense;
+    djob_queue_add_job(&job_manager.job_queue, job_decl);
+    djob_queue_add_job(&job_manager.job_queue, job_decl);
+
+    job_decl.task = print_foo;
+    djob_queue_add_job(&job_manager.job_queue, job_decl);
+
+    djob_manager_work(&job_manager);
 
     destroy();
     return 0;
