@@ -66,7 +66,12 @@ void init(void)
 
 b32 update(void)
 {
-    return 0;
+    dinput_update();
+    //if (dkey_down(DK_A))printf("DK_A down!\n");
+    //if (dkey_up(DK_A))printf("DK_A up!\n");
+    if (dkey_pressed(DK_A))printf("DK_A pressed!\n");
+    if (dkey_released(DK_A))printf("DK_A released!\n");
+    return 1;
 }
 
 void destroy(void)

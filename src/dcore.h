@@ -5,6 +5,7 @@
 #include "dtime.h"
 #include "dfiber.h"
 #include "dthread.h"
+#include "dinput.h"
 
 void dcore_init(void);
 

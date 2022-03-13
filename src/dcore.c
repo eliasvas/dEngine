@@ -27,6 +27,10 @@ void dcore_init(void)
     djob_manager_init(&job_manager);
     memset(&main_context, 0, sizeof(main_context));
     assert(fibers_ok());
+
+
+    //Initialize input system
+    dinput_init();
 }
 
 void dcore_update(void)
