@@ -31,6 +31,9 @@ void dcore_init(void)
 
     //Initialize input system
     dinput_init();
+
+    //Initialize the Graphics Driver
+    dgfx_init();
 }
 
 void dcore_update(void)

@@ -6,6 +6,7 @@
 #include "dfiber.h"
 #include "dthread.h"
 #include "dinput.h"
+#include "dgfx.h"
 
 void dcore_init(void);
 
