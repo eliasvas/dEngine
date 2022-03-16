@@ -1,6 +1,7 @@
 #ifndef __DGFX__
 #define __DGFX__
 #include "tools.h"
+#include "dwin.h"
 #include "volk/volk.h"
 
 #define DG_PHYSICAL_DEVICE_MAX 10

@@ -1,7 +1,7 @@
 #define DTIME_IMPLEMENTATION
 #include "dcore.h"
-//This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 
+//This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
     //Initialize Memory Allocators

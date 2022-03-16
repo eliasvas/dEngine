@@ -1,5 +1,6 @@
 {
     "files.associations": {
-        "volk.h": "c"
+        "volk.h": "c",
+        "dgfx.h": "c"
     }
 }

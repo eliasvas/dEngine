@@ -20,6 +20,8 @@
 #include "windows.h"
 #endif
 
+#define DSUCCESS 1
+#define DFAIL 0
 
 //these are universal includes supported by all platforms
 #include <stdint.h>

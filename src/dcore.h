@@ -6,7 +6,10 @@
 #include "dfiber.h"
 #include "dthread.h"
 #include "dinput.h"
+#include "dwin.h"
 #include "dgfx.h"
+
+dWindow main_window;
 
 void dcore_init(void);
 
