@@ -6,6 +6,14 @@
 
 #define DG_PHYSICAL_DEVICE_MAX 10
 
+typedef struct dgShader 
+{
+    VkShaderModule module;
+    VkShaderStageFlagBits stage;
+
+    //ShaderMetaInfo info;
+    b32 uses_push_constants;
+}dgShader;
 
 typedef struct dgTexture{
     VkSampler sampler;

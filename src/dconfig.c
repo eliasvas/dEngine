@@ -35,6 +35,10 @@ void dconfig_load(void)
         {
             fscanf(config, "%s\n", engine_config.shader_path);
         }
+        else if (strcmp("spirv_path", field) == 0)
+        {
+            fscanf(config, "%s\n", engine_config.spirv_path);
+        }
     }
     fclose(config);
 }
@@ -45,6 +49,7 @@ void dconfig_save(void)
     //TODO(ilias): log into console that action couldn't be completed!
     if (config == NULL)return; 
     fprintf(config, "set dgAPI DG_VULKAN\n");
+    fprintf(config, "set spirv_path %s\n", engine_config.spirv_path);
     fprintf(config, "set shader_path %s\n", engine_config.shader_path);
     fprintf(config, "set default_resolution %i %i\n", (int)engine_config.default_resolution.x, (int)engine_config.default_resolution.y);
     fclose(config);
@@ -55,4 +60,5 @@ void dconfig_default(void)
     engine_config.graphics_api = DG_VULKAN;
     engine_config.default_resolution = v2(600,400); 
     sprintf(engine_config.shader_path, "assets/shaders");
+    sprintf(engine_config.shader_path, "build/shaders");
 }

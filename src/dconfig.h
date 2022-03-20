@@ -13,8 +13,9 @@ typedef enum dgAPI
 typedef struct dConfig
 {
     dgAPI graphics_api;
-    char shader_path[64];
     vec2 default_resolution;
+    char shader_path[64];
+    char spirv_path[64];
 }dConfig;
 
 //Fills the (single) engine config struct

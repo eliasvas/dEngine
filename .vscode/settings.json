@@ -1,6 +1,7 @@
 {
     "files.associations": {
         "volk.h": "c",
-        "dgfx.h": "c"
+        "dgfx.h": "c",
+        "dconfig.h": "c"
     }
 }

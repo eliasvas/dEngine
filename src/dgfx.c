@@ -425,6 +425,36 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
     return DSUCCESS;
 }
 
+
+#include "dconfig.h"
+extern dConfig engine_config;
+
+VkShaderModule dg_create_shader_module(char *code, u32 size)
+{
+	VkShaderModuleCreateInfo create_info = {0};
+	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+	create_info.codeSize = size;
+	create_info.pCode = (u32*)code;
+	VkShaderModule shader_module;
+	VK_CHECK(vkCreateShaderModule(dd.device, &create_info, NULL, &shader_module));
+	return shader_module;
+}
+void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, VkShaderStageFlagBits stage)
+{
+    char path[256];
+    sprintf(path, "%s%s.spv", engine_config.spirv_path, filename);
+	u32 code_size;
+	u32 *shader_code = NULL;
+	if (read_file(path, &shader_code, &code_size) == -1){return;};
+	shader->module = dg_create_shader_module((char*)shader_code, code_size);
+	shader->uses_push_constants = FALSE;
+    //shader_reflect(shader_code, code_size, &shader->info);
+	//printf("Shader: %s has %i input variable(s)!\n", filename, shader->info.input_variable_count);
+	shader->stage = stage;
+	free(shader_code);
+}  
+
+
 void dg_device_init(void)
 {
 	assert(dg_create_instance(&dd));

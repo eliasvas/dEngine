@@ -1,3 +1,4 @@
 set dgAPI DG_VULKAN
+set spirv_path build/shaders
 set shader_path assets/shaders
 set default_resolution 600 400
