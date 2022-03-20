@@ -15,6 +15,11 @@ void dcore_init(void)
     void *temp_arena_mem = malloc(megabytes(1));
     temp_arena = arena_init(temp_arena_mem, temp_arena_size);
 
+    //Read engine Config
+    //dconfig_default();
+    dconfig_load();
+    dconfig_save();
+
 
     //Initialize Time
     dtime_init();

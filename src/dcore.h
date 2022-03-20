@@ -2,6 +2,7 @@
 #define __DCORE__
 #include "tools.h"
 //include all subsystems so we can manage them
+#include "dconfig.h"
 #include "dtime.h"
 #include "dfiber.h"
 #include "dthread.h"
