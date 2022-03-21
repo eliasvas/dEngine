@@ -41,6 +41,34 @@ typedef struct dgSwapchain
 	VkRenderPass rp_begin;
 }dgSwapchain;
 
+typedef struct dgBuffer 
+{
+    VkDevice device;
+    VkBuffer buffer;
+    VkDeviceMemory mem;
+    VkDescriptorBufferInfo desc;
+    VkDeviceSize size;
+    VkDeviceSize alignment;
+    VkBufferUsageFlags usage_flags;
+    VkMemoryPropertyFlags memory_property_flags;
+    void* mapped;
+    b32 active;
+}dgBuffer;
+typedef struct dgPipeline 
+{
+    dgShader vert_shader;
+    dgShader frag_shader;
+    //dgShader compute_shader;
+
+    VkPipeline pipeline;
+    VkPipelineLayout pipeline_layout;
+
+    // do we really need the descriptor pool? (maybe have them in a cache??)
+    VkDescriptorPool descriptor_pools[16]; //pools need to be reallocated with every swapchain recreation! @TODO
+    VkDescriptorSet* descriptor_sets;
+    dgBuffer* uniform_buffers;
+}dgPipeline;
+
 typedef struct dgDevice
 {
     VkInstance instance;
@@ -53,6 +81,8 @@ typedef struct dgDevice
     VkQueue present_queue;
 
     dgSwapchain swap;
+
+    dgPipeline fullscreen_pipe;
 
     u32 image_index; //current image index to draw
 }dgDevice;
