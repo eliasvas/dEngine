@@ -1,6 +1,7 @@
 #define DTIME_IMPLEMENTATION
 #include "dcore.h"
 
+extern dgDevice dd;
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -45,6 +46,8 @@ void dcore_update(void)
 {
 
     arena_clear(&temp_arena);
+
+    dg_draw_frame(&dd);
 }
 
 void dcore_destroy(void)

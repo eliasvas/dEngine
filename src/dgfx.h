@@ -5,6 +5,7 @@
 #include "volk/volk.h"
 
 #define DG_PHYSICAL_DEVICE_MAX 10
+#define MAX_FRAMES_IN_FLIGHT 2
 
 typedef struct dgShader 
 {
@@ -84,9 +85,19 @@ typedef struct dgDevice
 
     dgPipeline fullscreen_pipe;
 
+    VkCommandPool command_pool;
+    VkCommandBuffer* command_buffers;
+
+    VkSemaphore *image_available_semaphores;
+    VkSemaphore *render_finished_semaphores;
+    VkFence *in_flight_fences;
+    VkFence *images_in_flight;
+
+
     u32 image_index; //current image index to draw
 }dgDevice;
 
 b32 dgfx_init(void);
 
+void dg_draw_frame(dgDevice *ddev);
 #endif
