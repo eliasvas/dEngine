@@ -95,6 +95,7 @@ typedef struct dgDevice
 
 
     u32 image_index; //current image index to draw
+    u32 current_frame;
 }dgDevice;
 
 b32 dgfx_init(void);

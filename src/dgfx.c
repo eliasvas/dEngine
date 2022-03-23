@@ -895,70 +895,114 @@ void dg_build_command_buffers(void)
         vkEndCommandBuffer(dd.command_buffers[i]);
     }
 }
-
-
-void dg_draw_wut(dgDevice *ddev)
+void dg_build_command_bufferss(void)
 {
-    u32 current_frame = 0;
 
-    VkSubmitInfo submit_info = { 0 };
-    submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    VkSemaphore wait_semaphores[] = { ddev->image_available_semaphores[current_frame] };
-    VkPipelineStageFlags wait_stages[] = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
-    submit_info.waitSemaphoreCount = 1;
-    submit_info.pWaitSemaphores = wait_semaphores;
-    submit_info.pWaitDstStageMask = wait_stages;
-    submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers = &ddev->command_buffers[ddev->image_index];
-    VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[current_frame] };
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = signal_semaphores;
-    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[current_frame]);
-    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &submit_info, ddev->in_flight_fences[current_frame]));
+    VkCommandBufferBeginInfo begin_info = {0};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = 0;
+	//vkBeginCommandBuffer(command_buffer, &begin_info);
+    
+    for (u32 i = dd.current_frame; i < dd.current_frame+ 1; ++i)
+    {
+        vkBeginCommandBuffer(dd.command_buffers[i], &begin_info);
 
-    VkPresentInfoKHR present_info = { 0 };
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
+        //transition color texture for drawing
+        dg_image_memory_barrier(
+            dd.command_buffers[i], 
+            dd.swap.images[dd.image_index], 
+            0, 
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+        );
 
-    VkSwapchainKHR swapchains[] = { ddev->swap.swapchain };
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapchains;
-    present_info.pImageIndices = &ddev->image_index;
-    present_info.pResults = NULL;
+        VkRenderingAttachmentInfoKHR color_attachment = {0};
+        color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+        color_attachment.imageView = dd.swap.image_views[dd.image_index];
+        color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
 
-    //we push the data to be presented to the present queue
-    VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
+
+        VkRenderingInfoKHR rendering_info = {0};
+        rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+        rendering_info.renderArea = (VkRect2D){0,0,600, 400};
+        rendering_info.layerCount = 1;
+        rendering_info.colorAttachmentCount = 1;
+        rendering_info.pColorAttachments = &color_attachment;
+
+
+        vkCmdBeginRenderingKHR(dd.command_buffers[i], &rendering_info);
+
+        VkViewport viewport = viewport_basic(&dd);
+        vkCmdSetViewport(dd.command_buffers[i], 0, 1, &viewport);
+
+        VkRect2D scissor = scissor_basic(&dd);
+        vkCmdSetScissor(dd.command_buffers[i], 0, 1, &scissor);
+
+        vkCmdBindPipeline(dd.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
+
+        vkCmdDraw(dd.command_buffers[i], 3, 1, 0, 0);
+
+        vkCmdEndRenderingKHR(dd.command_buffers[i]);
+
+        dg_image_memory_barrier(
+            dd.command_buffers[i], 
+            dd.swap.images[dd.image_index], 
+            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+            0, 
+            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+        );
+
+        vkEndCommandBuffer(dd.command_buffers[i]);
+    }
 }
 
 void dg_draw_frame(dgDevice *ddev)
 {
 
-    vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->image_index], VK_TRUE, UINT64_MAX);
+    vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
 
 
 
-    vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[0],
+    vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
         VK_NULL_HANDLE, &ddev->image_index);
+
+
+    vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
+
+    dg_build_command_bufferss();
+
+
 
 
     VkSubmitInfo si = {0};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
-    VkSemaphore wait_semaphores[] = {ddev->image_available_semaphores[0]};
+    VkSemaphore wait_semaphores[] = {ddev->image_available_semaphores[ddev->current_frame]};
     VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     si.waitSemaphoreCount = 1;
     si.pWaitSemaphores = wait_semaphores;
     si.pWaitDstStageMask = wait_stages;
 
     si.commandBufferCount = 1;
-    si.pCommandBuffers= &ddev->command_buffers[ddev->image_index];
-    VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[ddev->image_index] };
+    si.pCommandBuffers= &ddev->command_buffers[ddev->current_frame];
+    VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[ddev->current_frame] };
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = signal_semaphores;
 
-    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
-    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->image_index]));
+    //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
+    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
 
     VkPresentInfoKHR present_info = { 0 };
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -974,7 +1018,9 @@ void dg_draw_frame(dgDevice *ddev)
 
 
     VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
-    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->image_index]);
+    //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
+
+    ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
 void dg_device_init(void)
