@@ -1,5 +1,21 @@
 #include "dwin.h"
 
+typedef struct Vertex
+{
+    vec2 position;
+    vec3 color; 
+}Vertex;
+const Vertex vertices[] = {
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}
+};
+const u32 indices[] = {
+    0, 1, 2, 2, 3, 0
+};
+
+
 
 b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
 {

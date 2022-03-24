@@ -983,6 +983,56 @@ void dg_draw_frame(dgDevice *ddev)
     ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
 
+//attaches ALLOCATED memory block to buffer!
+static void dg_buf_bind(dgBuffer *buf, VkDeviceSize offset)
+{
+	vkBindBufferMemory(dd.device, buf->buffer, buf->mem, offset);
+}
+
+static void dg_buf_copy_to(dgBuffer *src,void *data, VkDeviceSize size)
+{
+	assert(src->mapped);
+	memcpy(src->mapped, data, size);
+}
+
+static void dg_buf_setup_descriptor(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
+{
+	buf->desc.offset = offset;
+	buf->desc.buffer = buf->buffer;
+	buf->desc.range = size;
+}
+static VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
+{
+    //printf("buf->mem = %i\n\n", buf->mem);
+    //fflush(stdout);
+	return vkMapMemory(dd.device, buf->mem, offset, size, 0, &buf->mapped);//@check @check @check @check
+}
+
+static void dg_buf_unmap(dgBuffer *buf)
+{
+	if (buf->mapped)
+	{
+		vkUnmapMemory(dd.device, buf->mem);
+		buf->mapped = NULL;
+	}
+}
+
+static void dg_buf_destroy(dgBuffer *buf)
+{
+    if (!buf->active)return;
+	if (buf->buffer)
+	{
+		vkDestroyBuffer(dd.device, buf->buffer, NULL);
+	}
+	if (buf->mem)
+	{
+		vkFreeMemory(dd.device, buf->mem, NULL);
+	}
+    buf->active = FALSE;
+}
+
+
+
 void dg_device_init(void)
 {
 	assert(dg_create_instance(&dd));
