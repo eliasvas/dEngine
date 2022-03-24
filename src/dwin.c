@@ -13,7 +13,7 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
     {
         //Create the window
         dw->window = SDL_CreateWindow( "Engine Window", 
-        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
+        SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
         if (dw->window == NULL)
         {
             printf("Window %s could not be created!!\n", t);

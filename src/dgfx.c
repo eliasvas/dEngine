@@ -399,13 +399,21 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     ddev->swap.image_format = surface_format.format;
     ddev->swap.extent = extent;
     ddev->swap.image_count = image_count;//TODO(ilias): check
-    printf("new swapchain image_count: %i\n", image_count);
-    printf("new swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
+    //printf("New swapchain image_count: %i\n", image_count);
+    //printf("New swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
 	//ddev->swap.depth_attachment = dg_create_depth_attachment(ddev->swap.extent.width, ddev->swap.extent.height);
 	
-	//ddev->swap.rp_begin = create_render_pass(VK_ATTACHMENT_LOAD_OP_CLEAR,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_GENERAL, 1, TRUE);
-
     return DSUCCESS;
+}
+
+static void dg_cleanup_swapchain(dgDevice *ddev)
+{
+   //vkDestroyPipeline(ddev->device, ddev->fullscreen_pipe.pipeline, NULL); 
+   //vkDestroyPipelineLayout(ddev->device, ddev->fullscreen_pipe.pipeline_layout, NULL);
+   for (u32 i = 0; i < ddev->swap.image_count; ++i)
+        vkDestroyImageView(ddev->device, ddev->swap.image_views[i], NULL);
+    vkDestroySwapchainKHR(ddev->device, ddev->swap.swapchain, NULL);
+    //clear depth attachment of swapchain
 }
 
 static VkImageView dg_create_image_view(VkImage image, VkFormat format,  VkImageAspectFlags aspect_flags)
@@ -794,6 +802,23 @@ static b32 dg_create_command_buffers(dgDevice *ddev)
     return DSUCCESS;
 }
 
+static void dg_recreate_swapchain(dgDevice *ddev)
+{
+    vkDeviceWaitIdle(ddev->device);
+    //in case of window minimization (w = 0, h = 0) we wait until we get a proper window again
+    u32 width = main_window.width;
+    u32 height = main_window.height;
+    
+    
+    dg_cleanup_swapchain(ddev);
+    dg_create_swapchain(ddev);
+    dg_create_swapchain_image_views(ddev);
+    
+    //dg_create_pipeline(ddev, &ddev->fullscreen_pipe, "fullscreen.vert", "fullscreen.frag");
+    dg_create_command_buffers(ddev);
+}
+
+
 static void dg_image_memory_barrier(
 			VkCommandBuffer cmdbuffer,
 			VkImage image,
@@ -822,79 +847,6 @@ static void dg_image_memory_barrier(
 				0, NULL,
 				1, &imageMemoryBarrier);
 		}
-
-
-void dg_build_command_buffers(void)
-{
-
-    VkCommandBufferBeginInfo begin_info = {0};
-	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-	begin_info.flags = 0;
-	//vkBeginCommandBuffer(command_buffer, &begin_info);
-    
-    for (u32 i = 0; i < dd.swap.image_count; ++i)
-    {
-        vkBeginCommandBuffer(dd.command_buffers[i], &begin_info);
-
-        //transition color texture for drawing
-        dg_image_memory_barrier(
-            dd.command_buffers[i], 
-            dd.swap.images[i], 
-            0, 
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-        );
-
-        VkRenderingAttachmentInfoKHR color_attachment = {0};
-        color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        color_attachment.imageView = dd.swap.image_views[i];
-        color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
-
-
-        VkRenderingInfoKHR rendering_info = {0};
-        rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-        rendering_info.renderArea = (VkRect2D){0,0,600, 400};
-        rendering_info.layerCount = 1;
-        rendering_info.colorAttachmentCount = 1;
-        rendering_info.pColorAttachments = &color_attachment;
-
-
-        vkCmdBeginRenderingKHR(dd.command_buffers[i], &rendering_info);
-
-        VkViewport viewport = viewport_basic(&dd);
-        vkCmdSetViewport(dd.command_buffers[i], 0, 1, &viewport);
-
-        VkRect2D scissor = scissor_basic(&dd);
-        vkCmdSetScissor(dd.command_buffers[i], 0, 1, &scissor);
-
-        vkCmdBindPipeline(dd.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
-
-        vkCmdDraw(dd.command_buffers[i], 3, 1, 0, 0);
-
-        vkCmdEndRenderingKHR(dd.command_buffers[i]);
-
-        dg_image_memory_barrier(
-            dd.command_buffers[i], 
-            dd.swap.images[i], 
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            0, 
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-        );
-
-        vkEndCommandBuffer(dd.command_buffers[i]);
-    }
-}
 void dg_build_command_bufferss(void)
 {
 
@@ -931,7 +883,7 @@ void dg_build_command_bufferss(void)
 
         VkRenderingInfoKHR rendering_info = {0};
         rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-        rendering_info.renderArea = (VkRect2D){0,0,600, 400};
+        rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
         rendering_info.layerCount = 1;
         rendering_info.colorAttachmentCount = 1;
         rendering_info.pColorAttachments = &color_attachment;
@@ -975,9 +927,11 @@ void dg_draw_frame(dgDevice *ddev)
 
 
 
-    vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
+    VkResult res = vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
         VK_NULL_HANDLE, &ddev->image_index);
 
+    if (res == VK_ERROR_OUT_OF_DATE_KHR) { dg_recreate_swapchain(ddev); return; }
+    else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)printf("Failed to acquire swapchain image!\n");
 
     vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
 
@@ -1017,8 +971,14 @@ void dg_draw_frame(dgDevice *ddev)
     present_info.pResults = NULL;
 
 
-    VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
-    //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
+    res = vkQueuePresentKHR(ddev->present_queue, &present_info);
+
+    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
+    {
+        dg_recreate_swapchain(ddev);
+    }
+    else if (res != VK_SUCCESS)
+        printf("Failed to present swapchain image!\n");
 
     ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
@@ -1036,7 +996,6 @@ void dg_device_init(void)
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
-    dg_build_command_buffers();
 	printf("Vulkan initialized correctly!\n");
 }
 

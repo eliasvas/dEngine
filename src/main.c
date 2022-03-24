@@ -5,13 +5,12 @@
 
 
 //FEATURES TODO
-//-Fibers
-//-String Streams!
-//-Profiling
+//make the engine self compile (no external dependencies) to a single executable
+//shader/texture CACHING!!!!!
+//-Fibers (w/ multiple threads)
 //-Engine logging
+//-Profiling
 //-Basic Sound (+ Audio compression/decompression)
-//-Window Abstraction
-//-Graphics (when I get the new PC..)
 
 
 

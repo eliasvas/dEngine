@@ -37,9 +37,6 @@ typedef struct dgSwapchain
 	VkFramebuffer *framebuffers;
 	dgTexture depth_attachment;
 	u32 image_count;
-	
-    //TODO(ilias): delete render pass, its the LAW!!!!!!!!!!
-	VkRenderPass rp_begin;
 }dgSwapchain;
 
 typedef struct dgBuffer 
