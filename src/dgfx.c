@@ -847,64 +847,38 @@ static void dg_image_memory_barrier(
 				0, NULL,
 				1, &imageMemoryBarrier);
 		}
-void dg_build_command_bufferss(void)
-{
 
+
+static void dg_prepare_command_buffer(dgDevice *ddev, VkCommandBuffer c)
+{
     VkCommandBufferBeginInfo begin_info = {0};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.flags = 0;
 	//vkBeginCommandBuffer(command_buffer, &begin_info);
     
-    for (u32 i = dd.current_frame; i < dd.current_frame+ 1; ++i)
-    {
-        vkBeginCommandBuffer(dd.command_buffers[i], &begin_info);
+    vkBeginCommandBuffer(c, &begin_info);
 
-        //transition color texture for drawing
+    //transition color texture for drawing
+    dg_image_memory_barrier(
+        c,
+        ddev->swap.images[ddev->image_index], 
+        0, 
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+
+
+
+}
+
+static void dg_end_command_buffer(dgDevice *ddev, VkCommandBuffer c)
+{
         dg_image_memory_barrier(
-            dd.command_buffers[i], 
-            dd.swap.images[dd.image_index], 
-            0, 
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            VK_IMAGE_LAYOUT_UNDEFINED,
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-        );
-
-        VkRenderingAttachmentInfoKHR color_attachment = {0};
-        color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-        color_attachment.imageView = dd.swap.image_views[dd.image_index];
-        color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
-
-
-        VkRenderingInfoKHR rendering_info = {0};
-        rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-        rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
-        rendering_info.layerCount = 1;
-        rendering_info.colorAttachmentCount = 1;
-        rendering_info.pColorAttachments = &color_attachment;
-
-
-        vkCmdBeginRenderingKHR(dd.command_buffers[i], &rendering_info);
-
-        VkViewport viewport = viewport_basic(&dd);
-        vkCmdSetViewport(dd.command_buffers[i], 0, 1, &viewport);
-
-        VkRect2D scissor = scissor_basic(&dd);
-        vkCmdSetScissor(dd.command_buffers[i], 0, 1, &scissor);
-
-        vkCmdBindPipeline(dd.command_buffers[i], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
-
-        vkCmdDraw(dd.command_buffers[i], 3, 1, 0, 0);
-
-        vkCmdEndRenderingKHR(dd.command_buffers[i]);
-
-        dg_image_memory_barrier(
-            dd.command_buffers[i], 
+            c,
             dd.swap.images[dd.image_index], 
             VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
             0, 
@@ -915,13 +889,12 @@ void dg_build_command_bufferss(void)
             (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
         );
 
-        vkEndCommandBuffer(dd.command_buffers[i]);
-    }
+        vkEndCommandBuffer(c);
+
 }
 
-void dg_draw_frame(dgDevice *ddev)
+void dg_frame_begin(dgDevice *ddev)
 {
-
     vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
     vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
 
@@ -935,11 +908,47 @@ void dg_draw_frame(dgDevice *ddev)
 
     vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
 
-    dg_build_command_bufferss();
+    dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+    ///*
+    VkRenderingAttachmentInfoKHR color_attachment = {0};
+    color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    color_attachment.imageView = dd.swap.image_views[dd.image_index];
+    color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
 
 
+    VkRenderingInfoKHR rendering_info = {0};
+    rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
+    rendering_info.layerCount = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments = &color_attachment;
 
 
+    vkCmdBeginRenderingKHR(dd.command_buffers[ddev->current_frame], &rendering_info);
+
+    VkViewport viewport = viewport_basic(&dd);
+    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &viewport);
+
+    VkRect2D scissor = scissor_basic(&dd);
+    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &scissor);
+
+    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
+
+    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+
+    vkCmdEndRenderingKHR(dd.command_buffers[ddev->current_frame]);
+    //*/
+
+    dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+
+
+}
+
+void dg_frame_end(dgDevice *ddev)
+{
     VkSubmitInfo si = {0};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -971,7 +980,7 @@ void dg_draw_frame(dgDevice *ddev)
     present_info.pResults = NULL;
 
 
-    res = vkQueuePresentKHR(ddev->present_queue, &present_info);
+    VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
 
     if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
     {
@@ -981,6 +990,7 @@ void dg_draw_frame(dgDevice *ddev)
         printf("Failed to present swapchain image!\n");
 
     ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
 }
 
 //attaches ALLOCATED memory block to buffer!

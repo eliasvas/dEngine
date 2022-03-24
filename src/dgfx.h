@@ -98,4 +98,6 @@ typedef struct dgDevice
 b32 dgfx_init(void);
 
 void dg_draw_frame(dgDevice *ddev);
+void dg_frame_begin(dgDevice *ddev);
+void dg_frame_end(dgDevice *ddev);
 #endif

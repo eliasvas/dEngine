@@ -40,14 +40,17 @@ void dcore_init(void)
 
     //Initialize the Graphics Driver
     dgfx_init();
+
+
+    dg_frame_begin(&dd);
 }
 
 void dcore_update(void)
 {
-
+    dg_frame_end(&dd);
     arena_clear(&temp_arena);
 
-    dg_draw_frame(&dd);
+    dg_frame_begin(&dd);
 }
 
 void dcore_destroy(void)

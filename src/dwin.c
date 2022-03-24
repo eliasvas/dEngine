@@ -22,7 +22,7 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
     //if (opt & DWINDOW_OPT_VULKAN)printf("Vulkan Baby!!\n");
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
-        printf("SDL could not initialize!!\n");
+        printf("SDL could not initialize: %s!!\n", SDL_GetError());
         return DFAIL;
     }
     else
