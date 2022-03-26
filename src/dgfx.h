@@ -3,6 +3,7 @@
 #include "tools.h"
 #include "dwin.h"
 #include "volk/volk.h"
+#include "spirv_reflect/spirv_reflect.h"
 
 #define DG_PHYSICAL_DEVICE_MAX 10
 #define MAX_FRAMES_IN_FLIGHT 2
@@ -11,6 +12,8 @@ typedef struct dgShader
 {
     VkShaderModule module;
     VkShaderStageFlagBits stage;
+
+    SpvReflectShaderModule info;
 
     //ShaderMetaInfo info;
     b32 uses_push_constants;
@@ -81,6 +84,7 @@ typedef struct dgDevice
     dgSwapchain swap;
 
     dgPipeline fullscreen_pipe;
+    dgPipeline base_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;

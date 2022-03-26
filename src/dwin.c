@@ -37,10 +37,11 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
         }
         else
         {
-            dw->screen_surface = SDL_GetWindowSurface( dw->window );
-            SDL_FillRect( dw->screen_surface, NULL, SDL_MapRGB( dw->screen_surface->format, 0xAF, 0x2F, 0x3F ) );
-            SDL_UpdateWindowSurface( dw->window );
-            SDL_Delay(20);
+            //we create a vulkan surface, no need for dis!
+            //dw->screen_surface = SDL_GetWindowSurface( dw->window );
+            //SDL_FillRect( dw->screen_surface, NULL, SDL_MapRGB( dw->screen_surface->format, 0xAF, 0x2F, 0x3F ) );
+            //SDL_UpdateWindowSurface( dw->window );
+            //SDL_Delay(20);
         }
     }
     //sprintf(dw->title, t);

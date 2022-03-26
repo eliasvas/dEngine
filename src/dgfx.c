@@ -101,7 +101,7 @@ static dgQueueFamilyIndices dg_find_queue_families(VkPhysicalDevice device)
 	vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
 	//queue_family_count = minimum(queue_family_count, DG_QUEUE_FAMILY_MAX);
 	VkBool32 present_support = VK_FALSE;
-	//@FIX(ilias): WHY is queue_family_count 0???????????????????? goddamn!
+	//@FIX(ilias): WHY is queue_family_count 0???????????????????? goddamn! linux 
 	for (u32 i = 0; i < queue_family_count; ++i)
 	{
 		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, dd.surface, &present_support);
@@ -238,10 +238,12 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 }
 
 //NOTE(ilias): the window must be initialized and have a vulkan compatible surface
-b32 dg_surface_create(dgDevice *ddev,dWindow *window)
+static b32 dg_surface_create(dgDevice *ddev,dWindow *window)
 {
 	//VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR
-	SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
+    //printf("1%s\n", SDL_GetError());
+	VkResult res = SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
+    //printf("2%s\n", SDL_GetError());
 	return TRUE;
 }
 
@@ -468,7 +470,9 @@ void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, V
     //shader_reflect(shader_code, code_size, &shader->info);
 	//printf("Shader: %s has %i input variable(s)!\n", filename, shader->info.input_variable_count);
 	shader->stage = stage;
+    spvReflectCreateShaderModule(code_size, shader_code, &shader->info);
 	free(shader_code);
+
 }  
 
 static VkViewport viewport_basic(dgDevice *ddev)
