@@ -6,6 +6,8 @@
 #include "spirv_reflect/spirv_reflect.h"
 
 #define DG_PHYSICAL_DEVICE_MAX 10
+#define DG_QUEUE_FAMILY_MAX 32
+#define DG_VERTEX_INPUT_ATTRIB_MAX 4
 #define MAX_FRAMES_IN_FLIGHT 2
 
 typedef struct dgShader 

@@ -89,7 +89,6 @@ typedef struct dgQueueFamilyIndices
     u32 present_family_found;
 }dgQueueFamilyIndices;
 
-#define DG_QUEUE_FAMILY_MAX 32
 
 //@TODO(ilias) vkGetPHysicalDeviceQueueFamilyProperties doesn't work with static queue_families
 static dgQueueFamilyIndices dg_find_queue_families(VkPhysicalDevice device)
@@ -522,20 +521,56 @@ static VkVertexInputBindingDescription dg_get_bind_desc_basic(void)
     return bind_desc;
 }
 
+static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc)
+{
+    u32 attr_index = 0;
+    u32 global_offset = 0;
+    u32 attribute_count = shader->info.input_variable_count;
+
+    memset(attr_desc, 0, sizeof(VkVertexInputAttributeDescription) * DG_VERTEX_INPUT_ATTRIB_MAX);
+
+    for (u32 i = 0; i < shader->info.input_variable_count; ++i)
+    {
+        for (u32 j = 0; j <shader->info.input_variable_count; ++j)
+        {
+            attr_index = (u32)shader->info.input_variables[j]->location;
+            if (shader->info.input_variables[j]->built_in != -1)
+            {
+                --attribute_count;
+                break;
+            }
+            if (attr_index == i )//Note(inv): we want to write the inputs in order to get the global offset
+            {
+                SpvReflectInterfaceVariable *input_var = shader->info.input_variables[attr_index];
+                memset(&attr_desc[attr_index], 0, sizeof(VkVertexInputAttributeDescription));
+                attr_desc[attr_index].binding = 0; //TODO(inv): check dis shit
+                attr_desc[attr_index].format = input_var->format;
+                attr_desc[attr_index].location= input_var->location;
+                attr_desc[attr_index].offset = global_offset;
+                global_offset += input_var->numeric.vector.component_count * sizeof(f32);
+
+
+                break;
+            }
+
+        }
+
+    }
+    return attribute_count;
+}
+
 static VkPipelineVertexInputStateCreateInfo 
 dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDescription *bind_desc, VkVertexInputAttributeDescription *attr_desc)
 {
-
-
     //*bind_desc = get_bind_desc(&shader->info);
     //u32 attribute_count = get_attr_desc(attr_desc, &shader->info);
     *bind_desc = dg_get_bind_desc_basic();
-    u32 attribute_count = 0;
+    u32 attribute_count = dg_get_attr_desc(shader, attr_desc);
  
 	VkPipelineVertexInputStateCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	info.pNext = NULL;
-	info.vertexBindingDescriptionCount = 1;
+	info.vertexBindingDescriptionCount = (attribute_count >0) ? 1 : 0;
     info.pVertexBindingDescriptions = bind_desc;
 	info.vertexAttributeDescriptionCount = attribute_count;
     info.pVertexAttributeDescriptions = attr_desc;
@@ -679,6 +714,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
 
  
+ /*
     //this is dummy
 	VkPipelineVertexInputStateCreateInfo vert_input_state= {0};
 	vert_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -687,6 +723,14 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     vert_input_state.pVertexBindingDescriptions = NULL;
 	vert_input_state.vertexAttributeDescriptionCount = 0;
     vert_input_state.pVertexAttributeDescriptions = NULL;
+    */
+
+    VkVertexInputBindingDescription bind_desc[4];
+    VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
+    VkPipelineVertexInputStateCreateInfo vert_input_state = 
+    dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc);
+
+
 
     VkPipelineInputAssemblyStateCreateInfo input_asm_state = 
     dg_pipe_input_assembly_create_info(VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST);
@@ -1056,6 +1100,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
+    //assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
     assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
