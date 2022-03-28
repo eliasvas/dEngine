@@ -5,6 +5,8 @@
 #include "SDL_vulkan.h"
 
 dgDevice dd;
+dgBuffer base_vbo;
+dgBuffer base_ibo;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -27,6 +29,55 @@ static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME,
 static const char *validation_layers[]= {
     "VK_LAYER_KHRONOS_validation"
 };
+
+vec3 cube_positions[]  = {
+	{0.5f, 0.5f, 0.5f},  {-0.5f, 0.5f, 0.5f},  {-0.5f,-0.5f, 0.5f}, {0.5f,-0.5f, 0.5f},   // v0,v1,v2,v3 (front)
+    {0.5f, 0.5f, 0.5f},  {0.5f,-0.5f, 0.5f},   {0.5f,-0.5f,-0.5f},  {0.5f, 0.5f,-0.5f},   // v0,v3,v4,v5 (right)
+    {0.5f, 0.5f, 0.5f},  {0.5f, 0.5f,-0.5f},   {-0.5f, 0.5f,-0.5f}, {-0.5f, 0.5f, 0.5f},   // v0,v5,v6,v1 (top)
+    {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f},  {-0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f, 0.5f},   // v1,v6,v7,v2 (left)
+    {-0.5f,-0.5f,-0.5f}, {0.5f,-0.5f,-0.5f},   {0.5f,-0.5f, 0.5f},  {-0.5f,-0.5f, 0.5f},   // v7,v4,v3,v2 (bottom)
+    {0.5f,-0.5f,-0.5f},  {-0.5f,-0.5f,-0.5f},  {-0.5f, 0.5f,-0.5f}, {0.5f, 0.5f,-0.5f},    // v4,v7,v6,v5 (back)
+};
+
+// normal array
+vec3 cube_normals[] = {
+	{0, 0, 1},   {0, 0, 1},   {0, 0, 1},   {0, 0, 1},  // v0,v1,v2,v3 (front)
+	{1, 0, 0},   {1, 0, 0},   {1, 0, 0},   {1, 0, 0},  // v0,v3,v4,v5 (right)
+	{0, 1, 0},   {0, 1, 0},   {0, 1, 0},   {0, 1, 0},  // v0,v5,v6,v1 (top)
+	{-1, 0, 0},  {-1, 0, 0},  {-1, 0, 0},  {-1, 0, 0},  // v1,v6,v7,v2 (left)
+	{0,-1, 0},   {0,-1, 0},   {0,-1, 0},   {0,-1, 0},  // v7,v4,v3,v2 (bottom)
+	{0, 0,-1},   {0, 0,-1},   {0, 0,-1},   {0, 0,-1},   // v4,v7,v6,v5 (back)
+};
+
+// texCoord array
+vec2 cube_tex_coords[] = {
+    {1, 0},   {0, 0},   {0, 1},   {1, 1},               // v0,v1,v2,v3 (front)
+	{0, 0},   {0, 1},   {1, 1},   {1, 0},               // v0,v3,v4,v5 (right)
+	{1, 1},   {1, 0},   {0, 0},   {0, 1},               // v0,v5,v6,v1 (top)
+	{1, 0},   {0, 0},   {0, 1},   {1, 1},               // v1,v6,v7,v2 (left)
+	{0, 1},   {1, 1},   {1, 0},   {0, 0},               // v7,v4,v3,v2 (bottom)
+	{0, 1},   {1, 1},   {1, 0},   {0, 0}                // v4,v7,v6,v5 (back)
+};
+
+u32 cube_indices[] = {
+     0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
+     4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
+     8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
+    12,13,14,  14,15,12,    // v1-v6-v7, v7-v2-v1 (left)
+    16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
+    20,21,22,  22,23,20     // v4-v7-v6, v6-v5-v4 (back)
+};
+static dgVertex *cube_build_verts(void)
+{
+	dgVertex *verts = (dgVertex*)malloc(sizeof(dgVertex) * 24);
+	for (u32 i =0; i < 24; ++i)
+	{
+		verts[i].pos = cube_positions[i];
+		verts[i].normal = cube_normals[i];
+		verts[i].tex_coord = cube_tex_coords[i];
+	}
+	return verts;
+}
 
 
 b32 dg_create_instance(dgDevice *ddev) {
@@ -346,6 +397,7 @@ static VkExtent2D dg_choose_swap_extent(dgSwapChainSupportDetails details)
 }
 
 #define MAX_SWAP_IMAGE_COUNT 2
+static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height);
 static b32 dg_create_swapchain(dgDevice *ddev)
 {
 
@@ -402,7 +454,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     ddev->swap.image_count = image_count;//TODO(ilias): check
     //printf("New swapchain image_count: %i\n", image_count);
     //printf("New swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
-	//ddev->swap.depth_attachment = dg_create_depth_attachment(ddev->swap.extent.width, ddev->swap.extent.height);
+	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height);
 	
     return DSUCCESS;
 }
@@ -433,6 +485,32 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format,  VkImage
 	view_info.subresourceRange.layerCount = 1;
 	VK_CHECK(vkCreateImageView(dd.device, &view_info, NULL, &image_view));
 	return image_view;
+}
+
+static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
+{
+	VkSamplerCreateInfo sampler_info = {0};
+	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+	sampler_info.magFilter = VK_FILTER_LINEAR;
+	sampler_info.minFilter = VK_FILTER_LINEAR;
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	
+	VkPhysicalDeviceProperties prop = {0};
+	vkGetPhysicalDeviceProperties(ddev->physical_device, &prop);
+	
+	sampler_info.anisotropyEnable = VK_FALSE;
+	sampler_info.maxAnisotropy = prop.limits.maxSamplerAnisotropy;
+	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+	sampler_info.unnormalizedCoordinates = VK_FALSE;
+	sampler_info.compareEnable = VK_FALSE;
+	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
+	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler_info.mipLodBias = 0.0f;
+	sampler_info.minLod = 0.0f;
+	sampler_info.maxLod = 0.0f;
+	VK_CHECK(vkCreateSampler(ddev->device, &sampler_info, NULL, sampler));
 }
 
 static b32 dg_create_swapchain_image_views(dgDevice *ddev)
@@ -499,6 +577,19 @@ static VkRect2D scissor_basic(dgDevice *ddev)
 
 }
 
+VkPipelineDepthStencilStateCreateInfo dg_pipe_depth_stencil_state_create_info_basic(void)
+{
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {0};
+	depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
+    depth_stencil.depthTestEnable = VK_TRUE;
+	depth_stencil.depthWriteEnable = VK_TRUE;
+	depth_stencil.depthCompareOp = VK_COMPARE_OP_LESS_OR_EQUAL;
+	depth_stencil.depthBoundsTestEnable = VK_FALSE;
+	depth_stencil.minDepthBounds = 0.0f;
+	depth_stencil.maxDepthBounds = 1.0f;
+	depth_stencil.stencilTestEnable = VK_FALSE;
+    return depth_stencil;
+}
 VkPipelineShaderStageCreateInfo 
 	dg_pipe_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shader_module)
 {
@@ -516,12 +607,21 @@ static VkVertexInputBindingDescription dg_get_bind_desc_basic(void)
 {
     VkVertexInputBindingDescription bind_desc = {0};
     bind_desc.binding = 0;
-    bind_desc.stride = 0;
+    bind_desc.stride = sizeof(dgVertex);
     bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
     return bind_desc;
 }
 
-static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc)
+static VkVertexInputBindingDescription dg_get_bind_desc(dgShader *shader, u32 vert_size)
+{
+    VkVertexInputBindingDescription bind_desc = {0};
+    bind_desc.binding = 0;
+    bind_desc.stride = vert_size;
+    bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
+    return bind_desc;
+}
+
+static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, u32 *vert_size)
 {
     u32 attr_index = 0;
     u32 global_offset = 0;
@@ -556,16 +656,16 @@ static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription 
         }
 
     }
+    *vert_size = global_offset;
     return attribute_count;
 }
 
 static VkPipelineVertexInputStateCreateInfo 
 dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDescription *bind_desc, VkVertexInputAttributeDescription *attr_desc)
 {
-    //*bind_desc = get_bind_desc(&shader->info);
-    //u32 attribute_count = get_attr_desc(attr_desc, &shader->info);
-    *bind_desc = dg_get_bind_desc_basic();
-    u32 attribute_count = dg_get_attr_desc(shader, attr_desc);
+    u32 vert_size;
+    u32 attribute_count = dg_get_attr_desc(shader, attr_desc, &vert_size);
+    *bind_desc = dg_get_bind_desc(shader, vert_size);
  
 	VkPipelineVertexInputStateCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
@@ -714,17 +814,6 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
 
  
- /*
-    //this is dummy
-	VkPipelineVertexInputStateCreateInfo vert_input_state= {0};
-	vert_input_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-	vert_input_state.pNext = NULL;
-	vert_input_state.vertexBindingDescriptionCount = 0;
-    vert_input_state.pVertexBindingDescriptions = NULL;
-	vert_input_state.vertexAttributeDescriptionCount = 0;
-    vert_input_state.pVertexAttributeDescriptions = NULL;
-    */
-
     VkVertexInputBindingDescription bind_desc[4];
     VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkPipelineVertexInputStateCreateInfo vert_input_state = 
@@ -752,6 +841,9 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkPipelineColorBlendStateCreateInfo color_blend_state =  
     dg_pipe_color_blend_state_create_info(&blend_attachment_state);
 
+    VkPipelineDepthStencilStateCreateInfo ds_state = 
+    dg_pipe_depth_stencil_state_create_info_basic();
+
     VkDynamicState dynamic_state_enables[] =
     {   VK_DYNAMIC_STATE_VIEWPORT, 
         VK_DYNAMIC_STATE_SCISSOR
@@ -778,7 +870,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     pipeCI.pViewportState = &viewport_state;
     pipeCI.pRasterizationState = &rasterization_state;
     pipeCI.pMultisampleState = &multisampling_info;
-    pipeCI.pDepthStencilState = NULL;
+    pipeCI.pDepthStencilState = &ds_state;
     pipeCI.pColorBlendState = &color_blend_state;
     pipeCI.pDynamicState = &dynamic_state;
     pipeCI.layout = pipe->pipeline_layout;
@@ -787,10 +879,10 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkPipelineRenderingCreateInfoKHR pipe_renderingCI = {0};
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
     pipe_renderingCI.colorAttachmentCount = 1;
-    pipe_renderingCI.pColorAttachmentFormats = &dd.swap.image_format;
+    pipe_renderingCI.pColorAttachmentFormats = &ddev->swap.image_format;
     //TODO(ilias): set these for when we want depth 
-    //pipe_renderingCI.depthAttachmentFormat = depthFormat;
-    //pipe_renderingCI.stencilAttachmentFormat = depthFormat;
+    pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
+    pipe_renderingCI.stencilAttachmentFormat = ddev->swap.depth_attachment.format;
     // Chain into the pipeline creat einfo
     pipeCI.pNext = &pipe_renderingCI;
 
@@ -925,19 +1017,19 @@ static void dg_prepare_command_buffer(dgDevice *ddev, VkCommandBuffer c)
 
 static void dg_end_command_buffer(dgDevice *ddev, VkCommandBuffer c)
 {
-        dg_image_memory_barrier(
-            c,
-            dd.swap.images[dd.image_index], 
-            VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-            0, 
-            VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
-            VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
-            VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
-            VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-        );
+    dg_image_memory_barrier(
+        c,
+        dd.swap.images[dd.image_index], 
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        0, 
+        VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT,
+        VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
 
-        vkEndCommandBuffer(c);
+    vkEndCommandBuffer(c);
 
 }
 
@@ -966,6 +1058,11 @@ void dg_frame_begin(dgDevice *ddev)
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
 
+    VkRenderingAttachmentInfoKHR depth_attachment = {0};
+    depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
+    depth_attachment.pNext = NULL; 
+    depth_attachment.imageView = dd.swap.depth_attachment.view;
+
 
     VkRenderingInfoKHR rendering_info = {0};
     rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
@@ -973,6 +1070,8 @@ void dg_frame_begin(dgDevice *ddev)
     rendering_info.layerCount = 1;
     rendering_info.colorAttachmentCount = 1;
     rendering_info.pColorAttachments = &color_attachment;
+    rendering_info.pDepthAttachment = &depth_attachment;
+    rendering_info.pStencilAttachment = &depth_attachment;
 
 
     vkCmdBeginRenderingKHR(dd.command_buffers[ddev->current_frame], &rendering_info);
@@ -986,6 +1085,14 @@ void dg_frame_begin(dgDevice *ddev)
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
 
     vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+
+    //drawcall 2
+    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
+    VkBuffer vertex_buffers[] = {base_vbo.buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
+    vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
     vkCmdEndRenderingKHR(dd.command_buffers[ddev->current_frame]);
     //*/
@@ -1089,6 +1196,148 @@ static void dg_buf_destroy(dgBuffer *buf)
     buf->active = FALSE;
 }
 
+#define TYPE_OK(TYPE_FILTER, FILTER_INDEX) (TYPE_FILTER & (1 << FILTER_INDEX)) 
+static u32 find_mem_type(u32 type_filter, VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties mem_properties;
+    vkGetPhysicalDeviceMemoryProperties(dd.physical_device, &mem_properties);
+    for (u32 i = 0; i < mem_properties.memoryTypeCount; ++i)
+    {
+        if (TYPE_OK(type_filter, i) && 
+            (mem_properties.memoryTypes[i].propertyFlags & properties) == properties)
+            return i;
+    }
+    printf("Failed to find suitable memory type!");
+}
+
+static void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, dgBuffer*buf, VkDeviceSize size, void *data)
+{
+	buf->device = dd.device;
+    buf->active = TRUE;
+	
+	//[0]: create buffer handle
+    VkBufferCreateInfo buffer_info = {0};
+    buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size = size;
+    buffer_info.usage = usage;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    VK_CHECK(vkCreateBuffer(dd.device, &buffer_info, NULL, &(buf->buffer) ));
+    
+	//[1]: create the memory nacking up the buffer handle
+    VkMemoryRequirements mem_req = {0};
+    vkGetBufferMemoryRequirements(buf->device, (buf->buffer), &mem_req);
+    
+    VkMemoryAllocateInfo alloc_info = {0};
+    alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mem_req.size;
+    alloc_info.memoryTypeIndex = find_mem_type(mem_req.memoryTypeBits, mem_flags);
+    VK_CHECK(vkAllocateMemory(dd.device, &alloc_info, NULL, &buf->mem));
+	
+	//[2]: set some important data fields
+	buf->alignment = mem_req.alignment;
+	buf->size = size;
+	buf->usage_flags = usage;
+	//buf->memory_property_flags = properties; //HOST_COHERENT HOST_VISIBLE etc.
+	
+	//[3]:if data pointer has data, we map the buffer and copy those data over to OUR buffer
+	if (data != NULL)
+	{
+		VK_CHECK(dg_buf_map(buf, size, 0));
+		memcpy(buf->mapped, data, size);
+		dg_buf_unmap(buf);
+	}
+	
+	//[4]: we initialize a default descriptor that covers the whole buffer size
+	dg_buf_setup_descriptor(buf, size, 0);
+	
+	//[5]: we attach the memory to the buffer object
+    vkBindBufferMemory(dd.device, (buf->buffer), (buf->mem), 0);
+}
+
+
+static VkFormat dg_find_supported_format(dgDevice *ddev, VkFormat *candidates, VkImageTiling tiling, VkFormatFeatureFlags features, u32 candidates_count)
+{
+	for (u32 i = 0; i < candidates_count; ++i)
+	{
+		VkFormatProperties props;
+		vkGetPhysicalDeviceFormatProperties(ddev->physical_device, candidates[i], &props);
+		
+		if (tiling == VK_IMAGE_TILING_LINEAR && (props.linearTilingFeatures & features) == features)
+		{
+			return candidates[i];
+		}else if (tiling == VK_IMAGE_TILING_OPTIMAL && (props.optimalTilingFeatures & features) == features)
+		{
+			return candidates[i];
+		}
+	}
+	printf("Couldn't find desired depth buffer format!");
+}
+
+
+static u32 dg_has_stencil_component(VkFormat format)
+{
+	return format == VK_FORMAT_D32_SFLOAT_S8_UINT || format == VK_FORMAT_D24_UNORM_S8_UINT;
+}
+static VkFormat dg_find_depth_format(dgDevice *ddev)
+{	VkFormat c[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
+	return dg_find_supported_format(
+                                ddev,
+                                c,
+                                VK_IMAGE_TILING_OPTIMAL,
+                                VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,3);
+    
+}
+
+static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format, VkImageTiling tiling, 
+VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *image_memory)
+{
+	VkImageCreateInfo image_info = {0};
+	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
+	image_info.imageType = VK_IMAGE_TYPE_2D;
+	image_info.extent.width = width;
+	image_info.extent.height = height;
+	image_info.extent.depth = 1;
+	image_info.mipLevels = 1;
+	image_info.arrayLayers = 1;
+	image_info.format = format;
+	image_info.tiling = tiling;
+	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_info.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
+	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
+	image_info.flags = 0;
+	VK_CHECK(vkCreateImage(ddev->device, &image_info, NULL, image));
+	
+	VkMemoryRequirements mem_req;
+	vkGetImageMemoryRequirements(ddev->device, *image, &mem_req);
+	
+	VkMemoryAllocateInfo alloc_info = {0};
+	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+	alloc_info.allocationSize = mem_req.size;
+	alloc_info.memoryTypeIndex = find_mem_type(mem_req.memoryTypeBits, properties);
+    VK_CHECK(vkAllocateMemory(ddev->device, &alloc_info, NULL, image_memory));
+	vkBindImageMemory(ddev->device, *image, *image_memory, 0);
+}
+
+
+static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height)
+{
+	dgTexture depth_attachment = {0};
+	depth_attachment.format = dg_find_depth_format(ddev);
+	
+	dg_create_image(ddev,width, height, 
+		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
+    //dg_transition_dimage_layout(depth_attachment.image, depth_attachment.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+    //dg_transition_dimage_layout(depth_attachment.image, depth_attachment.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+
+	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
+    depth_attachment.width = width;
+    depth_attachment.height = height;
+    dg_create_texture_sampler(ddev, &depth_attachment.sampler);
+    
+	return depth_attachment;
+}
 
 
 void dg_device_init(void)
@@ -1100,7 +1349,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
-    //assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
     assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
@@ -1111,5 +1360,18 @@ void dg_device_init(void)
 b32 dgfx_init(void)
 {
 	dg_device_init();
+
+    dgVertex *cube_vertices = cube_build_verts();
+	//create vertex buffer @check first param
+	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&base_vbo, sizeof(dgVertex) * 24, cube_vertices);
+	
+	
+	
+	//create index buffer
+	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 	return 1;
 }

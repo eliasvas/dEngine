@@ -18,5 +18,5 @@ vec2 positions[3] = vec2[](
 void main() {
     f_tex_coord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
 	f_color = colors[gl_VertexIndex];
-    gl_Position = vec4(f_tex_coord * 2.0 -1.0, 0.9999, 1.0f);
+    gl_Position = vec4(f_tex_coord * 2.0 -1.0, 0.8999, 1.0f);
 }

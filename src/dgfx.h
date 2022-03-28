@@ -101,6 +101,13 @@ typedef struct dgDevice
     u32 current_frame;
 }dgDevice;
 
+typedef struct dgVertex
+{
+    vec3 pos;
+    vec3 normal;
+    vec2 tex_coord;
+}dgVertex;
+
 b32 dgfx_init(void);
 
 void dg_draw_frame(dgDevice *ddev);
