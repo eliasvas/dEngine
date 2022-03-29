@@ -1012,6 +1012,20 @@ static void dg_prepare_command_buffer(dgDevice *ddev, VkCommandBuffer c)
     );
 
 
+    //transition depth texture
+    dg_image_memory_barrier(
+        c,
+        ddev->swap.depth_attachment.image, 
+        0, 
+        VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 }
+    );
+
+
 
 }
 
@@ -1031,6 +1045,28 @@ static void dg_end_command_buffer(dgDevice *ddev, VkCommandBuffer c)
 
     vkEndCommandBuffer(c);
 
+}
+
+static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buffer)
+{
+    VK_CHECK(vkEndCommandBuffer(command_buffer));
+
+    VkSubmitInfo submitInfo = {};
+    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    submitInfo.commandBufferCount = 1;
+    submitInfo.pCommandBuffers = &command_buffer;
+
+    VkFenceCreateInfo fenceCI= {};
+    fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fenceCI.flags = 0;
+    VkFence fence;
+    VK_CHECK(vkCreateFence(ddev->device, &fenceCI, NULL, &fence));
+
+    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &submitInfo, fence));
+    VK_CHECK(vkWaitForFences(ddev->device, 1, &fence, VK_TRUE, INT64_MAX));
+
+    vkDestroyFence(ddev->device, fence, NULL);
+    vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
 void dg_frame_begin(dgDevice *ddev)
@@ -1062,6 +1098,10 @@ void dg_frame_begin(dgDevice *ddev)
     depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
     depth_attachment.pNext = NULL; 
     depth_attachment.imageView = dd.swap.depth_attachment.view;
+    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
 
 
     VkRenderingInfoKHR rendering_info = {0};
@@ -1328,8 +1368,6 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	dg_create_image(ddev,width, height, 
 		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
-    //dg_transition_dimage_layout(depth_attachment.image, depth_attachment.format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
-    //dg_transition_dimage_layout(depth_attachment.image, depth_attachment.format, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
 
 	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
     depth_attachment.width = width;
