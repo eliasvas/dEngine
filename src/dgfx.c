@@ -3,6 +3,8 @@
 #define VOLK_IMPLEMENTATION
 #include "volk/volk.h"
 #include "SDL_vulkan.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
 
 dgDevice dd;
 dgBuffer base_vbo;
@@ -1377,6 +1379,52 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
+static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
+{
+	dgTexture tex;
+	//[0]: we read an image and store all the pixels in a pointer
+	s32 tex_w, tex_h, tex_c;
+	stbi_uc *pixels = stbi_load(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
+	VkDeviceSize image_size = tex_w * tex_h * 4;
+	
+	
+	//[2]: we create a buffer to hold the pixel information (we also fill it)
+	dgBuffer idb;
+	if (!pixels)
+		printf("Error loading image %s!", filename);
+	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, image_size, pixels);
+	//[3]: we free the cpu side image, we don't need it
+	stbi_image_free(pixels);
+	//[4]: we create the VkImage that is undefined right now
+	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+		| VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+	
+	//[5]: we transition the images layout from undefined to dst_optimal
+	//transition_image_layout(tex.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
+
+	//[6]: we copy the buffer we created in [1] to our image of the correct format (R8G8B8A8_SRGB)
+	//dg_copy_buffer_to_image(idb.buffer, tex.image, tex_w, tex_h);
+	
+    /*
+	//[7]: we transition the image layout so that it can be read by a shader
+	transition_image_layout(tex.image, format, 
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+    */
+		
+	//[8]:cleanup the buffers (all data is now in the image)
+	dg_buf_destroy(&idb);
+	
+	
+	dg_create_texture_sampler(ddev, &tex.sampler);
+	
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.mip_levels = 0;
+	tex.width = tex_w;
+	tex.height = tex_h;
+	
+	return tex;
+}
 
 void dg_device_init(void)
 {
