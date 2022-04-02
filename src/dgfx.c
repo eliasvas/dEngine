@@ -9,6 +9,7 @@
 dgDevice dd;
 dgBuffer base_vbo;
 dgBuffer base_ibo;
+dgTexture t;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -362,7 +363,7 @@ static VkSurfaceFormatKHR dg_choose_swap_surface_format(dgSwapChainSupportDetail
 {
     for (u32 i = 0; i < details.format_count; ++i)
     {
-        if (details.formats[i].format == VK_FORMAT_B8G8R8A8_SRGB  &&
+        if (details.formats[i].format == VK_FORMAT_R8G8B8A8_SRGB  &&
             details.formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             return details.formats[i];
@@ -1090,9 +1091,10 @@ void dg_frame_begin(dgDevice *ddev)
     ///*
     VkRenderingAttachmentInfoKHR color_attachment = {0};
     color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    color_attachment.imageView = dd.swap.image_views[dd.image_index];
+    //color_attachment.imageView = dd.swap.image_views[dd.image_index];
+    color_attachment.imageView = t.view;
     color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
     color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
 
@@ -1126,7 +1128,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
 
-    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+    //vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
 
     //drawcall 2
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
@@ -1134,7 +1136,7 @@ void dg_frame_begin(dgDevice *ddev)
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
     vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
-    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+    //vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
     vkCmdEndRenderingKHR(dd.command_buffers[ddev->current_frame]);
     //*/
@@ -1343,7 +1345,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 	image_info.arrayLayers = 1;
 	image_info.format = format;
 	image_info.tiling = tiling;
-	image_info.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+	image_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
 	image_info.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
@@ -1379,6 +1381,39 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
+static VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
+{
+	VkCommandBufferAllocateInfo alloc_info = {0};
+	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+	alloc_info.commandPool = ddev->command_pool;
+	alloc_info.commandBufferCount = 1;
+	
+	VkCommandBuffer command_buffer;
+	vkAllocateCommandBuffers(ddev->device, &alloc_info, &command_buffer);
+	
+	VkCommandBufferBeginInfo begin_info = {0};
+	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
+	vkBeginCommandBuffer(command_buffer, &begin_info);
+	
+	return command_buffer;
+}
+
+static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer)
+{
+	vkEndCommandBuffer(command_buffer);
+	
+	VkSubmitInfo submit_info = {0};
+	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+	submit_info.commandBufferCount = 1;
+	submit_info.pCommandBuffers = &command_buffer;
+	
+	vkQueueSubmit(ddev->graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
+	vkQueueWaitIdle(ddev->graphics_queue);
+	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
+}
+
 static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
@@ -1400,19 +1435,66 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
-	//[5]: we transition the images layout from undefined to dst_optimal
-	//transition_image_layout(tex.image, format, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL);
 
-	//[6]: we copy the buffer we created in [1] to our image of the correct format (R8G8B8A8_SRGB)
-	//dg_copy_buffer_to_image(idb.buffer, tex.image, tex_w, tex_h);
-	
+    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
     /*
-	//[7]: we transition the image layout so that it can be read by a shader
-	transition_image_layout(tex.image, format, 
-		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, VK_IMAGE_LAYOUT_GENERAL);
+    //first transition to layout general
+    dg_image_memory_barrier(
+        cmd,
+        ddev->swap.images[ddev->image_index], 
+        0, 
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
     */
-		
-	//[8]:cleanup the buffers (all data is now in the image)
+    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageMemoryBarrier.image = tex.image;
+    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, NULL,
+        0, NULL,
+        1, &imageMemoryBarrier);
+
+
+    VkBufferImageCopy region = {0};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = (VkOffset3D){0, 0, 0};
+	region.imageExtent = (VkExtent3D){
+		tex_w,
+		tex_h,
+		1
+	};
+	vkCmdCopyBufferToImage(
+		cmd,
+		idb.buffer,
+		tex.image,
+		VK_IMAGE_LAYOUT_GENERAL,
+		1,
+		&region
+	);
+    
+    dg_end_single_time_commands(ddev, cmd);
+
 	dg_buf_destroy(&idb);
 	
 	
@@ -1459,5 +1541,7 @@ b32 dgfx_init(void)
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
+
+    t = dg_create_texture_image(&dd, "assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 	return 1;
 }
