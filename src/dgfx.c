@@ -10,6 +10,7 @@ dgDevice dd;
 dgBuffer base_vbo;
 dgBuffer base_ibo;
 dgTexture t;
+dgRT def_rt;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -1072,6 +1073,50 @@ static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buff
     vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
+
+static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, b32 depth_enable)
+{
+    VkRenderingAttachmentInfoKHR color_attachment = {0};
+    color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
+    if (tex == NULL)
+    {
+        color_attachment.imageView = dd.swap.image_views[dd.image_index];
+        color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
+        color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
+    }
+
+    VkRenderingAttachmentInfoKHR depth_attachment = {0};
+    depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
+    depth_attachment.pNext = NULL; 
+    if (tex == NULL)
+        depth_attachment.imageView = ddev->swap.depth_attachment.view;
+    else
+        depth_attachment.imageView = ddev->swap.depth_attachment.view;
+    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
+    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
+
+
+    VkRenderingInfoKHR rendering_info = {0};
+    rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
+    rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
+    rendering_info.layerCount = 1;
+    rendering_info.colorAttachmentCount = 1;
+    rendering_info.pColorAttachments = &color_attachment;
+    rendering_info.pDepthAttachment = &depth_attachment;
+    rendering_info.pStencilAttachment = &depth_attachment;
+
+    vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
+}
+
+static void dg_rendering_end(dgDevice *ddev)
+{
+    vkCmdEndRenderingKHR(ddev->command_buffers[ddev->current_frame]);
+}
+
 void dg_frame_begin(dgDevice *ddev)
 {
     vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
@@ -1089,36 +1134,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
     ///*
-    VkRenderingAttachmentInfoKHR color_attachment = {0};
-    color_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
-    //color_attachment.imageView = dd.swap.image_views[dd.image_index];
-    color_attachment.imageView = t.view;
-    color_attachment.imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
-
-    VkRenderingAttachmentInfoKHR depth_attachment = {0};
-    depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
-    depth_attachment.pNext = NULL; 
-    depth_attachment.imageView = dd.swap.depth_attachment.view;
-    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
-    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
-
-
-    VkRenderingInfoKHR rendering_info = {0};
-    rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
-    rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
-    rendering_info.layerCount = 1;
-    rendering_info.colorAttachmentCount = 1;
-    rendering_info.pColorAttachments = &color_attachment;
-    rendering_info.pDepthAttachment = &depth_attachment;
-    rendering_info.pStencilAttachment = &depth_attachment;
-
-
-    vkCmdBeginRenderingKHR(dd.command_buffers[ddev->current_frame], &rendering_info);
+    dg_rendering_begin(ddev, NULL, 1, 1);
 
     VkViewport viewport = viewport_basic(&dd);
     vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &viewport);
@@ -1128,7 +1144,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
 
-    //vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
 
     //drawcall 2
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
@@ -1136,10 +1152,9 @@ void dg_frame_begin(dgDevice *ddev)
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
     vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
-    //vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
-    vkCmdEndRenderingKHR(dd.command_buffers[ddev->current_frame]);
-    //*/
+    dg_rendering_end(ddev);
 
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
@@ -1414,6 +1429,98 @@ static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_
 	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
+static dgTexture dg_create_texture_basic(dgDevice *ddev, VkFormat format)
+{
+	dgTexture tex;
+	s32 tex_w = 256; 
+    s32 tex_h = 256; 
+    s32 tex_c = 4;
+	VkDeviceSize image_size = tex_w * tex_h * 4;
+    typedef struct iv4
+    {
+        u8 pixel[4];
+    }iv4;
+
+    iv4 *pixels = malloc(sizeof(iv4) * tex_w * tex_h*40);
+    /*
+    for (u32 i = 0; i < tex_w; ++i)
+    {
+        for (u32 j = 0; j < tex_h; ++j)
+        {
+            if (j % 2 == 0)
+                pixels[i * tex_w + j] = (vec4){1,1,1,1};
+            else
+                pixels[i * tex_w + j] = (vec4){1,0.1,0.2,1.0};
+        }
+    }
+    */
+    
+	dgBuffer idb;
+	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, image_size, pixels);
+	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+		| VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+	
+
+    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
+
+    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageMemoryBarrier.image = tex.image;
+    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, NULL,
+        0, NULL,
+        1, &imageMemoryBarrier);
+
+
+    VkBufferImageCopy region = {0};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = (VkOffset3D){0, 0, 0};
+	region.imageExtent = (VkExtent3D){
+		tex_w,
+		tex_h,
+		1
+	};
+	vkCmdCopyBufferToImage(
+		cmd,
+		idb.buffer,
+		tex.image,
+		VK_IMAGE_LAYOUT_GENERAL,
+		1,
+		&region
+	);
+    
+    dg_end_single_time_commands(ddev, cmd);
+
+	dg_buf_destroy(&idb);
+	
+	
+	dg_create_texture_sampler(ddev, &tex.sampler);
+	
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.mip_levels = 0;
+	tex.width = tex_w;
+	tex.height = tex_h;
+	
+	return tex;
+}
+
 static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
@@ -1508,6 +1615,20 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	return tex;
 }
 
+static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth)
+{
+    rt->color_attachment_count = color_count;
+    rt->depth_active = (depth > 0) ? 1 : 0;
+    for (u32 i = 0; i < rt->color_attachment_count; ++i)
+    {
+        //rt->color_attachments[i] = dg_create_texture_basic(ddev,VK_FORMAT_R8G8B8_SRGB);
+        //rt->color_attachments[i] = dg_create_texture_image(ddev,"assets/sample.png",VK_FORMAT_R8G8B8_SRGB);
+    }
+    if (rt->depth_active)
+        rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
+}
+
+
 void dg_device_init(void)
 {
 	assert(dg_create_instance(&dd));
@@ -1542,6 +1663,8 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    t = dg_create_texture_image(&dd, "assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    dg_rt_init(&dd, &def_rt, 4, TRUE);
+
+    //t = dg_create_texture_image(&dd, "assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 	return 1;
 }

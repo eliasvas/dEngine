@@ -8,6 +8,7 @@
 #define DG_PHYSICAL_DEVICE_MAX 10
 #define DG_QUEUE_FAMILY_MAX 32
 #define DG_VERTEX_INPUT_ATTRIB_MAX 4
+#define DG_MAX_COLOR_ATTACHMENTS 4
 #define MAX_FRAMES_IN_FLIGHT 2
 
 typedef struct dgShader 
@@ -107,6 +108,17 @@ typedef struct dgVertex
     vec3 normal;
     vec2 tex_coord;
 }dgVertex;
+
+typedef struct dgRT
+{
+    dgTexture color_attachments[DG_MAX_COLOR_ATTACHMENTS];
+    dgTexture depth_attachment;
+    u32 color_attachment_count;
+    b32 depth_active;
+}dgRT;
+
+
+static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth);
 
 b32 dgfx_init(void);
 
