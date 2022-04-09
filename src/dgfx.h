@@ -10,6 +10,7 @@
 #define DG_VERTEX_INPUT_ATTRIB_MAX 4
 #define DG_MAX_COLOR_ATTACHMENTS 4
 #define MAX_FRAMES_IN_FLIGHT 2
+#define DG_DEPTH_SIZE 1024
 
 typedef struct dgShader 
 {
