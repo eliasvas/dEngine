@@ -458,7 +458,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     ddev->swap.image_count = image_count;//TODO(ilias): check
     //printf("New swapchain image_count: %i\n", image_count);
     //printf("New swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
-	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, DG_DEPTH_SIZE, DG_DEPTH_SIZE);
+	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height);
 	
     return DSUCCESS;
 }
@@ -1107,7 +1107,7 @@ static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buff
 }
 
 
-static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, b32 depth_enable, b32 clear)
+static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
 {
     VkRenderingAttachmentInfoKHR color_attachments[DG_MAX_COLOR_ATTACHMENTS];
     VkAttachmentLoadOp load_op = (clear > 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1138,10 +1138,10 @@ static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_co
     VkRenderingAttachmentInfoKHR depth_attachment = {0};
     depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
     depth_attachment.pNext = NULL; 
-    if (tex == NULL)
+    if (depth_tex == NULL)
         depth_attachment.imageView = ddev->swap.depth_attachment.view;
     else
-        depth_attachment.imageView = ddev->swap.depth_attachment.view;
+        depth_attachment.imageView = depth_tex->view;
     depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
     depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
@@ -1153,7 +1153,7 @@ static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_co
     if (tex == NULL)
         rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
     else
-        rendering_info.renderArea = (VkRect2D){0,0, tex->width, tex->height};
+        rendering_info.renderArea = (VkRect2D){0,0, tex->width,tex->height};
     rendering_info.layerCount = 1;
     rendering_info.colorAttachmentCount = (tex == NULL) ? 1 : attachment_count;
     rendering_info.pColorAttachments = color_attachments;
@@ -1185,10 +1185,10 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
     ///*
-    dg_rendering_begin(ddev, NULL, 1, TRUE, TRUE);
-    //dg_rendering_begin(ddev, def_rt.color_attachments, 2, TRUE, TRUE);
+    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
+    //dg_rendering_begin(ddev, def_rt.color_attachments, 2, &def_rt.depth_attachment, TRUE);
 
-/*
+    /*
     VkViewport view = viewport(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
 
@@ -1196,11 +1196,13 @@ void dg_frame_begin(dgDevice *ddev)
     vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
     */
 
+///*
     VkViewport view = viewport(dd.swap.extent.width,dd.swap.extent.height);
     vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
 
     VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
     vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
+    //*/
 
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
 
