@@ -83,6 +83,11 @@ static dgVertex *cube_build_verts(void)
 	return verts;
 }
 
+typedef struct BasePushConstants
+{
+    vec4 data;
+    mat4 render_matrix;
+}BasePushConstants;
 
 b32 dg_create_instance(dgDevice *ddev) {
 	VkInstance instance;
@@ -812,8 +817,9 @@ static VkPipelineViewportStateCreateInfo dg_pipe_viewport_state_create_info(VkVi
 
 
 //this is pretty much empty
-static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayout *layouts, u32 layouts_count)
+static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayout *layouts, u32 layouts_count, VkPushConstantRange *pc, dgShader *shader)
 {
+    
 	VkPipelineLayoutCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	info.pNext = NULL;
@@ -823,6 +829,16 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 	info.pSetLayouts = layouts;
 	info.pushConstantRangeCount = 0;
 	info.pPushConstantRanges = NULL;
+
+    if (shader->info.push_constant_block_count)
+    {
+        pc->offset = shader->info.push_constant_blocks[0].absolute_offset;
+        pc->size = shader->info.push_constant_blocks[0].padded_size;
+        pc->stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        info.pushConstantRangeCount = 1;
+        info.pPushConstantRanges = pc;
+    }
+
 	return info;
 }
 
@@ -886,8 +902,9 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     dynamic_state.pDynamicStates = dynamic_state_enables;
 
 
+    VkPushConstantRange pc;
     VkPipelineLayoutCreateInfo pipe_layout_info = 
-    dg_pipe_layout_create_info(NULL, 0);
+    dg_pipe_layout_create_info(NULL, 0, &pc, &pipe->vert_shader);
 
     VK_CHECK(vkCreatePipelineLayout(ddev->device, &pipe_layout_info, NULL, &pipe->pipeline_layout));
 
@@ -1214,6 +1231,11 @@ void dg_frame_begin(dgDevice *ddev)
     VkDeviceSize offsets[] = {0};
     vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
     vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+    BasePushConstants pc;
+    pc.data = v4(1,0.4,0.3,1);
+    vkCmdPushConstants(dd.command_buffers[ddev->current_frame], dd.base_pipe.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BasePushConstants), &pc);
+
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
     dg_rendering_end(ddev);
