@@ -1607,7 +1607,7 @@ typedef struct dbfHdr
 #define dbf_end(b) ((b) + dbf_len(b))
 
 #define dbf_fit(b, n) ((n) <= dbf_cap(b) ? 0 : (*((void**)&(b)) = dbf__grow((b), (n), sizeof(*(b)))))
-#define _push(b, ...) (dbf_fit((b), 1 + dbf_len(b)), (b)[dbf__hdr(b)->len++] = (__VA_ARGS__))
+#define dbf_push(b, ...) (dbf_fit((b), 1 + dbf_len(b)), (b)[dbf__hdr(b)->len++] = (__VA_ARGS__))
 #define dbf_free(b) ((b) ? (free(dbf__hdr(b)), (b) = NULL) : 0)
 
 static void *dbf__grow(const void *buf, u32 new_len, u32 element_size)

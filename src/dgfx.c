@@ -5,10 +5,12 @@
 #include "SDL_vulkan.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
+#include "dtime.h"
 
 dgDevice dd;
 dgBuffer base_vbo;
 dgBuffer base_ibo;
+dgBuffer global_ubo;
 dgTexture t;
 dgRT def_rt;
 
@@ -28,7 +30,10 @@ extern dWindow main_window;
 
 static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
 "VK_EXT_extended_dynamic_state"
-, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME };
+, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME ,
+
+        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
+};
 
 static const char *validation_layers[]= {
     "VK_LAYER_KHRONOS_validation"
@@ -89,6 +94,13 @@ typedef struct BasePushConstants
     mat4 render_matrix;
 }BasePushConstants;
 
+typedef struct GlobalData
+{
+    mat4 view;
+    mat4 proj;
+    mat4 viewproj;
+}GlobalData;
+
 b32 dg_create_instance(dgDevice *ddev) {
 	VkInstance instance;
 
@@ -115,7 +127,7 @@ b32 dg_create_instance(dgDevice *ddev) {
         "VK_KHR_win32_surface",
 #endif
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
-        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME
+        VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
     
 	create_info.enabledExtensionCount = array_count(base_extensions); create_info.ppEnabledExtensionNames = (const char**)base_extensions;
@@ -815,10 +827,50 @@ static VkPipelineViewportStateCreateInfo dg_pipe_viewport_state_create_info(VkVi
 }
 
 
+static VkDescriptorSetLayout dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader)
+{
+    VkDescriptorSetLayout desc_set_layout;
+    if (shader->info.descriptor_set_count)
+    {
+        VkDescriptorSetLayoutBinding *desc_set_layout_bindings = NULL;
+        for(u32 i=0;i< shader->info.descriptor_set_count; ++i)
+        {
+            SpvReflectDescriptorSet current_set = shader->info.descriptor_sets[i];
+            VkDescriptorSetLayoutBinding current_binding = {0};
+            current_binding.binding = current_set.set;
+            current_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            current_binding.descriptorCount = current_set.binding_count;
+            current_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+
+            dbf_push(desc_set_layout_bindings, current_binding);
+            
+            /*
+            for (u32 j = 0;  j < current_set.binding_count; ++j)
+            {
+                SpvReflectDescriptorBinding *current_binding = current_set.bindings[i];
+                //layouts[current_set.set]
+            }
+            */
+           printf("SIZE: %i\n", dbf_len(desc_set_layout_bindings));
+        }
+
+        VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
+        desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+        desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+        desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
+        desc_layout_ci.pBindings = desc_set_layout_bindings;
+
+        VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &desc_set_layout));
+
+        dbf_free(desc_set_layout_bindings);
+    }
+    return desc_set_layout;
+}
 
 //this is pretty much empty
 static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayout *layouts, u32 layouts_count, VkPushConstantRange *pc, dgShader *shader)
 {
+    //maybe for each pipeline layout / descriptor set we should string->int hash the members for fast updates
     
 	VkPipelineLayoutCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -827,9 +879,11 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 	info.flags = 0;
 	info.setLayoutCount = layouts_count;
 	info.pSetLayouts = layouts;
+    
+
+
 	info.pushConstantRangeCount = 0;
 	info.pPushConstantRanges = NULL;
-
     if (shader->info.push_constant_block_count)
     {
         pc->offset = shader->info.push_constant_blocks[0].absolute_offset;
@@ -901,10 +955,12 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     dynamic_state.dynamicStateCount = array_count(dynamic_state_enables);
     dynamic_state.pDynamicStates = dynamic_state_enables;
 
+    
+    VkDescriptorSetLayout desc_set_layout = dg_pipe_descriptor_set_layout(ddev, &pipe->vert_shader);
 
     VkPushConstantRange pc;
     VkPipelineLayoutCreateInfo pipe_layout_info = 
-    dg_pipe_layout_create_info(NULL, 0, &pc, &pipe->vert_shader);
+    dg_pipe_layout_create_info(&desc_set_layout, pipe->vert_shader.info.descriptor_binding_count, &pc, &pipe->vert_shader);
 
     VK_CHECK(vkCreatePipelineLayout(ddev->device, &pipe_layout_info, NULL, &pipe->pipeline_layout));
 
@@ -1220,10 +1276,9 @@ void dg_frame_begin(dgDevice *ddev)
     VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
     vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
     //*/
-
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
-
     vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+
 
     //drawcall 2
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
@@ -1233,8 +1288,23 @@ void dg_frame_begin(dgDevice *ddev)
     vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
 
     BasePushConstants pc;
-    pc.data = v4(1,0.4,0.3,1);
+    pc.data = v4(1 * fabs(sin(dtime_sec(dtime_now()))),0.4,0.3,1);
     vkCmdPushConstants(dd.command_buffers[ddev->current_frame], dd.base_pipe.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BasePushConstants), &pc);
+
+    VkDescriptorBufferInfo gubo_info = {0};
+    gubo_info.buffer = global_ubo.buffer;
+    gubo_info.offset = 0;
+    gubo_info.range = global_ubo.size;
+
+    VkWriteDescriptorSet write_desc_set = {0};
+    write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    write_desc_set.dstSet = 0;
+    write_desc_set.dstBinding = 0;
+    write_desc_set.descriptorCount = 1;
+    write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    write_desc_set.pBufferInfo = &gubo_info;
+    vkCmdPushDescriptorSetKHR(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline_layout, 0, 1, &write_desc_set);
+
 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
@@ -1745,6 +1815,14 @@ b32 dgfx_init(void)
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
+
+    mat4 data[3] = {0.7};
+	//create global UBO 
+	dg_create_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&global_ubo, sizeof(mat4) * 3, data);
+
+
 
     dg_rt_init(&dd, &def_rt, 4, TRUE);
 
