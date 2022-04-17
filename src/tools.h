@@ -1656,21 +1656,19 @@ typedef struct H32_static
 	u32 n;
 }H32_static;
 
-
-
 //to clear the hash table we just set everything to 0xFF
-INLINE void h32_static_clear(H32_static *h)
+INLINE void H32_static_clear(H32_static *h)
 {
 	memset(h->keys, 0xFF, sizeof(*h->keys) * h->n);
 }
 
-//to init we just malloc a couple of times and clear
+//to init we just malloc the keys and values of times and clear
 INLINE void H32_static_init(H32_static *h, u32 n)
 {
 	h->n = n;
-	h->keys = (u64*)malloc(sizeof(u64) * h->n * 20);
-	h->values = (u32*)malloc(sizeof(u32) * h->n * 20);
-	h32_static_clear(h);
+	h->keys = (u64*)malloc(sizeof(u64) * h->n);
+	h->values = (u32*)malloc(sizeof(u32) * h->n);
+	H32_static_clear(h);
 }
 
 //to make a K-V pair we find the correct bucket for our key (i) and search until we find an empty slot, 
@@ -1694,20 +1692,39 @@ INLINE u32 H32_static_get(H32_static *h, u64 key)
 	return h->keys[i] == HASH_UNUSED ? 0 : h->values[i];
 }
 
+INLINE void H32_static_free(H32_static *h)
+{
+    free(h->keys);
+    free(h->values);
+}
+
+
+
+//djb2 hash for more info visit http://www.cse.yorku.ca/~oz/hash.html
 INLINE u64 hash_str(char *s)
 {
-	return (u64)s[0];
+    unsigned long hash = 5381;
+    int c;
+
+    while (c = *s++)
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
+
+    return hash;
+
 }
-/*--Hash usage example
-	char **keys[] = {"hello world","general kenobi","anikon"}
-	u32 values[] = {str_size("hello_world"), str_size("general_kenobi"), str_size("anikon")};
-	H32_static h;
-	h32_static_init(&h, 10);
-	for (u32 i = 0; i < array_count(values); ++i)
-		h32_static_set(&h, hash_str(key), val);
-	for (u32 i = 0; i <array_count(values); ++i)
-		assert(h32_static_get(&h, hash_str(key)) == str_size(kets[i]));
-*/
+
+INLINE b32 H32_static_ok(void)
+{
+    H32_static h;
+    H32_static_init(&h, 20);
+    H32_static_set(&h, hash_str("Alex"), 23);
+    H32_static_set(&h, hash_str("Ilias"), 22);
+    H32_static_set(&h, hash_str("Leo"), 21);
+    b32 res = (H32_static_get(&h, hash_str("Ilis")) == 0)&&
+        (H32_static_get(&h, hash_str("Leo")) == 21);
+    H32_static_free(&h);
+    return res;
+}
 
 #ifdef __cplusplus
 }

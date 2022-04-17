@@ -11,6 +11,7 @@
 #define DG_MAX_COLOR_ATTACHMENTS 4
 #define MAX_FRAMES_IN_FLIGHT 2
 #define DG_DEPTH_SIZE 2048 
+#define DG_MAX_DESCRIPTOR_POOLS 32 
 
 typedef struct dgShader 
 {
@@ -74,6 +75,25 @@ typedef struct dgPipeline
     dgBuffer* uniform_buffers;
 }dgPipeline;
 
+typedef struct dgDescriptorAllocator
+{
+    
+    VkDevice device;
+    VkDescriptorPool current_pool;
+
+    VkDescriptorPool used_pools[DG_MAX_DESCRIPTOR_POOLS];
+    u32 used_pool_count;
+    VkDescriptorPool free_pools[DG_MAX_DESCRIPTOR_POOLS];
+    u32 free_pool_count;
+
+
+    VkDescriptorType *desc_types;
+    float pool_sizes[4];
+    H32_static desc_type_hash; //gives arrayto pool sizes
+
+}dgDescriptorAllocator;
+
+
 typedef struct dgDevice
 {
     VkInstance instance;
@@ -98,6 +118,7 @@ typedef struct dgDevice
     VkFence *in_flight_fences;
     VkFence *images_in_flight;
 
+    dgDescriptorAllocator desc_alloc;
 
     u32 image_index; //current image index to draw
     u32 current_frame;

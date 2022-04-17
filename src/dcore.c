@@ -41,6 +41,9 @@ void dcore_init(void)
     //Initialize the Graphics Driver
     dgfx_init();
 
+    //Basic static hashmap testing
+    assert(H32_static_ok());
+
 
     dg_frame_begin(&dd);
 }

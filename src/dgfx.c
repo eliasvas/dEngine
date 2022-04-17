@@ -851,12 +851,12 @@ static VkDescriptorSetLayout dg_pipe_descriptor_set_layout(dgDevice *ddev, dgSha
                 //layouts[current_set.set]
             }
             */
-           printf("SIZE: %i\n", dbf_len(desc_set_layout_bindings));
+            //printf("SIZE: %i\n", dbf_len(desc_set_layout_bindings));
         }
 
         VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
         desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+        //desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
         desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
         desc_layout_ci.pBindings = desc_set_layout_bindings;
 
@@ -1179,6 +1179,138 @@ static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buff
     vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
+static void dg_descriptor_allocator_init(dgDevice *ddev, dgDescriptorAllocator *da)
+{
+    da->device = ddev->device;
+    da->current_pool = VK_NULL_HANDLE;
+    da->used_pool_count = 0;
+    da->free_pool_count = 0;
+    u32 pool_index = 0;
+    da->pool_sizes[0] = 0.5f;
+    da->pool_sizes[1] = 1.0f;
+    da->pool_sizes[2] = 2.0f;
+    da->pool_sizes[3] = 4.0f;
+    
+
+
+    H32_static_init(&da->desc_type_hash, 16);
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_SAMPLER, 0);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 3);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_SAMPLED_IMAGE, 3);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_STORAGE_IMAGE, 1);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER, 1);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER, 1);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 2);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 2);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC, 1);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER_DYNAMIC, 1);    
+    H32_static_set(&da->desc_type_hash, VK_DESCRIPTOR_TYPE_INPUT_ATTACHMENT, 0);    
+}
+
+static void dg_descriptor_allocator_cleanup(dgDescriptorAllocator *da)
+{
+    for (u32 i = 0; i< da->free_pool_count; ++i)
+    {
+        vkDestroyDescriptorPool(da->device, da->free_pools[i], NULL);
+    }
+    for (u32 i = 0; i< da->used_pool_count; ++i)
+    {
+        vkDestroyDescriptorPool(da->device, da->used_pools[i], NULL);
+    }
+    H32_static_clear(&da->desc_type_hash);
+    free(da->pool_sizes);
+}
+
+static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32 count, VkDescriptorPoolCreateFlags flags)
+{
+    VkDescriptorPoolSize *sizes = NULL;
+    for (u32 i = 0; i <= 10; ++i)
+    {
+        dbf_push(sizes, (VkDescriptorPoolSize){i, count * da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
+    }
+
+    VkDescriptorPoolCreateInfo pool_info = {0};
+    pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.flags = flags;
+    pool_info.maxSets = count;
+    pool_info.poolSizeCount = 11;
+    pool_info.pPoolSizes = sizes;
+    
+    VkDescriptorPool descriptor_pool;
+    vkCreateDescriptorPool(da->device, &pool_info, NULL, &descriptor_pool);
+
+    return descriptor_pool;
+}
+
+static VkDescriptorPool dg_descriptor_allocator_grab_pool(dgDescriptorAllocator *da)
+{
+    if (da->free_pool_count > 0)
+    {
+        //we get the last free pool and shrink the array to not contain it
+        VkDescriptorPool pool = da->free_pools[--da->free_pool_count];
+        return pool;
+    }
+    else
+    {
+        //if we have no available (free) pools, we create a new one and get that one
+        return dg_create_descriptor_pool(da, 1000, 0);
+    }
+}
+
+static b32 dg_descriptor_allocator_allocate(dgDescriptorAllocator *da, VkDescriptorSet *set, VkDescriptorSetLayout layout)
+{
+    if (da->current_pool == VK_NULL_HANDLE)
+    {
+        da->current_pool = dg_descriptor_allocator_grab_pool(da);
+        da->used_pools[da->used_pool_count++] = da->current_pool;
+    }
+
+    VkDescriptorSetAllocateInfo alloc_info = {0};
+    alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.pSetLayouts = &layout;
+    alloc_info.descriptorPool = da->current_pool;
+    alloc_info.descriptorSetCount = 1;
+
+    //this allocation may fail if the descriptor pool isn't large enough
+    VkResult alloc_result = vkAllocateDescriptorSets(da->device, &alloc_info, set);
+    b32 need_realloc = FALSE;
+
+    switch(alloc_result)
+    {
+        case VK_SUCCESS:
+            //just return everything is OK
+            return TRUE;
+        case VK_ERROR_FRAGMENTED_POOL:
+        case VK_ERROR_OUT_OF_POOL_MEMORY:
+            //reallocate the pool!
+            need_realloc = TRUE;
+            break;
+        default:
+            return FALSE;
+    }
+
+    if (need_realloc)
+    {
+        da->current_pool = dg_descriptor_allocator_grab_pool(da);        
+        da->used_pools[da->used_pool_count++] = da->current_pool;
+        alloc_result = vkAllocateDescriptorSets(da->device, &alloc_info, set);
+
+        if (alloc_result == VK_SUCCESS)
+            return TRUE;
+    }
+    return FALSE;
+}
+
+static void dg_descirptor_allocator_reset_pools(dgDescriptorAllocator *da)
+{
+    for (u32 i = 0; i < da->used_pool_count; ++i)
+    {
+        vkResetDescriptorPool(da->device, da->used_pools[i], 0);
+        da->free_pools[++da->free_pool_count] = da->used_pools[i];
+    }
+    da->used_pool_count = 0;
+    da->current_pool = VK_NULL_HANDLE;
+}
 
 static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
 {
@@ -1296,6 +1428,20 @@ void dg_frame_begin(dgDevice *ddev)
     gubo_info.offset = 0;
     gubo_info.range = global_ubo.size;
 
+    VkDescriptorSet desc_set = VK_NULL_HANDLE;
+    VkDescriptorSetLayout desc_set_layout = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc, &desc_set, desc_set_layout);
+
+    VkWriteDescriptorSet set_write = {0};
+    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    set_write.dstBinding = 0;
+    set_write.dstSet = desc_set;
+    set_write.descriptorCount = 1;
+    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    set_write.pBufferInfo = &gubo_info;
+    vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
+
+/*
     VkWriteDescriptorSet write_desc_set = {0};
     write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     write_desc_set.dstSet = 0;
@@ -1304,9 +1450,11 @@ void dg_frame_begin(dgDevice *ddev)
     write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
     write_desc_set.pBufferInfo = &gubo_info;
     vkCmdPushDescriptorSetKHR(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline_layout, 0, 1, &write_desc_set);
-
+*/
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_set, 0, NULL); 
 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+ 
 
     dg_rendering_end(ddev);
 
@@ -1796,6 +1944,8 @@ void dg_device_init(void)
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
+    dg_descriptor_allocator_init(&dd, &dd.desc_alloc);
+
 	printf("Vulkan initialized correctly!\n");
 }
 
@@ -1816,7 +1966,7 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    mat4 data[3] = {0.7};
+    mat4 data[3] = {0.3};
 	//create global UBO 
 	dg_create_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
@@ -1824,7 +1974,7 @@ b32 dgfx_init(void)
 
 
 
-    dg_rt_init(&dd, &def_rt, 4, TRUE);
+    //dg_rt_init(&dd, &def_rt, 4, TRUE);
 
     //t = dg_create_texture_image(&dd, "assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 	return 1;

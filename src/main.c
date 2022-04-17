@@ -79,6 +79,8 @@ int main(void)
     djob_queue_add_job(&job_manager.job_queue, job_decl);
     djob_manager_work(&job_manager);
 
+
+
     destroy();
     return 0;
 }
