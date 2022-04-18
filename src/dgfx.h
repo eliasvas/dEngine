@@ -11,8 +11,9 @@
 #define DG_MAX_COLOR_ATTACHMENTS 4
 #define MAX_FRAMES_IN_FLIGHT 2
 #define DG_DEPTH_SIZE 2048 
-#define DG_MAX_DESCRIPTOR_POOLS 32 
-#define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64
+#define DG_MAX_DESCRIPTOR_POOLS 32 //for the allocator
+#define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64 //for the cache
+#define DG_MAX_DESCRIPTOR_SETS 4 //overall
 
 typedef struct dgShader 
 {

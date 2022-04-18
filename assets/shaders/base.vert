@@ -10,17 +10,16 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 	mat4 viewproj;
 } GlobalData;
 
-layout( push_constant ) uniform constants
-{
-	vec4 data;
-	mat4 render_matrix;
-} PushConstants;
+layout(set = 1, binding = 0) uniform  ObjectBuffer{
+	mat4 obj1;
+	mat4 obj2;
+} ObjectData;
+
 
 layout(location = 0) out vec3 f_color;
 
 void main() {
     gl_Position = vec4(vertex_pos  * GlobalData.view[0][0], 1.0);
-    gl_Position.x += PushConstants.data.x;
     gl_Position.z = 0.799;
-    f_color = PushConstants.data.xyz;
+    f_color.x = GlobalData.view[0][0];
 }
