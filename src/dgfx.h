@@ -12,6 +12,7 @@
 #define MAX_FRAMES_IN_FLIGHT 2
 #define DG_DEPTH_SIZE 2048 
 #define DG_MAX_DESCRIPTOR_POOLS 32 
+#define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64
 
 typedef struct dgShader 
 {
@@ -93,6 +94,18 @@ typedef struct dgDescriptorAllocator
 
 }dgDescriptorAllocator;
 
+typedef struct dgDescriptorSetLayoutInfo
+{
+    u64 hash;
+    VkDescriptorSetLayoutBinding *bindings; //e.g binding 0 -> UNIFORM BUFFER etc..
+}dgDescriptorSetLayoutInfo;
+typedef struct dgDescriptorSetLayoutCache
+{
+    H32_static desc_set_layout_cache;
+    dgDescriptorSetLayoutInfo desc_set_layout_infos[DG_MAX_DESCRIPTOR_SET_LAYOUTS];
+    VkDescriptorSetLayout desc_set_layouts[DG_MAX_DESCRIPTOR_SET_LAYOUTS];
+    u32 layout_count;
+}dgDescriptorSetLayoutCache;
 
 typedef struct dgDevice
 {
@@ -118,7 +131,8 @@ typedef struct dgDevice
     VkFence *in_flight_fences;
     VkFence *images_in_flight;
 
-    dgDescriptorAllocator desc_alloc;
+    dgDescriptorAllocator desc_alloc[MAX_FRAMES_IN_FLIGHT];
+    dgDescriptorSetLayoutCache desc_layout_cache;
 
     u32 image_index; //current image index to draw
     u32 current_frame;

@@ -31,8 +31,6 @@ extern dWindow main_window;
 static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
 "VK_EXT_extended_dynamic_state"
 , VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME ,
-
-        VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME
 };
 
 static const char *validation_layers[]= {
@@ -827,8 +825,47 @@ static VkPipelineViewportStateCreateInfo dg_pipe_viewport_state_create_info(VkVi
 }
 
 
+static void dg_descriptor_set_layout_cache_init(dgDescriptorSetLayoutCache *cache)
+{
+    cache->layout_count = 0;
+    H32_static_init(&cache->desc_set_layout_cache, DG_MAX_DESCRIPTOR_SET_LAYOUTS);
+}
+
+//adds a layout in the cache for future use
+static void dg_descriptor_set_layout_cache_add(dgDescriptorSetLayoutCache *cache, dgDescriptorSetLayoutInfo info, VkDescriptorSetLayout layout)
+{
+    //we first put the layout info in an array to be able to compare with incoming queries 
+    //to find out if the layout is the same with another coming our way
+    cache->desc_set_layout_infos[cache->layout_count] = info;
+    H32_static_set(&cache->desc_set_layout_cache, info.hash, cache->layout_count);
+    //and then we add the layout in an array to have it ready
+    cache->desc_set_layouts[cache->layout_count] = layout;
+    ++cache->layout_count;
+
+}
+
+static VkDescriptorSetLayout dg_descriptor_set_layout_cache_get(dgDescriptorSetLayoutCache *cache, u64 key)
+{
+    u32 layout_index = H32_static_get(&cache->desc_set_layout_cache, key);
+    if (key == cache->desc_set_layout_infos[layout_index].hash)
+    {
+        return cache->desc_set_layouts[layout_index];
+    }else
+    {
+        //could not find layout in cache
+        return VK_NULL_HANDLE;
+    }
+}
+
+
+//first we check the hash to find the descriptor layout, if we can't find it, 
+//we create it and submit in cache  @TODO(inv): the hashing should be better, investigate!
+//@FIXME(inv):this breaks for more than one descriptor sets!
 static VkDescriptorSetLayout dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader)
 {
+    //dg_descriptor_set_layout_cache_get(dgDescriptorSetLayoutCache *cache, u64 key)
+
+    u64 total_hash = 0;
     VkDescriptorSetLayout desc_set_layout;
     if (shader->info.descriptor_set_count)
     {
@@ -836,33 +873,43 @@ static VkDescriptorSetLayout dg_pipe_descriptor_set_layout(dgDevice *ddev, dgSha
         for(u32 i=0;i< shader->info.descriptor_set_count; ++i)
         {
             SpvReflectDescriptorSet current_set = shader->info.descriptor_sets[i];
-            VkDescriptorSetLayoutBinding current_binding = {0};
-            current_binding.binding = current_set.set;
-            current_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-            current_binding.descriptorCount = current_set.binding_count;
-            current_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-
-            dbf_push(desc_set_layout_bindings, current_binding);
-            
-            /*
-            for (u32 j = 0;  j < current_set.binding_count; ++j)
+            for  (u32 j=0;j < current_set.binding_count; ++j)
             {
-                SpvReflectDescriptorBinding *current_binding = current_set.bindings[i];
-                //layouts[current_set.set]
+               VkDescriptorSetLayoutBinding binding ={0};
+               binding.binding = current_set.bindings[j]->binding; 
+               //binding.descriptorCount = current_set.bindings[j]->count;
+               binding.descriptorCount = 1; //no arrays on my watch ;)
+               binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+               binding.descriptorType = current_set.bindings[j]->descriptor_type;
+
+               dbf_push(desc_set_layout_bindings, binding);
+
+               //u64 full_binding_hash = current_binding.binding | current_binding.descriptorType << 8 | current_binding.descriptorCount << 16 | current_binding.stageFlags << 24;
+               u16 binding_hash = binding.binding | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
+               total_hash |= (binding_hash << (binding.binding * 16));
+               //printf("total hash: %lu\n", total_hash);
             }
-            */
-            //printf("SIZE: %i\n", dbf_len(desc_set_layout_bindings));
         }
+        desc_set_layout = dg_descriptor_set_layout_cache_get(&ddev->desc_layout_cache, total_hash);
+        if(desc_set_layout == VK_NULL_HANDLE)
+        {
+            //if layout not found we have to create it and add to cache
+            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
+            desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            //desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
+            desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
+            desc_layout_ci.pBindings = desc_set_layout_bindings;
 
-        VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
-        desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-        //desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
-        desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
-        desc_layout_ci.pBindings = desc_set_layout_bindings;
-
-        VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &desc_set_layout));
-
-        dbf_free(desc_set_layout_bindings);
+            VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &desc_set_layout));
+            dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
+                (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, desc_set_layout);
+            printf("Created (another) DSL!! :( \n");
+        }
+        else
+        {
+            //we don't need the binding array, so we delete it
+            dbf_free(desc_set_layout_bindings);
+        }
     }
     return desc_set_layout;
 }
@@ -1221,6 +1268,7 @@ static void dg_descriptor_allocator_cleanup(dgDescriptorAllocator *da)
     free(da->pool_sizes);
 }
 
+//this is TERRIBLY SLOWWW~!!!!! @FIX (maybe we don't need to fix because a single pool handles a lot of descriptors??? @inspect)
 static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32 count, VkDescriptorPoolCreateFlags flags)
 {
     VkDescriptorPoolSize *sizes = NULL;
@@ -1231,14 +1279,15 @@ static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32
 
     VkDescriptorPoolCreateInfo pool_info = {0};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.flags = flags;
+    pool_info.flags = flags | VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.maxSets = count;
     pool_info.poolSizeCount = 11;
     pool_info.pPoolSizes = sizes;
     
     VkDescriptorPool descriptor_pool;
-    vkCreateDescriptorPool(da->device, &pool_info, NULL, &descriptor_pool);
+    VK_CHECK(vkCreateDescriptorPool(da->device, &pool_info, NULL, &descriptor_pool));
 
+    assert(descriptor_pool != VK_NULL_HANDLE);
     return descriptor_pool;
 }
 
@@ -1301,16 +1350,17 @@ static b32 dg_descriptor_allocator_allocate(dgDescriptorAllocator *da, VkDescrip
     return FALSE;
 }
 
-static void dg_descirptor_allocator_reset_pools(dgDescriptorAllocator *da)
+static void dg_descriptor_allocator_reset_pools(dgDescriptorAllocator *da)
 {
     for (u32 i = 0; i < da->used_pool_count; ++i)
     {
         vkResetDescriptorPool(da->device, da->used_pools[i], 0);
-        da->free_pools[++da->free_pool_count] = da->used_pools[i];
+        da->free_pools[da->free_pool_count++] = da->used_pools[i];
     }
     da->used_pool_count = 0;
     da->current_pool = VK_NULL_HANDLE;
 }
+
 
 static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
 {
@@ -1388,6 +1438,8 @@ void dg_frame_begin(dgDevice *ddev)
 
     vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
 
+
+    dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
     ///*
     dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
@@ -1430,7 +1482,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     VkDescriptorSet desc_set = VK_NULL_HANDLE;
     VkDescriptorSetLayout desc_set_layout = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader);
-    dg_descriptor_allocator_allocate(&ddev->desc_alloc, &desc_set, desc_set_layout);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_set, desc_set_layout);
 
     VkWriteDescriptorSet set_write = {0};
     set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
@@ -1441,20 +1493,14 @@ void dg_frame_begin(dgDevice *ddev)
     set_write.pBufferInfo = &gubo_info;
     vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
 
-/*
-    VkWriteDescriptorSet write_desc_set = {0};
-    write_desc_set.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    write_desc_set.dstSet = 0;
-    write_desc_set.dstBinding = 0;
-    write_desc_set.descriptorCount = 1;
-    write_desc_set.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    write_desc_set.pBufferInfo = &gubo_info;
-    vkCmdPushDescriptorSetKHR(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline_layout, 0, 1, &write_desc_set);
-*/
     vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_set, 0, NULL); 
 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
  
+    //drawcall 3
+    pc.data = v4(1 - fabs(sin(5 *dtime_sec(dtime_now()))),0.2,0.2,1);
+    vkCmdPushConstants(dd.command_buffers[ddev->current_frame], dd.base_pipe.pipeline_layout, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, sizeof(BasePushConstants), &pc);
+    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
 
     dg_rendering_end(ddev);
 
@@ -1938,13 +1984,15 @@ void dg_device_init(void)
 	assert(dg_create_logical_device(&dd));
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
+    dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
     assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
-    dg_descriptor_allocator_init(&dd, &dd.desc_alloc);
+    for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
+        dg_descriptor_allocator_init(&dd, &dd.desc_alloc[i]);
 
 	printf("Vulkan initialized correctly!\n");
 }
