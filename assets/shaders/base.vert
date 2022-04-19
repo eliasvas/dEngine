@@ -21,5 +21,6 @@ layout(location = 0) out vec3 f_color;
 void main() {
     gl_Position = vec4(vertex_pos  * GlobalData.view[0][0], 1.0);
     gl_Position.z = 0.799;
-    f_color.x = GlobalData.view[0][0];
+    gl_Position.x += GlobalData.view[0][1];
+    f_color.x = GlobalData.view[0][1];
 }

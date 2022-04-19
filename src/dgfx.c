@@ -1405,134 +1405,6 @@ static void dg_rendering_end(dgDevice *ddev)
     vkCmdEndRenderingKHR(ddev->command_buffers[ddev->current_frame]);
 }
 
-void dg_frame_begin(dgDevice *ddev)
-{
-    vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
-    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
-
-
-
-    VkResult res = vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
-        VK_NULL_HANDLE, &ddev->image_index);
-
-    if (res == VK_ERROR_OUT_OF_DATE_KHR) { dg_recreate_swapchain(ddev); return; }
-    else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)printf("Failed to acquire swapchain image!\n");
-
-    vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
-
-
-    dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
-    dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
-    ///*
-    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
-    //dg_rendering_begin(ddev, def_rt.color_attachments, 2, &def_rt.depth_attachment, TRUE);
-
-    /*
-    VkViewport view = viewport(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
-
-    VkRect2D sci = scissor(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
-    */
-
-///*
-    VkViewport view = viewport(dd.swap.extent.width,dd.swap.extent.height);
-    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
-
-    VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
-    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
-    //*/
-    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
-    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
-
-
-    //drawcall 2
-    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
-    VkBuffer vertex_buffers[] = {base_vbo.buffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
-    vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
-
-    VkDescriptorBufferInfo gubo_info = {0};
-    gubo_info.buffer = global_ubo.buffer;
-    gubo_info.offset = 0;
-    gubo_info.range = global_ubo.size;
-
-    VkDescriptorSet desc_sets[DG_MAX_DESCRIPTOR_SETS];
-    VkDescriptorSetLayout desc_layouts[DG_MAX_DESCRIPTOR_SETS];
-    u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts);
-    for (u32 i = 0; i < DG_MAX_DESCRIPTOR_SETS; ++i)
-        if (layout_bits & (0x1 << i)) //check if the descriptor set is valid and if so allocate
-            dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[i], desc_layouts[i]);
-
-    VkWriteDescriptorSet set_write = {0};
-    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write.dstBinding = 0;
-    set_write.dstSet = desc_sets[0];
-    set_write.descriptorCount = 1;
-    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    set_write.pBufferInfo = &gubo_info;
-    vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
-
-    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets[0], 0, NULL); 
-
-    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
- 
-    //drawcall 3
-    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
-
-    dg_rendering_end(ddev);
-
-    dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
-
-
-}
-
-void dg_frame_end(dgDevice *ddev)
-{
-    VkSubmitInfo si = {0};
-    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-
-    VkSemaphore wait_semaphores[] = {ddev->image_available_semaphores[ddev->current_frame]};
-    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
-    si.waitSemaphoreCount = 1;
-    si.pWaitSemaphores = wait_semaphores;
-    si.pWaitDstStageMask = wait_stages;
-
-    si.commandBufferCount = 1;
-    si.pCommandBuffers= &ddev->command_buffers[ddev->current_frame];
-    VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[ddev->current_frame] };
-    si.signalSemaphoreCount = 1;
-    si.pSignalSemaphores = signal_semaphores;
-
-    //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
-    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
-
-    VkPresentInfoKHR present_info = { 0 };
-    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
-    present_info.waitSemaphoreCount = 1;
-    present_info.pWaitSemaphores = signal_semaphores;
-
-
-    VkSwapchainKHR swapchains[] = { ddev->swap.swapchain };
-    present_info.swapchainCount = 1;
-    present_info.pSwapchains = swapchains;
-    present_info.pImageIndices = &ddev->image_index;
-    present_info.pResults = NULL;
-
-
-    VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
-
-    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
-    {
-        dg_recreate_swapchain(ddev);
-    }
-    else if (res != VK_SUCCESS)
-        printf("Failed to present swapchain image!\n");
-
-    ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
-
-}
 
 //attaches ALLOCATED memory block to buffer!
 static void dg_buf_bind(dgBuffer *buf, VkDeviceSize offset)
@@ -1954,7 +1826,197 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth)
         rt->depth_attachment = dg_create_depth_attachment(ddev, DG_DEPTH_SIZE, DG_DEPTH_SIZE);
 }
 
+static void dg_ubo_data_buffer_clear(dgUBODataBuffer *buf, u32 frame_num)
+{
+    buf->buffer_offsets[frame_num] = 0;
+}
 
+static dgBuffer* dg_ubo_data_buffer_get_buf(dgDevice *ddev, dgUBODataBuffer *buf)
+{
+    return &buf->buffers[ddev->current_frame];
+}
+
+
+static b32 dg_ubo_data_buffer_init(dgDevice *ddev, dgUBODataBuffer *buf, u32 buffer_size)
+{
+    for (u32 i = 0; i< MAX_FRAMES_IN_FLIGHT; ++i)
+    {
+        buf->buffer_offsets[i] = 0;
+        dg_create_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
+        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+        &buf->buffers[i], buffer_size, NULL);
+    }
+    return TRUE;
+}
+static u32 dg_ubo_data_buffer_copy(dgDevice *ddev, dgUBODataBuffer *buf, void *src, u32 size)
+{
+    dgBuffer *buffer = &buf->buffers[ddev->current_frame];
+    VK_CHECK(dg_buf_map(buffer, size, buf->buffer_offsets[ddev->current_frame]));
+    memcpy(buffer->mapped, src, size);
+    dg_buf_unmap(buffer);
+    u32 copy_offset = buf->buffer_offsets[ddev->current_frame];
+    buf->buffer_offsets[ddev->current_frame] += size;
+    return copy_offset;
+
+}
+
+void dg_frame_begin(dgDevice *ddev)
+{
+    vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
+    vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
+
+
+
+    VkResult res = vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
+        VK_NULL_HANDLE, &ddev->image_index);
+
+    if (res == VK_ERROR_OUT_OF_DATE_KHR) { dg_recreate_swapchain(ddev); return; }
+    else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)printf("Failed to acquire swapchain image!\n");
+
+    vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
+
+
+    dg_ubo_data_buffer_clear(&ddev->ubo_buf, ddev->current_frame);
+    dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
+
+    dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+    ///*
+    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
+    //dg_rendering_begin(ddev, def_rt.color_attachments, 2, &def_rt.depth_attachment, TRUE);
+
+    /*
+    VkViewport view = viewport(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
+
+    VkRect2D sci = scissor(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
+    */
+
+///*
+    VkViewport view = viewport(dd.swap.extent.width,dd.swap.extent.height);
+    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
+
+    VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
+    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
+    //*/
+    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
+    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
+
+
+    //drawcall 2
+    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
+    VkBuffer vertex_buffers[] = {base_vbo.buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
+    vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
+
+
+    mat4 data[4] = {0.2,fabs(sin(7 * dtime_sec(dtime_now()))),0.2,0.2};
+    u32 offset = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data, sizeof(data));
+    VkDescriptorBufferInfo gubo_info = {0};
+    gubo_info.buffer = dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer;
+    gubo_info.offset = offset;
+    gubo_info.range = sizeof(data);
+
+    VkDescriptorSet desc_sets[DG_MAX_DESCRIPTOR_SETS];
+    VkDescriptorSetLayout desc_layouts[DG_MAX_DESCRIPTOR_SETS];
+    u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts);
+    for (u32 i = 0; i < DG_MAX_DESCRIPTOR_SETS; ++i)
+        if (layout_bits & (0x1 << i)) //check if the descriptor set is valid and if so allocate
+            dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[i], desc_layouts[i]);
+
+    VkWriteDescriptorSet set_write = {0};
+    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    set_write.dstBinding = 0;
+    set_write.dstSet = desc_sets[0];
+    set_write.descriptorCount = 1;
+    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    set_write.pBufferInfo = &gubo_info;
+    vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
+
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets[0], 0, NULL); 
+
+    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+ 
+    //drawcall 3
+    {
+        mat4 data2[4] = {0.3,(-1.0f) *fabs(sin(0.5 * dtime_sec(dtime_now()))),0.3,0.3};
+        u32 offset2 = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data, sizeof(data2));
+        VkDescriptorBufferInfo gubo_info2 = {0};
+        gubo_info2.buffer = dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer;
+        gubo_info2.offset = offset2;
+        gubo_info2.range = sizeof(data2);
+
+        VkDescriptorSet desc_sets2[DG_MAX_DESCRIPTOR_SETS];
+        VkDescriptorSetLayout desc_layouts2[DG_MAX_DESCRIPTOR_SETS];
+        u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts2);
+        for (u32 i = 0; i < DG_MAX_DESCRIPTOR_SETS; ++i)
+            if (layout_bits & (0x1 << i)) //check if the descriptor set is valid and if so allocate
+                dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets2[i], desc_layouts2[i]);
+
+        VkWriteDescriptorSet set_write2 = {0};
+        set_write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        set_write2.dstBinding = 0;
+        set_write2.dstSet = desc_sets2[0];
+        set_write2.descriptorCount = 1;
+        set_write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        set_write2.pBufferInfo = &gubo_info2;
+        vkUpdateDescriptorSets(dd.device, 1, &set_write2, 0, NULL);
+        vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+    }
+
+    dg_rendering_end(ddev);
+
+    dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+
+
+}
+
+void dg_frame_end(dgDevice *ddev)
+{
+    VkSubmitInfo si = {0};
+    si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+
+    VkSemaphore wait_semaphores[] = {ddev->image_available_semaphores[ddev->current_frame]};
+    VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    si.waitSemaphoreCount = 1;
+    si.pWaitSemaphores = wait_semaphores;
+    si.pWaitDstStageMask = wait_stages;
+
+    si.commandBufferCount = 1;
+    si.pCommandBuffers= &ddev->command_buffers[ddev->current_frame];
+    VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[ddev->current_frame] };
+    si.signalSemaphoreCount = 1;
+    si.pSignalSemaphores = signal_semaphores;
+
+    //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
+    VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
+
+    VkPresentInfoKHR present_info = { 0 };
+    present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores = signal_semaphores;
+
+
+    VkSwapchainKHR swapchains[] = { ddev->swap.swapchain };
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains = swapchains;
+    present_info.pImageIndices = &ddev->image_index;
+    present_info.pResults = NULL;
+
+
+    VkResult res = vkQueuePresentKHR(ddev->present_queue, &present_info);
+
+    if (res == VK_ERROR_OUT_OF_DATE_KHR || res == VK_SUBOPTIMAL_KHR)
+    {
+        dg_recreate_swapchain(ddev);
+    }
+    else if (res != VK_SUCCESS)
+        printf("Failed to present swapchain image!\n");
+
+    ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
+
+}
 void dg_device_init(void)
 {
 	assert(dg_create_instance(&dd));
@@ -1973,6 +2035,8 @@ void dg_device_init(void)
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
         dg_descriptor_allocator_init(&dd, &dd.desc_alloc[i]);
 
+
+    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
 	printf("Vulkan initialized correctly!\n");
 }
 
@@ -1993,12 +2057,11 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    mat4 data[3] = {0.3};
+    mat4 data[4] = {0.3, 0.9, 0.1};
 	//create global UBO 
 	dg_create_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&global_ubo, sizeof(mat4) * 3, data);
-
+	&global_ubo, sizeof(mat4) * 4, data);
 
 
     //dg_rt_init(&dd, &def_rt, 4, TRUE);

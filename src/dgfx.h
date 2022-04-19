@@ -62,6 +62,14 @@ typedef struct dgBuffer
     void* mapped;
     b32 active;
 }dgBuffer;
+
+typedef struct dgUBODataBuffer
+{
+    dgBuffer buffers[MAX_FRAMES_IN_FLIGHT];
+    u32 buffer_offsets[MAX_FRAMES_IN_FLIGHT];
+}dgUBODataBuffer;
+
+
 typedef struct dgPipeline 
 {
     dgShader vert_shader;
@@ -134,6 +142,7 @@ typedef struct dgDevice
 
     dgDescriptorAllocator desc_alloc[MAX_FRAMES_IN_FLIGHT];
     dgDescriptorSetLayoutCache desc_layout_cache;
+    dgUBODataBuffer ubo_buf;
 
     u32 image_index; //current image index to draw
     u32 current_frame;
