@@ -873,7 +873,8 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             //binding.descriptorCount = current_set.bindings[j]->count;
             binding.descriptorCount = 1; //no arrays on my watch ;)
             binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            binding.descriptorType = current_set.bindings[j]->descriptor_type;
+            //binding.descriptorType = current_set.bindings[j]->descriptor_type;
+            binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 
             dbf_push(desc_set_layout_bindings, binding);
 
@@ -1930,18 +1931,19 @@ void dg_frame_begin(dgDevice *ddev)
     set_write.dstBinding = 0;
     set_write.dstSet = desc_sets[0];
     set_write.descriptorCount = 1;
-    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
     set_write.pBufferInfo = &gubo_info;
     vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
 
-    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets[0], 0, NULL); 
+    u32 dyno = 0;
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets[0], 1, &dyno); 
 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
  
     //drawcall 3
     {
-        mat4 data2[4] = {0.3,(-1.0f) *fabs(sin(0.5 * dtime_sec(dtime_now()))),0.3,0.3};
-        u32 offset2 = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data, sizeof(data2));
+        mat4 data2[4] = {0.3,fabs(sin(0.5 * dtime_sec(dtime_now()))),0.3,0.3};
+        u32 offset2 = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data2, sizeof(data2));
         VkDescriptorBufferInfo gubo_info2 = {0};
         gubo_info2.buffer = dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer;
         gubo_info2.offset = offset2;
@@ -1959,9 +1961,10 @@ void dg_frame_begin(dgDevice *ddev)
         set_write2.dstBinding = 0;
         set_write2.dstSet = desc_sets2[0];
         set_write2.descriptorCount = 1;
-        set_write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        set_write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
         set_write2.pBufferInfo = &gubo_info2;
         vkUpdateDescriptorSets(dd.device, 1, &set_write2, 0, NULL);
+        vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets2[0], 1, &dyno); 
         vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
     }
 
