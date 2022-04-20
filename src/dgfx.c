@@ -861,9 +861,9 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
     u64 total_hash = 0;
     if (shader->info.descriptor_set_count == 0)return 0; 
 
-    VkDescriptorSetLayoutBinding *desc_set_layout_bindings = NULL;
     for(u32 i=0;i< shader->info.descriptor_set_count; ++i)
     {
+        VkDescriptorSetLayoutBinding *desc_set_layout_bindings = NULL;
         SpvReflectDescriptorSet current_set = shader->info.descriptor_sets[i];
         layout_binding_bits |= (1 << current_set.set);
         for  (u32 j=0;j < current_set.binding_count; ++j)
@@ -879,7 +879,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             dbf_push(desc_set_layout_bindings, binding);
 
             //u64 full_binding_hash = current_binding.binding | current_binding.descriptorType << 8 | current_binding.descriptorCount << 16 | current_binding.stageFlags << 24;
-            u16 binding_hash = binding.binding | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
+            u16 binding_hash = current_set.set | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
             total_hash |= (binding_hash << (binding.binding * 16));
             //printf("total hash: %lu\n", total_hash);
         }
@@ -1861,6 +1861,23 @@ static u32 dg_ubo_data_buffer_copy(dgDevice *ddev, dgUBODataBuffer *buf, void *s
 
 }
 
+static void dg_update_desc_set(dgDevice *ddev, VkDescriptorSet set, void *data, u32 size)
+{
+    u32 offset = dg_ubo_data_buffer_copy(ddev, &ddev->ubo_buf, data, size);
+    VkDescriptorBufferInfo ubo_info = {dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer, offset, size};
+
+    VkWriteDescriptorSet set_write = {0};
+    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    set_write.dstBinding = 0;
+    set_write.dstSet = set;
+    set_write.descriptorCount = 1;
+    set_write.descriptorType= VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    set_write.pBufferInfo = &ubo_info;
+
+    vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
+}
+  
+
 void dg_frame_begin(dgDevice *ddev)
 {
     vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
@@ -1912,60 +1929,23 @@ void dg_frame_begin(dgDevice *ddev)
     vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
 
 
-    mat4 data[4] = {0.2,fabs(sin(7 * dtime_sec(dtime_now()))),0.2,0.2};
-    u32 offset = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data, sizeof(data));
-    VkDescriptorBufferInfo gubo_info = {0};
-    gubo_info.buffer = dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer;
-    gubo_info.offset = offset;
-    gubo_info.range = sizeof(data);
-
-    VkDescriptorSet desc_sets[DG_MAX_DESCRIPTOR_SETS];
-    VkDescriptorSetLayout desc_layouts[DG_MAX_DESCRIPTOR_SETS];
+    VkDescriptorSet desc_sets[DG_MAX_DESCRIPTOR_SETS] = {0};
+    VkDescriptorSetLayout desc_layouts[DG_MAX_DESCRIPTOR_SETS] = {0};
     u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts);
-    for (u32 i = 0; i < DG_MAX_DESCRIPTOR_SETS; ++i)
-        if (layout_bits & (0x1 << i)) //check if the descriptor set is valid and if so allocate
-            dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[i], desc_layouts[i]);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[0], desc_layouts[0]);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[1], desc_layouts[1]);
 
-    VkWriteDescriptorSet set_write = {0};
-    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-    set_write.dstBinding = 0;
-    set_write.dstSet = desc_sets[0];
-    set_write.descriptorCount = 1;
-    set_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    set_write.pBufferInfo = &gubo_info;
-    vkUpdateDescriptorSets(dd.device, 1, &set_write, 0, NULL);
+    mat4 data[4] = {0.2,fabs(sin(7 * dtime_sec(dtime_now()))),0.2,0.2};
 
-    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets[0],0,NULL); 
+    dg_update_desc_set(ddev, desc_sets[0], data, sizeof(data));
+    dg_update_desc_set(ddev, desc_sets[1], data, sizeof(data));
+
+
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0,2, desc_sets,0,NULL); 
 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
  
-    //drawcall 3
-    {
-        mat4 data2[4] = {0.3,fabs(sin(0.5 * dtime_sec(dtime_now()))),0.3,0.3};
-        u32 offset2 = dg_ubo_data_buffer_copy(&dd, &dd.ubo_buf, data2, sizeof(data2));
-        VkDescriptorBufferInfo gubo_info2 = {0};
-        gubo_info2.buffer = dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer;
-        gubo_info2.offset = offset2;
-        gubo_info2.range = sizeof(data2);
-
-        VkDescriptorSet desc_sets2[DG_MAX_DESCRIPTOR_SETS];
-        VkDescriptorSetLayout desc_layouts2[DG_MAX_DESCRIPTOR_SETS];
-        u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts2);
-        for (u32 i = 0; i < DG_MAX_DESCRIPTOR_SETS; ++i)
-            if (layout_bits & (0x1 << i)) //check if the descriptor set is valid and if so allocate
-                dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets2[i], desc_layouts2[i]);
-
-        VkWriteDescriptorSet set_write2 = {0};
-        set_write2.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        set_write2.dstBinding = 0;
-        set_write2.dstSet = desc_sets2[0];
-        set_write2.descriptorCount = 1;
-        set_write2.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        set_write2.pBufferInfo = &gubo_info2;
-        vkUpdateDescriptorSets(dd.device, 1, &set_write2, 0, NULL);
-        vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0, 1, &desc_sets2[0], 0, NULL); 
-        vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
-    }
+    
 
     dg_rendering_end(ddev);
 

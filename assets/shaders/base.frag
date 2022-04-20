@@ -4,12 +4,15 @@ layout(location = 0) in vec3 f_color;
 
 layout(location = 0) out vec4 out_color;
 
-layout( push_constant ) uniform constants
-{
-	vec4 data;
-	mat4 render_matrix;
-} PushConstants;
+layout(set = 0, binding = 0) uniform  GlobalBuffer{
+	mat4 view;
+	mat4 proj;
+	mat4 viewproj;
+} GlobalData;
 
+layout(set = 1, binding = 0) uniform  ObjectBuffer{
+	float color;
+} ObjectData;
 vec3 dir_light = vec3(-1,1,0.2);
 
 void main() {
