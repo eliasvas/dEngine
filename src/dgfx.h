@@ -14,6 +14,7 @@
 #define DG_MAX_DESCRIPTOR_POOLS 32 //for the allocator
 #define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64 //for the cache
 #define DG_MAX_DESCRIPTOR_SETS 4 //overall
+#define DG_MAX_DESCRIPTOR_SET_BINDINGS 4 //overall
 
 typedef struct dgShader 
 {

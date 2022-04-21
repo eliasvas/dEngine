@@ -10,7 +10,6 @@
 dgDevice dd;
 dgBuffer base_vbo;
 dgBuffer base_ibo;
-dgBuffer global_ubo;
 dgTexture t;
 dgRT def_rt;
 
@@ -678,7 +677,7 @@ static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription 
             }
             if (attr_index == i )//Note(inv): we want to write the inputs in order to get the global offset
             {
-                SpvReflectInterfaceVariable *input_var = shader->info.input_variables[attr_index];
+                SpvReflectInterfaceVariable *input_var = shader->info.input_variables[j];
                 memset(&attr_desc[attr_index], 0, sizeof(VkVertexInputAttributeDescription));
                 attr_desc[attr_index].binding = 0; //TODO(inv): check dis shit
                 attr_desc[attr_index].format = input_var->format;
@@ -870,11 +869,9 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
         {
             VkDescriptorSetLayoutBinding binding ={0};
             binding.binding = current_set.bindings[j]->binding; 
-            //binding.descriptorCount = current_set.bindings[j]->count;
-            binding.descriptorCount = 1; //no arrays on my watch ;)
+            binding.descriptorCount = current_set.bindings[j]->count;
             binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            //binding.descriptorType = current_set.bindings[j]->descriptor_type;
-            binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+            binding.descriptorType = current_set.bindings[j]->descriptor_type;
 
             dbf_push(desc_set_layout_bindings, binding);
 
@@ -885,12 +882,11 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
         }
 
         layouts[current_set.set] = dg_descriptor_set_layout_cache_get(&ddev->desc_layout_cache, total_hash);
+        //if layout not found in cache, we create it and add it to the cache
         if(layouts[current_set.set] == VK_NULL_HANDLE)
         {
-            //if layout not found we have to create it and add to cache
             VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
             desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-            //desc_layout_ci.flags = VK_DESCRIPTOR_SET_LAYOUT_CREATE_PUSH_DESCRIPTOR_BIT_KHR;
             desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
             desc_layout_ci.pBindings = desc_set_layout_bindings;
 
@@ -1811,6 +1807,7 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
+    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
 	return tex;
 }
@@ -1876,6 +1873,29 @@ static void dg_update_desc_set(dgDevice *ddev, VkDescriptorSet set, void *data, 
 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
+
+static void dg_update_desc_image(dgDevice *ddev, VkDescriptorSet set, dgTexture *textures, u32 view_count)
+{
+    VkDescriptorImageInfo image_infos[DG_MAX_DESCRIPTOR_SET_BINDINGS];
+    for (u32 i = 0; i < view_count; ++i)
+    {
+        memset(&image_infos[i], 0, sizeof(VkDescriptorImageInfo));
+        image_infos[i].imageView = textures[i].view;
+        image_infos[i].sampler = textures[i].sampler;
+        image_infos[i].imageLayout = textures[i].image_layout;
+    }
+
+    VkWriteDescriptorSet set_write = {0};
+    set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+    set_write.dstBinding = 0;
+    set_write.dstSet = set;
+    set_write.descriptorCount = view_count;
+    set_write.descriptorType= VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    set_write.pImageInfo = image_infos;
+
+    vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
+}
+ 
   
 
 void dg_frame_begin(dgDevice *ddev)
@@ -1934,24 +1954,20 @@ void dg_frame_begin(dgDevice *ddev)
     u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts);
     dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[0], desc_layouts[0]);
     dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[1], desc_layouts[1]);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[2], desc_layouts[2]);
 
-    mat4 data[4] = {0.2,fabs(sin(7 * dtime_sec(dtime_now()))),0.2,0.2};
+    mat4 data[4] = {0.9,(sin(2 * dtime_sec(dtime_now()))),0.2,0.2};
 
     dg_update_desc_set(ddev, desc_sets[0], data, sizeof(data));
     dg_update_desc_set(ddev, desc_sets[1], data, sizeof(data));
-
-
-    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0,2, desc_sets,0,NULL); 
-
+    dg_update_desc_image(ddev, desc_sets[2], &t, 1);
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0,ddev->base_pipe.vert_shader.info.descriptor_set_count, desc_sets,0,NULL); 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
  
-    
 
     dg_rendering_end(ddev);
 
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
-
-
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2039,15 +2055,8 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    mat4 data[4] = {0.3, 0.9, 0.1};
-	//create global UBO 
-	dg_create_buffer(VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&global_ubo, sizeof(mat4) * 4, data);
-
-
     //dg_rt_init(&dd, &def_rt, 4, TRUE);
 
-    //t = dg_create_texture_image(&dd, "assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 	return 1;
 }
