@@ -564,49 +564,25 @@ void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, V
 
 }  
 
-static VkViewport viewport_basic(dgDevice *ddev)
+static VkViewport viewport(f32 x, f32 y, f32 w, f32 h)
 {
     VkViewport viewport = { 0 };
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = (f32)ddev->swap.extent.width;
-    viewport.height = (f32)ddev->swap.extent.height;
+    viewport.x = x;
+    viewport.y = y;
+    viewport.width = w;
+    viewport.height = h;
     //viewport.height *= fabs(sin(get_time()));
     viewport.minDepth = 0.0f;
     viewport.maxDepth = 1.0f;
     return viewport;
 }
 
-static VkViewport viewport(f32 ww, f32 wh)
-{
-    VkViewport viewport = { 0 };
-    viewport.x = 0.0f;
-    viewport.y = 0.0f;
-    viewport.width = ww;
-    viewport.height = wh;
-    //viewport.height *= fabs(sin(get_time()));
-    viewport.minDepth = 0.0f;
-    viewport.maxDepth = 1.0f;
-    return viewport;
-}
-
-static VkRect2D scissor(f32 w, f32 h)
+static VkRect2D scissor(f32 x, f32 y, f32 w, f32 h)
 {
     VkRect2D scissor = {0};
-    scissor.offset.x = 0;
-	scissor.offset.y = 0;
+    scissor.offset.x = x;
+	scissor.offset.y = x;
     scissor.extent = (VkExtent2D){w,h};
-    //scissor.extent.height *= fabs(sin(get_time()));
-	
-    return scissor;
-
-}
-static VkRect2D scissor_basic(dgDevice *ddev)
-{
-    VkRect2D scissor = {0};
-    scissor.offset.x = 0;
-	scissor.offset.y = 0;
-    scissor.extent = ddev->swap.extent;
     //scissor.extent.height *= fabs(sin(get_time()));
 	
     return scissor;
@@ -974,9 +950,9 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 
 static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name)
 {
-
-    VkRect2D s = scissor_basic(ddev);
-    VkViewport v = viewport_basic(ddev);
+    //these are dummies, we bind our scissors and viewports per drawcall
+    VkRect2D s = scissor(0,0,0,0);
+    VkViewport v = viewport(0,0,0,0);
 
 
     //read shaders and register them in the pipeline builder
@@ -1126,6 +1102,10 @@ static b32 dg_create_command_buffers(dgDevice *ddev)
     alloc_info.commandBufferCount = ddev->swap.image_count;
     VK_CHECK(vkAllocateCommandBuffers(ddev->device, &alloc_info, ddev->command_buffers));
     return DSUCCESS;
+}
+static void dg_wait_idle(dgDevice *ddev)
+{
+    vkDeviceWaitIdle(ddev->device);
 }
 
 static void dg_recreate_swapchain(dgDevice *ddev)
@@ -1945,7 +1925,18 @@ static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgText
 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
- 
+static void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height) 
+{
+    VkRect2D sci = scissor(x, y, width,height);
+    vkCmdSetScissor(ddev->command_buffers[ddev->current_frame], 0, 1, &sci);
+}
+static void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height)
+{
+    VkViewport view = viewport(x,y,width,height);
+    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
+}
+
+
 static void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
 { 
     //first we get the layout, then we 
@@ -1982,6 +1973,15 @@ static void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
     vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
+static void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
+{
+
+    if(index_count)
+        vkCmdDrawIndexed(ddev->command_buffers[ddev->current_frame], index_count, 1, 0, 0, 0);
+    else
+        vkCmdDraw(ddev->command_buffers[ddev->current_frame], vertex_count, 1, 0, 0);
+}
+
 
 
 
@@ -2005,29 +2005,14 @@ void dg_frame_begin(dgDevice *ddev)
     dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
-    ///*
-    //dg_rendering_begin(ddev, def_rt.color_attachments, 2, &def_rt.depth_attachment, TRUE);
-
-    /*
-    VkViewport view = viewport(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
-
-    VkRect2D sci = scissor(def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
-    */
-
-///*
 
     dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
-    VkViewport view = viewport(dd.swap.extent.width,dd.swap.extent.height);
-    vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
-    VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
-    vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
-    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
+    //drawcall 1
     dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
-    vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
-
+    dg_draw(ddev, 3,0);
 
     //drawcall 2
     dg_bind_pipeline(ddev, &ddev->base_pipe);
@@ -2039,8 +2024,14 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
     dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 
-    vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
+    mat4 data2[4] = {0.9,-1.f* (sin(2 * dtime_sec(dtime_now()))),0.2,0.2};
+    dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 0);
+    dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 1);
+    dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+ 
  
 
     dg_rendering_end(ddev);
