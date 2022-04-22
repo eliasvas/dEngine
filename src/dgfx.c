@@ -853,7 +853,6 @@ static VkDescriptorSetLayout dg_descriptor_set_layout_cache_get(dgDescriptorSetL
 
 //first we check the hash to find the descriptor layout, if we can't find it, 
 //we create it and submit in cache  @TODO(inv): the hashing should be better, investigate!
-//@FIXME(inv):this breaks for more than one descriptor sets!
 static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDescriptorSetLayout *layouts)
 {
     u32 layout_binding_bits = 0; //0x0 means that descriptor set 0 is valid
@@ -903,6 +902,57 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
 
     }
     return layout_binding_bits;
+}
+
+static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShader*shader, u32 set_num)
+{
+    VkDescriptorSetLayout layout;
+    u64 total_hash = 0;
+    if (shader->info.descriptor_set_count == 0)return 0; 
+
+    for(u32 i=0;i< shader->info.descriptor_set_count; ++i)
+    {
+        VkDescriptorSetLayoutBinding *desc_set_layout_bindings = NULL;
+        SpvReflectDescriptorSet current_set = shader->info.descriptor_sets[i];
+        if (current_set.set != set_num)continue;
+        for  (u32 j=0;j < current_set.binding_count; ++j)
+        {
+            VkDescriptorSetLayoutBinding binding ={0};
+            binding.binding = current_set.bindings[j]->binding; 
+            binding.descriptorCount = current_set.bindings[j]->count;
+            binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+            binding.descriptorType = current_set.bindings[j]->descriptor_type;
+
+            dbf_push(desc_set_layout_bindings, binding);
+
+            //u64 full_binding_hash = current_binding.binding | current_binding.descriptorType << 8 | current_binding.descriptorCount << 16 | current_binding.stageFlags << 24;
+            u16 binding_hash = current_set.set | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
+            total_hash |= (binding_hash << (binding.binding * 16));
+            //printf("total hash: %lu\n", total_hash);
+        }
+
+        layout = dg_descriptor_set_layout_cache_get(&ddev->desc_layout_cache, total_hash);
+        //if layout not found in cache, we create it and add it to the cache
+        if(layout == VK_NULL_HANDLE)
+        {
+            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
+            desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+            desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
+            desc_layout_ci.pBindings = desc_set_layout_bindings;
+
+            VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &layout));
+            dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
+                (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, layout);
+            printf("Created (another) DSL!! :( \n");
+        }
+        else
+        {
+            //we don't need the binding array, so we delete it
+            dbf_free(desc_set_layout_bindings);
+        }
+
+    }
+    return layout;
 }
 
 //this is pretty much empty
@@ -1874,7 +1924,7 @@ static void dg_update_desc_set(dgDevice *ddev, VkDescriptorSet set, void *data, 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
 
-static void dg_update_desc_image(dgDevice *ddev, VkDescriptorSet set, dgTexture *textures, u32 view_count)
+static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgTexture *textures, u32 view_count)
 {
     VkDescriptorImageInfo image_infos[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     for (u32 i = 0; i < view_count; ++i)
@@ -1896,7 +1946,44 @@ static void dg_update_desc_image(dgDevice *ddev, VkDescriptorSet set, dgTexture 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
  
-  
+static void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
+{ 
+    //first we get the layout, then we 
+    VkDescriptorSet desc_set;
+    VkDescriptorSetLayout layout;
+    layout = dg_get_descriptor_set_layout(ddev, &pipe->vert_shader, set_num);
+    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_set, layout);
+    if(set_num == 2) //because set number 2 is for images
+    {
+        dgTexture *tex_data = (dgTexture*)data;
+        u32 tex_count = size;
+        dg_update_desc_set_image(ddev, desc_set, tex_data, size);
+    }
+    else
+    {
+        dg_update_desc_set(ddev, desc_set, data, sizeof(data));
+    }
+    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline_layout, set_num,1, &desc_set,0,NULL); 
+}
+
+static void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe)
+{
+    vkCmdBindPipeline(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
+}
+static void dg_bind_vertex_buffer(dgDevice *ddev, dgBuffer* vbo)
+{
+    VkBuffer vertex_buffers[] = {vbo->buffer};
+    VkDeviceSize offsets[] = {0};
+    vkCmdBindVertexBuffers(ddev->command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
+
+}
+static void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
+{
+    vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, 0, VK_INDEX_TYPE_UINT32);
+}
+
+
+
 
 void dg_frame_begin(dgDevice *ddev)
 {
@@ -1919,7 +2006,6 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
     ///*
-    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
     //dg_rendering_begin(ddev, def_rt.color_attachments, 2, &def_rt.depth_attachment, TRUE);
 
     /*
@@ -1931,37 +2017,29 @@ void dg_frame_begin(dgDevice *ddev)
     */
 
 ///*
+
+    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
     VkViewport view = viewport(dd.swap.extent.width,dd.swap.extent.height);
     vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
 
     VkRect2D sci = scissor(dd.swap.extent.width, dd.swap.extent.height);
     vkCmdSetScissor(dd.command_buffers[ddev->current_frame], 0, 1, &sci);
-    //*/
     vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.fullscreen_pipe.pipeline);
+    dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
     vkCmdDraw(dd.command_buffers[ddev->current_frame], 3, 1, 0, 0);
 
 
     //drawcall 2
-    vkCmdBindPipeline(dd.command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, dd.base_pipe.pipeline);
-    VkBuffer vertex_buffers[] = {base_vbo.buffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(dd.command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
-    vkCmdBindIndexBuffer(dd.command_buffers[ddev->current_frame], base_ibo.buffer, 0, VK_INDEX_TYPE_UINT32);
+    dg_bind_pipeline(ddev, &ddev->base_pipe);
+    dg_bind_vertex_buffer(ddev, &base_vbo);
+    dg_bind_index_buffer(ddev, &base_ibo);
 
-
-    VkDescriptorSet desc_sets[DG_MAX_DESCRIPTOR_SETS] = {0};
-    VkDescriptorSetLayout desc_layouts[DG_MAX_DESCRIPTOR_SETS] = {0};
-    u32 layout_bits = dg_pipe_descriptor_set_layout(ddev, &ddev->base_pipe.vert_shader, desc_layouts);
-    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[0], desc_layouts[0]);
-    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[1], desc_layouts[1]);
-    dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_sets[2], desc_layouts[2]);
 
     mat4 data[4] = {0.9,(sin(2 * dtime_sec(dtime_now()))),0.2,0.2};
+    dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
+    dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
+    dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
 
-    dg_update_desc_set(ddev, desc_sets[0], data, sizeof(data));
-    dg_update_desc_set(ddev, desc_sets[1], data, sizeof(data));
-    dg_update_desc_image(ddev, desc_sets[2], &t, 1);
-    vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, ddev->base_pipe.pipeline_layout, 0,ddev->base_pipe.vert_shader.info.descriptor_set_count, desc_sets,0,NULL); 
     vkCmdDrawIndexed(dd.command_buffers[ddev->current_frame], base_ibo.size / sizeof(u32), 1, 0, 0, 0);
  
 
