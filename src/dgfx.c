@@ -6,6 +6,13 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #include "dtime.h"
+#include "../ext/microui/microui.h"
+#include "../ext/microui/atlas.inl"
+
+
+dgBuffer pos_vbo;
+dgBuffer normal_vbo;
+dgBuffer tex_vbo;
 
 dgDevice dd;
 dgBuffer base_vbo;
@@ -503,8 +510,8 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 {
 	VkSamplerCreateInfo sampler_info = {0};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	sampler_info.magFilter = VK_FILTER_LINEAR;
-	sampler_info.minFilter = VK_FILTER_LINEAR;
+	sampler_info.magFilter = VK_FILTER_NEAREST;
+	sampler_info.minFilter = VK_FILTER_NEAREST;
 	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
 	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -624,13 +631,14 @@ static VkVertexInputBindingDescription dg_get_bind_desc_basic(void)
     return bind_desc;
 }
 
-static VkVertexInputBindingDescription dg_get_bind_desc(dgShader *shader, u32 vert_size)
+static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *bind_desc,u32 vert_size, u32 binding_count)
 {
-    VkVertexInputBindingDescription bind_desc = {0};
-    bind_desc.binding = 0;
-    bind_desc.stride = vert_size;
-    bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
-    return bind_desc;
+    for (u32 i = 0; i < binding_count; ++i)
+    {
+        bind_desc[i].binding = i;
+        bind_desc[i].stride = vert_size;
+        bind_desc[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
+    }
 }
 
 static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, u32 *vert_size)
@@ -656,9 +664,12 @@ static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription 
                 SpvReflectInterfaceVariable *input_var = shader->info.input_variables[j];
                 memset(&attr_desc[attr_index], 0, sizeof(VkVertexInputAttributeDescription));
                 attr_desc[attr_index].binding = 0; //TODO(inv): check dis shit
+                //attr_desc[attr_index].binding = i; //TODO(inv): check dis shit
                 attr_desc[attr_index].format = input_var->format;
                 attr_desc[attr_index].location= input_var->location;
+                //attr_desc[attr_index].location= 0;
                 attr_desc[attr_index].offset = global_offset;
+                //attr_desc[attr_index].offset = 0;
                 global_offset += input_var->numeric.vector.component_count * sizeof(f32);
 
 
@@ -677,12 +688,13 @@ dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDes
 {
     u32 vert_size;
     u32 attribute_count = dg_get_attr_desc(shader, attr_desc, &vert_size);
-    *bind_desc = dg_get_bind_desc(shader, vert_size);
+    u32 binding_count = 1;//TODO(inv): this should become an option
+    dg_get_bind_desc(shader,bind_desc,vert_size, binding_count);
  
 	VkPipelineVertexInputStateCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	info.pNext = NULL;
-	info.vertexBindingDescriptionCount = (attribute_count >0) ? 1 : 0;
+	info.vertexBindingDescriptionCount = (attribute_count >0) ? binding_count : 0;
     info.pVertexBindingDescriptions = bind_desc;
 	info.vertexAttributeDescriptionCount = attribute_count;
     info.pVertexAttributeDescriptions = attr_desc;
@@ -964,7 +976,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
 
  
-    VkVertexInputBindingDescription bind_desc[4];
+    VkVertexInputBindingDescription bind_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkPipelineVertexInputStateCreateInfo vert_input_state = 
     dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc);
@@ -1655,41 +1667,17 @@ static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_
 	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
-static dgTexture dg_create_texture_basic(dgDevice *ddev, VkFormat format)
+static dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
 {
-	dgTexture tex;
-	s32 tex_w = 256; 
-    s32 tex_h = 256; 
-    s32 tex_c = 4;
-	VkDeviceSize image_size = tex_w * tex_h * 4;
-    typedef struct iv4
-    {
-        u8 pixel[4];
-    }iv4;
-
-    iv4 *pixels = malloc(sizeof(iv4) * tex_w * tex_h*40);
-    /*
-    for (u32 i = 0; i < tex_w; ++i)
-    {
-        for (u32 j = 0; j < tex_h; ++j)
-        {
-            if (j % 2 == 0)
-                pixels[i * tex_w + j] = (vec4){1,1,1,1};
-            else
-                pixels[i * tex_w + j] = (vec4){1,0.1,0.2,1.0};
-        }
-    }
-    */
-    
+    dgTexture tex;
 	dgBuffer idb;
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, image_size, pixels);
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
 	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
-		| VK_IMAGE_USAGE_SAMPLED_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-
     VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
     imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
@@ -1743,10 +1731,10 @@ static dgTexture dg_create_texture_basic(dgDevice *ddev, VkFormat format)
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
+    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
 	return tex;
 }
-
 static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
@@ -1961,12 +1949,11 @@ static void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe)
 {
     vkCmdBindPipeline(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
 }
-static void dg_bind_vertex_buffer(dgDevice *ddev, dgBuffer* vbo)
+//maybe usea static array... dynamic array slow!
+static void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count)
 {
-    VkBuffer vertex_buffers[] = {vbo->buffer};
-    VkDeviceSize offsets[] = {0};
-    vkCmdBindVertexBuffers(ddev->command_buffers[ddev->current_frame], 0, 1, vertex_buffers, offsets);
-
+    for (u32 i = 0; i < vbo_count; ++i)
+        vkCmdBindVertexBuffers(ddev->command_buffers[ddev->current_frame], i, 1, &vbo[i].buffer, &offsets[i]);
 }
 static void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
 {
@@ -2011,26 +1998,29 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
     //drawcall 1
-    dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
-    dg_draw(ddev, 3,0);
+    //dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
+    //dg_draw(ddev, 3,0);
 
     //drawcall 2
     dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dg_bind_vertex_buffer(ddev, &base_vbo);
+    dgBuffer buffers[] = {base_vbo, normal_vbo, tex_vbo};
+    u64 offsets[] = {0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo);
 
-
-    mat4 data[4] = {0.9,(sin(2 * dtime_sec(dtime_now()))),0.2,0.2};
+    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
     dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
     dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 
-    mat4 data2[4] = {0.9,-1.f* (sin(2 * dtime_sec(dtime_now()))),0.2,0.2};
+/*
+    mat4 data2[4] = {0.9,-1.f* (sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
     dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 0);
     dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+*/
  
  
 
@@ -2117,6 +2107,19 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_vbo, sizeof(dgVertex) * 24, cube_vertices);
 	
+	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&pos_vbo, sizeof(cube_positions), cube_positions);
+	
+    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&normal_vbo, sizeof(cube_normals), cube_normals);
+	
+	
+    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&tex_vbo, sizeof(cube_tex_coords), cube_tex_coords);
+	
 	
 	
 	//create index buffer
@@ -2126,6 +2129,8 @@ b32 dgfx_init(void)
 
     //dg_rt_init(&dd, &def_rt, 4, TRUE);
 
-    t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    //t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+
+    t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UNORM);
 	return 1;
 }

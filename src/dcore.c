@@ -1,7 +1,19 @@
 #define DTIME_IMPLEMENTATION
 #include "dcore.h"
+#include "dui_renderer.h"
 
 extern dgDevice dd;
+
+mu_Context ctx;
+static int text_width(mu_Font font, const char *text, int len) {
+  if (len == -1) { len = strlen(text); }
+  return dui_get_text_width(text, len);
+}
+
+static int text_height(mu_Font font) {
+  return dui_get_text_height();
+}
+
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -43,6 +55,11 @@ void dcore_init(void)
 
     //Basic static hashmap testing
     assert(H32_static_ok());
+
+    //Initialize microui
+    mu_init(&ctx);
+    ctx.text_width = text_width;
+    ctx.text_height = text_height;
 
 
     dg_frame_begin(&dd);

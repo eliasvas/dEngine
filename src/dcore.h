@@ -1,6 +1,7 @@
 #ifndef __DCORE__
 #define __DCORE__
 #include "tools.h"
+#include "microui/microui.h"
 //include all subsystems so we can manage them
 #include "dconfig.h"
 #include "dtime.h"

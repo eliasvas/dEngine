@@ -1,5 +1,7 @@
 #include "dcore.h"
+#include "dui_renderer.h"
 
+extern mu_Context ctx;
 
 //this is an application, it should be a thing on its own! (an exe referencing dengine.dll)
 
@@ -54,6 +56,42 @@ b32 update(void)
     if (dkey_pressed(DK_LMB))printf("DK_LMB pressed!\n");
     if (dkey_released(DK_LMB))printf("DK_LMB released!\n");
 
+
+    mu_begin(&ctx);
+    if (mu_begin_window(&ctx, "My Window", mu_rect(10, 10, 140, 86))) {
+        mu_layout_row(&ctx, 2, (int[]) { 60, -1 }, 0);
+
+        mu_label(&ctx, "First:");
+        if (mu_button(&ctx, "Button1")) {
+            printf("Button1 pressed\n");
+        }
+
+        mu_label(&ctx, "Second:");
+        if (mu_button(&ctx, "Button2")) {
+            mu_open_popup(&ctx, "My Popup");
+        }
+
+        if (mu_begin_popup(&ctx, "My Popup")) {
+            mu_label(&ctx, "Hello world!");
+            mu_end_popup(&ctx);
+        }
+
+        mu_end_window(&ctx);
+    }
+    mu_end(&ctx);
+
+    dui_clear(mu_color(0, 0, 0, 255));
+    mu_Command *cmd = NULL;
+    while (mu_next_command(&ctx, &cmd)) {
+      switch (cmd->type) {
+        case MU_COMMAND_TEXT: dui_draw_text(cmd->text.str, cmd->text.pos, cmd->text.color); break;
+        case MU_COMMAND_RECT: dui_draw_rect(cmd->rect.rect, cmd->rect.color); break;
+        case MU_COMMAND_ICON: dui_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
+        case MU_COMMAND_CLIP: dui_set_clip_rect(cmd->clip.rect); break;
+      }
+    }
+    dui_present();
+
     return 1;
 }
 
@@ -70,7 +108,7 @@ int main(void)
         dcore_update();//update the state of the engine for each step
 
 
-
+/*
     dJobDecl job_decl = {print_nonsense, arg00};
     dJobDecl job_decl2 = {print_number, &numberr};
 
@@ -78,6 +116,7 @@ int main(void)
     djob_queue_add_job(&job_manager.job_queue, job_decl2);
     djob_queue_add_job(&job_manager.job_queue, job_decl);
     djob_manager_work(&job_manager);
+*/
 
 
 
