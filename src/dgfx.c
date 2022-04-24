@@ -525,7 +525,8 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	sampler_info.unnormalizedCoordinates = VK_FALSE;
 	sampler_info.compareEnable = VK_FALSE;
 	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	//sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
 	sampler_info.maxLod = 0.0f;
@@ -2001,6 +2002,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
     dg_draw(ddev, 3,0);
 
+/*
     //drawcall 2
     dg_bind_pipeline(ddev, &ddev->base_pipe);
     dgBuffer buffers[] = {base_vbo, normal_vbo, tex_vbo};
@@ -2013,6 +2015,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+*/
 
 /*
     mat4 data2[4] = {0.9,-1.f* (sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
@@ -2133,6 +2136,6 @@ b32 dgfx_init(void)
 
     //t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 
-    t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UNORM);
+    t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 	return 1;
 }

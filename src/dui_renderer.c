@@ -134,6 +134,7 @@ void dui_clear(mu_Color clr) {
 
 
 void dui_present(void) {
+  if (!buf_idx)return;
   //printf("dui_present\n");
   dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
@@ -147,7 +148,7 @@ void dui_present(void) {
 	&ibo, buf_idx * 6 * sizeof(u32), index_buf);
 
 
-  dg_rendering_begin(&dd, NULL, 1, NULL, TRUE);
+  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE);
   dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
   dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
 

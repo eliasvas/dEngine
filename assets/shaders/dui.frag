@@ -20,7 +20,8 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform usampler2D tex_sampler1;
 
 void main() {
-	out_color = f_color * texture(tex_sampler1, f_tex_coord);
+	vec4 col = texture(tex_sampler1, f_tex_coord);
 	out_color = f_color;
+	if (col.x < 0.1)discard;
 	//out_color = vec4(1,0,0,1);
 }
