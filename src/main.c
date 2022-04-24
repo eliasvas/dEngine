@@ -80,18 +80,7 @@ b32 update(void)
     }
     mu_end(&ctx);
 
-    dui_clear(mu_color(0, 0, 0, 255));
-    mu_Command *cmd = NULL;
-    while (mu_next_command(&ctx, &cmd)) {
-      switch (cmd->type) {
-        case MU_COMMAND_TEXT: dui_draw_text(cmd->text.str, cmd->text.pos, cmd->text.color); break;
-        case MU_COMMAND_RECT: dui_draw_rect(cmd->rect.rect, cmd->rect.color); break;
-        case MU_COMMAND_ICON: dui_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
-        case MU_COMMAND_CLIP: dui_set_clip_rect(cmd->clip.rect); break;
-      }
-    }
-    dui_present();
-
+    
     return 1;
 }
 
@@ -105,7 +94,22 @@ int main(void)
     
     init();
     while(update())
+    {
         dcore_update();//update the state of the engine for each step
+
+        dui_clear(mu_color(0, 0, 0, 255));
+        mu_Command *cmd = NULL;
+        while (mu_next_command(&ctx, &cmd)) {
+            switch (cmd->type) {
+                case MU_COMMAND_TEXT: dui_draw_text(cmd->text.str, cmd->text.pos, cmd->text.color); break;
+                case MU_COMMAND_RECT: dui_draw_rect(cmd->rect.rect, cmd->rect.color); break;
+                case MU_COMMAND_ICON: dui_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
+                case MU_COMMAND_CLIP: dui_set_clip_rect(cmd->clip.rect); break;
+            }
+        }
+        dui_present();
+
+    }
 
 
 /*

@@ -132,6 +132,7 @@ typedef struct dgDevice
 
     dgPipeline fullscreen_pipe;
     dgPipeline base_pipe;
+    dgPipeline dui_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;
@@ -172,4 +173,18 @@ b32 dgfx_init(void);
 void dg_draw_frame(dgDevice *ddev);
 void dg_frame_begin(dgDevice *ddev);
 void dg_frame_end(dgDevice *ddev);
+
+void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, 
+    dgBuffer*buf, VkDeviceSize size, void *data);
+
+void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num);
+void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
+void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
+void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe);
+void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count);
+void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo);
+void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
+void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
+    dgTexture *depth_tex, b32 clear);
+void dg_rendering_end(dgDevice *ddev);
 #endif

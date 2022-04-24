@@ -4,19 +4,25 @@
 #include "dui_renderer.h"
 #include "../ext/microui/atlas.inl"
 #include "dgfx.h"
+#include "dcore.h"
 
 #define BUFFER_SIZE 16384
 
-static f32 tex_buf[BUFFER_SIZE *  8];
-static f32 vert_buf[BUFFER_SIZE *  8];
-static  u8 color_buf[BUFFER_SIZE * 16];
+
+// pos/norm/tex --> pos/col/tex
+static dgVertex vertices[BUFFER_SIZE]; 
 static u32 index_buf[BUFFER_SIZE *  6];
 
-static s32 width  = 800;
-static s32 height = 600;
+static dgBuffer vbo;
+static dgBuffer ibo;
+
+static s32 width  = 600;
+static s32 height = 400;
 static s32 buf_idx;
 
 extern dgTexture t; //this is the atlas texture, maybe we should load it here??? idk
+extern dgDevice dd;
+extern dWindow dwin;
 
 void dui_init(void) {
 }
@@ -32,10 +38,9 @@ static void flush(void) {
 static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
   if (buf_idx == BUFFER_SIZE) { flush(); }
 
-  u32 texvert_idx = buf_idx *  8;
-  u32   color_idx = buf_idx * 16;
-  u32 element_idx = buf_idx *  4;
-  u32   index_idx = buf_idx *  6;
+  u32   index_idx = buf_idx *  6; //6 elements for each vertex
+  u32   element_idx = buf_idx * 4;
+  u32   vert_idx = buf_idx * 4;
   buf_idx++;
 
   /* update texture buffer */
@@ -43,30 +48,23 @@ static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
   f32 y = src.y / (f32) ATLAS_HEIGHT;
   f32 w = src.w / (f32) ATLAS_WIDTH;
   f32 h = src.h / (f32) ATLAS_HEIGHT;
-  tex_buf[texvert_idx + 0] = x;
-  tex_buf[texvert_idx + 1] = y;
-  tex_buf[texvert_idx + 2] = x + w;
-  tex_buf[texvert_idx + 3] = y;
-  tex_buf[texvert_idx + 4] = x;
-  tex_buf[texvert_idx + 5] = y + h;
-  tex_buf[texvert_idx + 6] = x + w;
-  tex_buf[texvert_idx + 7] = y + h;
+  vertices[vert_idx + 0].tex_coord = v2(x,y);
+  vertices[vert_idx + 1].tex_coord = v2(x+w,y);
+  vertices[vert_idx + 2].tex_coord = v2(x,y+h);
+  vertices[vert_idx + 3].tex_coord = v2(x+w,y+h);
 
-  /* update vertex buffer */
-  vert_buf[texvert_idx + 0] = dst.x;
-  vert_buf[texvert_idx + 1] = dst.y;
-  vert_buf[texvert_idx + 2] = dst.x + dst.w;
-  vert_buf[texvert_idx + 3] = dst.y;
-  vert_buf[texvert_idx + 4] = dst.x;
-  vert_buf[texvert_idx + 5] = dst.y + dst.h;
-  vert_buf[texvert_idx + 6] = dst.x + dst.w;
-  vert_buf[texvert_idx + 7] = dst.y + dst.h;
+  /* update vertex buffer */ 
+  //I encode Alpha as 3rd component of position, why??? idk i dont want another vertex type
+  vertices[vert_idx + 0].pos = v3(dst.x,dst.y,color.a / (f32)255);
+  vertices[vert_idx + 1].pos = v3(dst.x + dst.w,dst.y,color.a / (f32)255);
+  vertices[vert_idx + 2].pos = v3(dst.x,dst.y + dst.h,color.a / (f32)255);
+  vertices[vert_idx + 3].pos = v3(dst.x + dst.w,dst.y + dst.h,color.a / (f32)255);
 
   /* update color buffer */
-  memcpy(color_buf + color_idx +  0, &color, 4);
-  memcpy(color_buf + color_idx +  4, &color, 4);
-  memcpy(color_buf + color_idx +  8, &color, 4);
-  memcpy(color_buf + color_idx + 12, &color, 4);
+  vertices[vert_idx + 0].normal = v3(color.r / (f32)255, color.g / (f32)255, color.b / (f32)255);
+  vertices[vert_idx + 1].normal = v3(color.r / (f32)255, color.g / (f32)255, color.b / (f32)255);
+  vertices[vert_idx + 2].normal = v3(color.r / (f32)255, color.g / (f32)255, color.b / (f32)255);
+  vertices[vert_idx + 3].normal = v3(color.r / (f32)255, color.g / (f32)255, color.b / (f32)255);
 
   /* update index buffer */
   index_buf[index_idx + 0] = element_idx + 0;
@@ -75,6 +73,7 @@ static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
   index_buf[index_idx + 3] = element_idx + 2;
   index_buf[index_idx + 4] = element_idx + 3;
   index_buf[index_idx + 5] = element_idx + 1;
+
 }
 
 
@@ -135,5 +134,39 @@ void dui_clear(mu_Color clr) {
 
 
 void dui_present(void) {
+  //printf("dui_present\n");
+  dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&vbo, buf_idx * 4 * sizeof(dgVertex), vertices);
+	
+	
+	
+	//create index buffer
+	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&ibo, buf_idx * 6 * sizeof(u32), index_buf);
+
+
+  dg_rendering_begin(&dd, NULL, 1, NULL, TRUE);
+  dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
+  dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
+
+
+  //UI drawcall 
+  dg_bind_pipeline(&dd, &dd.dui_pipe);
+  dgBuffer buffers[] = {vbo};
+  u64 offsets[] = {0};
+  dg_bind_vertex_buffers(&dd, buffers, offsets, 1);
+  dg_bind_index_buffer(&dd, &ibo);
+
+  f32 data[4] = {main_window.width,main_window.height,0.2,0.2};
+  dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
+  dg_set_desc_set(&dd,&dd.dui_pipe, &t, 1, 2);
+  dg_draw(&dd, 4,ibo.size/sizeof(u32));
+
+  dg_rendering_end(&dd);
+
+
+
   flush();
 }

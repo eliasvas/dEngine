@@ -1383,7 +1383,7 @@ static void dg_descriptor_allocator_reset_pools(dgDescriptorAllocator *da)
 }
 
 
-static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
+void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
 {
     VkRenderingAttachmentInfoKHR color_attachments[DG_MAX_COLOR_ATTACHMENTS];
     VkAttachmentLoadOp load_op = (clear > 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1439,7 +1439,7 @@ static void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_co
     vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
 }
 
-static void dg_rendering_end(dgDevice *ddev)
+void dg_rendering_end(dgDevice *ddev)
 {
     vkCmdEndRenderingKHR(ddev->command_buffers[ddev->current_frame]);
 }
@@ -1507,7 +1507,7 @@ static u32 find_mem_type(u32 type_filter, VkMemoryPropertyFlags properties)
     printf("Failed to find suitable memory type!");
 }
 
-static void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, dgBuffer*buf, VkDeviceSize size, void *data)
+void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, dgBuffer*buf, VkDeviceSize size, void *data)
 {
 	buf->device = dd.device;
     buf->active = TRUE;
@@ -1913,19 +1913,19 @@ static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgText
 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
-static void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height) 
+void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height) 
 {
     VkRect2D sci = scissor(x, y, width,height);
     vkCmdSetScissor(ddev->command_buffers[ddev->current_frame], 0, 1, &sci);
 }
-static void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height)
+void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height)
 {
     VkViewport view = viewport(x,y,width,height);
     vkCmdSetViewport(dd.command_buffers[ddev->current_frame], 0, 1, &view);
 }
 
 
-static void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
+void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
 { 
     //first we get the layout, then we 
     VkDescriptorSet desc_set;
@@ -1945,22 +1945,22 @@ static void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 siz
     vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline_layout, set_num,1, &desc_set,0,NULL); 
 }
 
-static void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe)
+void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe)
 {
     vkCmdBindPipeline(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline);
 }
 //maybe usea static array... dynamic array slow!
-static void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count)
+void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count)
 {
     for (u32 i = 0; i < vbo_count; ++i)
         vkCmdBindVertexBuffers(ddev->command_buffers[ddev->current_frame], i, 1, &vbo[i].buffer, &offsets[i]);
 }
-static void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
+void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
 {
     vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, 0, VK_INDEX_TYPE_UINT32);
 }
 
-static void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
+void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
 {
 
     if(index_count)
@@ -1997,9 +1997,9 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
-    //drawcall 1
-    //dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
-    //dg_draw(ddev, 3,0);
+    //drawcall 1 (background)
+    dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
+    dg_draw(ddev, 3,0);
 
     //drawcall 2
     dg_bind_pipeline(ddev, &ddev->base_pipe);
@@ -2026,11 +2026,12 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_rendering_end(ddev);
 
-    dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 }
 
 void dg_frame_end(dgDevice *ddev)
 {
+    dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+
     VkSubmitInfo si = {0};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
@@ -2085,6 +2086,7 @@ void dg_device_init(void)
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
+    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag"));
     assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
