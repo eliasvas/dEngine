@@ -123,13 +123,19 @@ int dui_get_text_height(void) {
 void dui_set_clip_rect(mu_Rect rect) {
   flush();
   //glScissor(rect.x, height - (rect.y + rect.h), rect.w, rect.h);
+  dg_set_scissor(&dd, rect.x, height - (rect.y + rect.h), rect.w, rect.h);
 }
 
 
 void dui_clear(mu_Color clr) {
   flush();
-  //glClearColor(clr.r / 255., clr.g / 255., clr.b / 255., clr.a / 255.);
-  //glClear(GL_COLOR_BUFFER_BIT);
+  //dg_wait_idle(&dd);
+  /*
+  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE);
+  dg_bind_pipeline(&dd, &dd.fullscreen_pipe);
+  dg_draw(&dd, 3,0);
+  dg_rendering_end(&dd);
+  */
 }
 
 
@@ -165,8 +171,9 @@ void dui_present(void) {
   dg_set_desc_set(&dd,&dd.dui_pipe, &t, 1, 2);
   dg_draw(&dd, 4,ibo.size/sizeof(u32));
 
-  dg_rendering_end(&dd);
 
+
+  dg_rendering_end(&dd);
 
 
   flush();

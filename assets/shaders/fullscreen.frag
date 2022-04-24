@@ -10,5 +10,6 @@ layout (location = 0) out vec4 frag_color;
 
 void main() {
     frag_color = vec4(f_color,1.0);
+    
     //frag_neg_color = vec4(vec3(1,1,1) - f_color,1.0);
 }

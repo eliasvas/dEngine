@@ -187,4 +187,5 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
 void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
     dgTexture *depth_tex, b32 clear);
 void dg_rendering_end(dgDevice *ddev);
+void dg_wait_idle(dgDevice *ddev);
 #endif

@@ -19,9 +19,18 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 
 layout(set = 2, binding = 0) uniform usampler2D tex_sampler1;
 
-void main() {
+void main2() {
 	vec4 col = texture(tex_sampler1, f_tex_coord);
 	out_color = f_color;
-	if (col.x < 0.1)discard;
+	out_color.a = col.x;
+	if (col.x < 0.8)discard;
 	//out_color = vec4(1,0,0,1);
+}
+
+void main() {
+	uvec4 col = texture(tex_sampler1, f_tex_coord);
+	float c = col.x / 255.0;
+	out_color = f_color; 
+	if(c <0.1)discard;
+	out_color.a = c;
 }
