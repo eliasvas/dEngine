@@ -5,14 +5,7 @@
 extern dgDevice dd;
 
 mu_Context ctx;
-static int text_width(mu_Font font, const char *text, int len) {
-  if (len == -1) { len = strlen(text); }
-  return dui_get_text_width(text, len);
-}
 
-static int text_height(mu_Font font) {
-  return dui_get_text_height();
-}
 
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
@@ -58,8 +51,8 @@ void dcore_init(void)
 
     //Initialize microui
     mu_init(&ctx);
-    ctx.text_width = text_width;
-    ctx.text_height = text_height;
+    ctx.text_width = dui_text_width;
+    ctx.text_height = dui_text_height;
     dui_init();
 
 

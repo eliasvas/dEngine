@@ -1447,31 +1447,31 @@ void dg_rendering_end(dgDevice *ddev)
 
 
 //attaches ALLOCATED memory block to buffer!
-static void dg_buf_bind(dgBuffer *buf, VkDeviceSize offset)
+void dg_buf_bind(dgBuffer *buf, VkDeviceSize offset)
 {
 	vkBindBufferMemory(dd.device, buf->buffer, buf->mem, offset);
 }
 
-static void dg_buf_copy_to(dgBuffer *src,void *data, VkDeviceSize size)
+void dg_buf_copy_to(dgBuffer *src,void *data, VkDeviceSize size)
 {
 	assert(src->mapped);
 	memcpy(src->mapped, data, size);
 }
 
-static void dg_buf_setup_descriptor(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
+void dg_buf_setup_descriptor(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
 {
 	buf->desc.offset = offset;
 	buf->desc.buffer = buf->buffer;
 	buf->desc.range = size;
 }
-static VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
+VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset)
 {
     //printf("buf->mem = %i\n\n", buf->mem);
     //fflush(stdout);
 	return vkMapMemory(dd.device, buf->mem, offset, size, 0, &buf->mapped);//@check @check @check @check
 }
 
-static void dg_buf_unmap(dgBuffer *buf)
+void dg_buf_unmap(dgBuffer *buf)
 {
 	if (buf->mapped)
 	{
@@ -1480,7 +1480,7 @@ static void dg_buf_unmap(dgBuffer *buf)
 	}
 }
 
-static void dg_buf_destroy(dgBuffer *buf)
+void dg_buf_destroy(dgBuffer *buf)
 {
     if (!buf->active)return;
 	if (buf->buffer)

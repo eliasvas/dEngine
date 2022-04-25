@@ -79,7 +79,6 @@ b32 update(void)
         mu_end_window(&ctx);
     }
     mu_end(&ctx);
-
     
     return 1;
 }
@@ -108,7 +107,6 @@ int main(void)
             }
         }
         dui_present();
-        //ctx.style->size =  (mu_Vec2){main_window.width, main_window.height};
     }
 
 

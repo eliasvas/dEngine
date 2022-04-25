@@ -18,7 +18,6 @@ static dgBuffer ibo;
 
 static s32 buf_idx;
 
-extern dgTexture t; //this is the atlas texture, maybe we should load it here??? idk
 extern dgDevice dd;
 
 dgTexture font_atlas;
@@ -27,6 +26,21 @@ mu_Rect mr;
 void dui_init(void) {
 
   font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
+
+/*
+  dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&vbo, BUFFER_SIZE, NULL);
+	
+	
+	
+	//create index buffer
+	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&ibo, BUFFER_SIZE * 6, NULL);
+  */
+
+
 }
 
 
@@ -145,17 +159,30 @@ void dui_clear(mu_Color clr) {
 
 void dui_present(void) {
   if (!buf_idx)return;
-  //printf("dui_present\n");
+  /*
+  //copy data from CPU vbo/ibo to GPU vbo/ibo buffer
+  dg_buf_map(&vbo, buf_idx * sizeof(dgVertex) * 4, 0);
+  memcpy(vbo.mapped, vertices, buf_idx * sizeof(dgVertex) * 4);
+  dg_buf_unmap(&vbo);
+
+  dg_buf_map(&ibo, buf_idx * sizeof(u32) * 6, 0);
+  memcpy(ibo.mapped, index_buf, buf_idx * sizeof(u32) * 6);
+  dg_buf_unmap(&ibo);
+  */
+
+
   dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&vbo, buf_idx * 4 * sizeof(dgVertex), vertices);
+	&vbo, BUFFER_SIZE, vertices);
 	
 	
 	
 	//create index buffer
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&ibo, buf_idx * 6 * sizeof(u32), index_buf);
+	&ibo, BUFFER_SIZE * 6, index_buf);
+
+
 
 
   dg_rendering_begin(&dd, NULL, 1, NULL, FALSE);
@@ -176,8 +203,7 @@ void dui_present(void) {
   f32 data[4] = {main_window.width,main_window.height,0.2,0.2};
   dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
   dg_set_desc_set(&dd,&dd.dui_pipe, &font_atlas, 1, 2);
-  dg_draw(&dd, 4,ibo.size/sizeof(u32));
-
+  dg_draw(&dd, 4,buf_idx * sizeof(u32) * 6);
 
 
   dg_rendering_end(&dd);

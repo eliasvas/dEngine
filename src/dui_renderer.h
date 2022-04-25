@@ -14,4 +14,12 @@ void dui_set_clip_rect(mu_Rect rect);
 void dui_clear(mu_Color color);
 void dui_present(void);
 
+static int dui_text_width(mu_Font font, const char *text, int len) {
+  if (len == -1) { len = strlen(text); }
+  return dui_get_text_width(text, len);
+}
+
+static int dui_text_height(mu_Font font) {
+  return dui_get_text_height();
+}
 #endif
