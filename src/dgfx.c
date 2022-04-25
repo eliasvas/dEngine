@@ -1956,9 +1956,9 @@ void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo
     for (u32 i = 0; i < vbo_count; ++i)
         vkCmdBindVertexBuffers(ddev->command_buffers[ddev->current_frame], i, 1, &vbo[i].buffer, &offsets[i]);
 }
-void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo)
+void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset)
 {
-    vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, 0, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, ibo_offset, VK_INDEX_TYPE_UINT32);
 }
 
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)

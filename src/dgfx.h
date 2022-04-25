@@ -182,7 +182,7 @@ void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
 void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
 void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe);
 void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count);
-void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo);
+void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset);
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
 void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
     dgTexture *depth_tex, b32 clear);
