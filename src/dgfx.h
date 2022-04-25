@@ -188,4 +188,6 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count,
     dgTexture *depth_tex, b32 clear);
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format);
+
 #endif

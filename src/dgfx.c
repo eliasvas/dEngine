@@ -1668,7 +1668,7 @@ static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_
 	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
-static dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
 {
     dgTexture tex;
 	dgBuffer idb;
@@ -2136,6 +2136,6 @@ b32 dgfx_init(void)
 
     //t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 
-    t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
+    //t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 	return 1;
 }

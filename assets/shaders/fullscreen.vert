@@ -4,9 +4,9 @@ layout (location = 0) out vec3 f_color;
 layout (location = 1) out vec2 f_tex_coord;
 
 vec3 colors[3] = vec3[](
-    vec3(0.7, 0.3, 0.0),
-    vec3(0.1, 0.7, 0.1),
-    vec3(0.1, 0.0, 0.9)
+    vec3(0.7, 0.3, 0.1),
+    vec3(0.4, 0.2, 0.7),
+    vec3(0.4, 0.3, 0.6)
 );
 
 

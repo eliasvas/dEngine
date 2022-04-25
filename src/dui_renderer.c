@@ -16,15 +16,17 @@ static u32 index_buf[BUFFER_SIZE *  6];
 static dgBuffer vbo;
 static dgBuffer ibo;
 
-static s32 width  = 600;
-static s32 height = 400;
 static s32 buf_idx;
 
 extern dgTexture t; //this is the atlas texture, maybe we should load it here??? idk
 extern dgDevice dd;
-extern dWindow dwin;
+
+dgTexture font_atlas;
+mu_Rect mr;
 
 void dui_init(void) {
+
+  font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 }
 
 
@@ -123,7 +125,9 @@ int dui_get_text_height(void) {
 void dui_set_clip_rect(mu_Rect rect) {
   flush();
   //glScissor(rect.x, height - (rect.y + rect.h), rect.w, rect.h);
-  dg_set_scissor(&dd, rect.x, height - (rect.y + rect.h), rect.w, rect.h);
+  mr = rect;
+
+  dg_set_scissor(&dd, mr.x, main_window.height - (mr.y + mr.h), mr.w, mr.h);
 }
 
 
@@ -161,6 +165,9 @@ void dui_present(void) {
 
   //UI drawcall 
   dg_bind_pipeline(&dd, &dd.dui_pipe);
+  //dg_set_viewport(&dd, 0,0,dd.swap.extent.width, dd.swap.extent.height);
+  dg_set_viewport(&dd, 0,0,600,400);
+
   dgBuffer buffers[] = {vbo};
   u64 offsets[] = {0};
   dg_bind_vertex_buffers(&dd, buffers, offsets, 1);
@@ -168,7 +175,7 @@ void dui_present(void) {
 
   f32 data[4] = {main_window.width,main_window.height,0.2,0.2};
   dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
-  dg_set_desc_set(&dd,&dd.dui_pipe, &t, 1, 2);
+  dg_set_desc_set(&dd,&dd.dui_pipe, &font_atlas, 1, 2);
   dg_draw(&dd, 4,ibo.size/sizeof(u32));
 
 

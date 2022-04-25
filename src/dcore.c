@@ -60,6 +60,7 @@ void dcore_init(void)
     mu_init(&ctx);
     ctx.text_width = text_width;
     ctx.text_height = text_height;
+    dui_init();
 
 
     dg_frame_begin(&dd);

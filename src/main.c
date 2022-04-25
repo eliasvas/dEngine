@@ -108,6 +108,7 @@ int main(void)
             }
         }
         dui_present();
+        //ctx.style->size =  (mu_Vec2){main_window.width, main_window.height};
     }
 
 
