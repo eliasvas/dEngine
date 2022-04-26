@@ -12,6 +12,7 @@ typedef struct dWindow
     u32 width, height;
     b32 hidden;
     b32 resizable;
+    b32 resized;
     b32 fullscreen;
     char title[32];
 }dWindow;

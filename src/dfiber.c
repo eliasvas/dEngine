@@ -5,12 +5,12 @@ b32 fibers_ok(void)
     volatile int x = 0;
     volatile int y = 0;
     Context c = {0};    
-    get_context(&c);
+    //get_context(&c);
     y++;
     if (x == 0)
     {
         x++;
-        set_context(&c);
+        //set_context(&c);
     }
     return (y == 2);
 }
@@ -29,8 +29,7 @@ void djob_request(dJobRequest req, u32 arg)
             global_request = REQ_EXIT;
             break;
     }
-    swap_context(task_context, &main_context);
-    //set_context(&main_context);
+    //swap_context(task_context, &main_context);
 }
 
 //A task/job has issued a request (normally yield or exit)
@@ -60,7 +59,7 @@ void djob_manager_work(dJobManager *m)
         Context *current_task = djob_queue_remove_job(&m->job_queue);
         //@investigate
         task_context = current_task;
-        swap_context(&main_context, task_context);
+        //swap_context(&main_context, task_context);
         djob_handle(&job_manager, global_request, global_arg);
     }
     printf("djob_manager finished all jobs\n");

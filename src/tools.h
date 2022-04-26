@@ -949,12 +949,12 @@ INLINE mat4 orthographic_proj(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
     //the quotents are in reverse because we were supposed to do one more matrix multiplication to negate z..
     //its basically two steps in one..
     res.elements[0][0] = 2.0f / (r - l);
-    res.elements[1][1] = 2.0f / (t - b);
+    res.elements[1][1] = 2.0f / (b - t);
     res.elements[2][2] = 2.0f / (n - f);
     res.elements[3][3] = 1.0f;
 
     res.elements[3][0] = (l + r) / (l - r);
-    res.elements[3][1] = (b + t) / (b - t);
+    res.elements[3][1] = -(b + t) / (b - t);
     res.elements[3][2] = (f + n) / (n - f);
 
     return res;

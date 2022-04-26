@@ -24,6 +24,7 @@ dgTexture font_atlas;
 mu_Rect mr;
 
 void dui_init(void) {
+  printf("dui init\n");
 
   font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
@@ -169,14 +170,14 @@ void dui_present(void) {
 
 
   dg_rendering_begin(&dd, NULL, 1, NULL, FALSE);
-  dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
-  dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
+  //dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
+  //dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
 
 
   //UI drawcall 
   dg_bind_pipeline(&dd, &dd.dui_pipe);
-  //dg_set_viewport(&dd, 0,0,dd.swap.extent.width, dd.swap.extent.height);
-  dg_set_viewport(&dd, 0,0,600,400);
+  dg_set_viewport(&dd, 0,0,dd.swap.extent.width, dd.swap.extent.height);
+  //dg_set_viewport(&dd, 0,0,600,400);
 
   dgBuffer buffers[] = {vbo};
   u64 offsets[] = {0};
@@ -184,7 +185,12 @@ void dui_present(void) {
   dg_bind_index_buffer(&dd, &ibo, 0);
 
   f32 data[4] = {main_window.width,main_window.height,0.2,0.2};
+  mat4 global_data[3] = {m4d(1.0f),
+    orthographic_proj(0, main_window.width, main_window.height, 0, -1.0f, 1.0f), m4d(1.0f)};
+
+  dg_set_desc_set(&dd,&dd.dui_pipe, global_data, sizeof(global_data), 0);
   dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
+  //dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
   dg_set_desc_set(&dd,&dd.dui_pipe, &font_atlas, 1, 2);
   dg_draw(&dd, 4,buf_idx * 6);
 

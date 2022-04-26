@@ -1125,13 +1125,14 @@ static void dg_recreate_swapchain(dgDevice *ddev)
 {
     vkDeviceWaitIdle(ddev->device);
     //in case of window minimization (w = 0, h = 0) we wait until we get a proper window again
-    u32 width = main_window.width;
-    u32 height = main_window.height;
     
     
     dg_cleanup_swapchain(ddev);
     dg_create_swapchain(ddev);
     dg_create_swapchain_image_views(ddev);
+    main_window.width = ddev->swap.extent.width;
+    main_window.height = ddev->swap.extent.height;
+
     
     //dg_create_pipeline(ddev, &ddev->fullscreen_pipe, "fullscreen.vert", "fullscreen.frag");
     dg_create_command_buffers(ddev);
@@ -1941,7 +1942,7 @@ void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 
     }
     else
     {
-        dg_update_desc_set(ddev, desc_set, data, sizeof(data));
+        dg_update_desc_set(ddev, desc_set, data, size);
     }
     vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline_layout, set_num,1, &desc_set,0,NULL); 
 }

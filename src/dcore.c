@@ -6,10 +6,12 @@ extern dgDevice dd;
 
 mu_Context ctx;
 
+extern dConfig engine_config;
 
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
+
     //Initialize Memory Allocators
     memset(&main_arena, 0, sizeof(Arena));
     u32 main_arena_size = megabytes(1);
@@ -26,6 +28,8 @@ void dcore_init(void)
     dconfig_load();
     dconfig_save();
 
+    dwindow_create(&main_window, "Main Window", engine_config.default_resolution.x, engine_config.default_resolution.y, DWINDOW_OPT_VULKAN | DWINDOW_OPT_RESIZABLE);
+
 
     //Initialize Time
     dtime_init();
@@ -34,10 +38,12 @@ void dcore_init(void)
     //Threading Initialization (none needed) + Testing
     assert(threads_ok());
 
-    //Job System/Fiber Initialization + Testing
+/*
+    //Fiber Job System/Fiber Initialization + Testing
     djob_manager_init(&job_manager);
     memset(&main_context, 0, sizeof(main_context));
     assert(fibers_ok());
+*/
 
 
     //Initialize input system

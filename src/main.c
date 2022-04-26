@@ -9,78 +9,108 @@ extern mu_Context ctx;
 //FEATURES TODO
 //make the engine self compile (no external dependencies) to a single executable
 //shader/texture CACHING!!!!!
-//-Fibers (w/ multiple threads)
+//Multithreading!!!!
 //-Engine logging
 //-Profiling
 //-Basic Sound (+ Audio compression/decompression)
 
 
 
-int numberr = 122;
+static void test_window(mu_Context *ctx) {
+  /* do window */
+  if (mu_begin_window(ctx, "Demo Window", mu_rect(40, 40, 300, 350))) {
+    mu_Container *win = mu_get_current_container(ctx);
+    win->rect.w = mu_max(win->rect.w, 240);
+    win->rect.h = mu_max(win->rect.h, 200);
 
-void print_number(void *data)
-{
-    printf("%i\n", numberr);
+    /* window info */
+    if (mu_header(ctx, "Window Info")) {
+      mu_Container *win = mu_get_current_container(ctx);
+      char buf[64];
+      mu_layout_row(ctx, 2, (int[]) { 54, -1 }, 0);
+      mu_label(ctx,"Position:");
+      sprintf(buf, "%d, %d", win->rect.x, win->rect.y); mu_label(ctx, buf);
+      mu_label(ctx, "Size:");
+      sprintf(buf, "%d, %d", win->rect.w, win->rect.h); mu_label(ctx, buf);
+    }
 
-    djob_request(REQ_EXIT, 0);
+    /* labels + buttons */
+    if (mu_header_ex(ctx, "Test Buttons", MU_OPT_EXPANDED)) {
+      mu_layout_row(ctx, 3, (int[]) { 86, -110, -1 }, 0);
+      mu_label(ctx, "Test buttons 1:");
+      if (mu_button(ctx, "Button 1")) { printf("Pressed button 1"); }
+      if (mu_button(ctx, "Button 2")) { printf("Pressed button 2"); }
+      mu_label(ctx, "Test buttons 2:");
+      if (mu_button(ctx, "Button 3")) { printf("Pressed button 3"); }
+      if (mu_button(ctx, "Popup")) { mu_open_popup(ctx, "Test Popup"); }
+      if (mu_begin_popup(ctx, "Test Popup")) {
+        mu_button(ctx, "Hello");
+        mu_button(ctx, "World");
+        mu_end_popup(ctx);
+      }
+    }
+
+    /* tree */
+    if (mu_header_ex(ctx, "Tree and Text", MU_OPT_EXPANDED)) {
+      mu_layout_row(ctx, 2, (int[]) { 140, -1 }, 0);
+      mu_layout_begin_column(ctx);
+      if (mu_begin_treenode(ctx, "Test 1")) {
+        if (mu_begin_treenode(ctx, "Test 1a")) {
+          mu_label(ctx, "Hello");
+          mu_label(ctx, "world");
+          mu_end_treenode(ctx);
+        }
+        if (mu_begin_treenode(ctx, "Test 1b")) {
+          if (mu_button(ctx, "Button 1")) { printf("Pressed button 1"); }
+          if (mu_button(ctx, "Button 2")) { printf("Pressed button 2"); }
+          mu_end_treenode(ctx);
+        }
+        mu_end_treenode(ctx);
+      }
+      if (mu_begin_treenode(ctx, "Test 2")) {
+        mu_layout_row(ctx, 2, (int[]) { 54, 54 }, 0);
+        if (mu_button(ctx, "Button 3")) { printf("Pressed button 3"); }
+        if (mu_button(ctx, "Button 4")) { printf("Pressed button 4"); }
+        if (mu_button(ctx, "Button 5")) { printf("Pressed button 5"); }
+        if (mu_button(ctx, "Button 6")) { printf("Pressed button 6"); }
+        mu_end_treenode(ctx);
+      }
+      if (mu_begin_treenode(ctx, "Test 3")) {
+        static int checks[3] = { 1, 0, 1 };
+        mu_checkbox(ctx, "Checkbox 1", &checks[0]);
+        mu_checkbox(ctx, "Checkbox 2", &checks[1]);
+        mu_checkbox(ctx, "Checkbox 3", &checks[2]);
+        mu_end_treenode(ctx);
+      }
+      mu_layout_end_column(ctx);
+
+      mu_layout_begin_column(ctx);
+      mu_layout_row(ctx, 1, (int[]) { -1 }, 0);
+      mu_text(ctx, "Lorem ipsum dolor sit amet, consectetur adipiscing "
+        "elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus "
+        "ipsum, eu varius magna felis a nulla.");
+      mu_layout_end_column(ctx);
+    }
+
+    mu_end_window(ctx);
+  }
 }
-void print_nonsense(void *data)
-{
-    printf("%s\n", (char*)data);
-    printf("nonsense1\n");
-    djob_request(REQ_YIELD, 0);
 
-    printf("nonsense2\n");
-    djob_request(REQ_EXIT, 0);
-    printf("we should never get here????");
-}
 
 void init(void)
 {
-    dwindow_create(&main_window, "Main Window", 600, 400, DWINDOW_OPT_VULKAN | DWINDOW_OPT_RESIZABLE);
     dcore_init();
 }
 
 b32 update(void)
 {
     dinput_update();
-    if (dkey_pressed(DK_0))printf("DK_%c pressed!\n", '0');
-    if (dkey_released(DK_0))printf("DK_%c released!\n", '0');
 
-    if (dkey_pressed(DK_A))printf("DK_%c pressed!\n", 'A');
-    if (dkey_released(DK_A))printf("DK_%c released!\n", 'A');
-
-    if (dkey_pressed(DK_LEFT))printf("DK_LEFT pressed!\n");
-    if (dkey_released(DK_LEFT))printf("DK_LEFT released!\n");
-
-    if (dkey_pressed(DK_LMB))printf("DK_LMB pressed!\n");
-    if (dkey_released(DK_LMB))printf("DK_LMB released!\n");
-
-
-    mu_begin(&ctx);
-    if (mu_begin_window(&ctx, "My Window", mu_rect(10, 10, 140, 86))) {
-        mu_layout_row(&ctx, 2, (int[]) { 60, -1 }, 0);
-
-        mu_label(&ctx, "First:");
-        if (mu_button(&ctx, "Button1")) {
-            printf("Button1 pressed\n");
-        }
-
-        mu_label(&ctx, "Second:");
-        if (mu_button(&ctx, "Button2")) {
-            mu_open_popup(&ctx, "My Popup");
-        }
-
-        if (mu_begin_popup(&ctx, "My Popup")) {
-            mu_label(&ctx, "Hello world!");
-            mu_end_popup(&ctx);
-        }
-
-        mu_end_window(&ctx);
-    }
-    mu_end(&ctx);
+   mu_begin(&ctx);
+   test_window(&ctx);
+   mu_end(&ctx);
     
-    return 1;
+   return 1;
 }
 
 void destroy(void)
