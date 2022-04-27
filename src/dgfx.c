@@ -17,7 +17,8 @@ dgBuffer tex_vbo;
 dgDevice dd;
 dgBuffer base_vbo;
 dgBuffer base_ibo;
-dgTexture t;
+dgTexture t1;
+dgTexture t2;
 dgRT def_rt;
 
 //NOTE(ilias): This is UGLY AF!!!!
@@ -857,7 +858,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
         {
             VkDescriptorSetLayoutBinding binding ={0};
             binding.binding = current_set.bindings[j]->binding; 
-            binding.descriptorCount = current_set.bindings[j]->count;
+            binding.descriptorCount = 1;//current_set.bindings[j]->count;
             binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
             binding.descriptorType = current_set.bindings[j]->descriptor_type;
 
@@ -1025,7 +1026,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     dg_pipe_descriptor_set_layout(ddev, &pipe->vert_shader, layouts);
 
     VkPipelineLayoutCreateInfo pipe_layout_info = 
-    dg_pipe_layout_create_info(layouts, pipe->vert_shader.info.descriptor_binding_count);
+    dg_pipe_layout_create_info(layouts, pipe->vert_shader.info.descriptor_set_count);
 
     VK_CHECK(vkCreatePipelineLayout(ddev->device, &pipe_layout_info, NULL, &pipe->pipeline_layout));
 
@@ -2001,6 +2002,11 @@ void dg_frame_begin(dgDevice *ddev)
 
     //drawcall 1 (background)
     dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
+    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 0);
+    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 1);
+    dgTexture t[2] = {t1,t2};
+    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, &t, 2, 2);
     dg_draw(ddev, 3,0);
 
 /*
@@ -2135,8 +2141,8 @@ b32 dgfx_init(void)
 
     //dg_rt_init(&dd, &def_rt, 4, TRUE);
 
-    //t = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    t1 = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
 
-    //t = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
+    t2 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 	return 1;
 }
