@@ -1934,11 +1934,12 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth)
     for (u32 i = 0; i < rt->color_attachment_count; ++i)
     {
         //rt->color_attachments[i] = dg_create_texture_image(ddev,"../assets/sample.png",ddev->swap.image_format);
-        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,1024,1024,ddev->swap.image_format);
+        //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,1024,1024,ddev->swap.image_format);
+        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,ddev->swap.extent.width,ddev->swap.extent.height,ddev->swap.image_format);
     }
     if (rt->depth_active)
-        //rt->depth_attachment = dg_create_depth_attachment(ddev, DG_DEPTH_SIZE, DG_DEPTH_SIZE);
-        rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
+        //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
+        rt->depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height);
 }
 
 static void dg_ubo_data_buffer_clear(dgUBODataBuffer *buf, u32 frame_num)
@@ -2113,28 +2114,6 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_wait_idle(ddev);
 
-
-/*
-    {
-        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_bind_pipeline(ddev, &ddev->base_pipe);
-        dgBuffer buffers[] = {base_vbo};
-        u64 offsets[] = {0};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-        dg_bind_index_buffer(ddev, &base_ibo, 0);
-
-        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
-        dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-
-        dg_rendering_end(ddev);
-    }
-*/
-
     {
         dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE);
         dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
@@ -2145,9 +2124,12 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
-        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 10), m4d(1.0f),m4d(1.0f)};
+        //mat4 object_data = m4d(1.0f);
+        mat4 object_data = mat4_mul(mat4_translate(v3(0,0,-5)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 1);
+        dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 

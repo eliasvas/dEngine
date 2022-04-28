@@ -11,7 +11,7 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 } GlobalData;
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
-	vec3 color;
+	mat4 model;
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
@@ -22,10 +22,9 @@ layout(location = 1) out vec3 f_normal;
 layout(location = 2) out vec2 f_tex_coord;
 
 void main() {
-    gl_Position = vec4(vertex_pos  *ObjectData.color.x, 1.0);
-    gl_Position.x += GlobalData.view[0][1];
+    gl_Position = GlobalData.proj * GlobalData.view * ObjectData.model * vec4(vertex_pos, 1.0);
     f_normal = vertex_normal;
-    f_frag_pos = vertex_pos;
+    f_frag_pos = (ObjectData.model * vec4(vertex_pos,1.0f)).xyz;
     f_tex_coord = tex_coord;
     
 }
