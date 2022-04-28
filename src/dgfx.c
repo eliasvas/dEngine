@@ -865,10 +865,11 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             dbf_push(desc_set_layout_bindings, binding);
 
             //u64 full_binding_hash = current_binding.binding | current_binding.descriptorType << 8 | current_binding.descriptorCount << 16 | current_binding.stageFlags << 24;
-            u16 binding_hash = current_set.set | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
+            u16 binding_hash = current_set.set | (binding.descriptorType << 8); //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
             total_hash |= (binding_hash << (binding.binding * 16));
             //printf("total hash: %lu\n", total_hash);
         }
+        total_hash = (dbf_len(desc_set_layout_bindings) << 16) | desc_set_layout_bindings[0].descriptorType; 
 
         layouts[current_set.set] = dg_descriptor_set_layout_cache_get(&ddev->desc_layout_cache, total_hash);
         //if layout not found in cache, we create it and add it to the cache
@@ -916,10 +917,11 @@ static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShad
             dbf_push(desc_set_layout_bindings, binding);
 
             //u64 full_binding_hash = current_binding.binding | current_binding.descriptorType << 8 | current_binding.descriptorCount << 16 | current_binding.stageFlags << 24;
-            u16 binding_hash = current_set.set | binding.descriptorType << 8; //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
+            u16 binding_hash = current_set.set | (binding.descriptorType << 8); //18 bytes per binding * 4 (MAX) bindings = 64 bits! (one u64, our hash key)
             total_hash |= (binding_hash << (binding.binding * 16));
             //printf("total hash: %lu\n", total_hash);
         }
+        total_hash = (dbf_len(desc_set_layout_bindings) << 16) | desc_set_layout_bindings[0].descriptorType; 
 
         layout = dg_descriptor_set_layout_cache_get(&ddev->desc_layout_cache, total_hash);
         //if layout not found in cache, we create it and add it to the cache
@@ -1738,6 +1740,98 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	return tex;
 }
+static dgTexture dg_create_texture_image_basic(dgDevice *ddev, u32 tex_w, u32 tex_h, VkFormat format)
+{
+	dgTexture tex;
+    stbi_uc *pixels = malloc(sizeof(stbi_uc) * tex_w * tex_h * 4);
+	VkDeviceSize image_size = tex_w * tex_h * 4;
+	
+	
+	//[2]: we create a buffer to hold the pixel information (we also fill it)
+	dgBuffer idb;
+	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, image_size, pixels);
+	//[3]: we free the cpu side image, we don't need it
+	stbi_image_free(pixels);
+	//[4]: we create the VkImage that is undefined right now
+	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+	
+
+    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
+    /*
+    //first transition to layout general
+    dg_image_memory_barrier(
+        cmd,
+        ddev->swap.images[ddev->image_index], 
+        0, 
+        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+    */
+    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageMemoryBarrier.image = tex.image;
+    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
+
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, NULL,
+        0, NULL,
+        1, &imageMemoryBarrier);
+
+
+    VkBufferImageCopy region = {0};
+	region.bufferOffset = 0;
+	region.bufferRowLength = 0;
+	region.bufferImageHeight = 0;
+
+	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+	region.imageSubresource.mipLevel = 0;
+	region.imageSubresource.baseArrayLayer = 0;
+	region.imageSubresource.layerCount = 1;
+	region.imageOffset = (VkOffset3D){0, 0, 0};
+	region.imageExtent = (VkExtent3D){
+		tex_w,
+		tex_h,
+		1
+	};
+	vkCmdCopyBufferToImage(
+		cmd,
+		idb.buffer,
+		tex.image,
+		VK_IMAGE_LAYOUT_GENERAL,
+		1,
+		&region
+	);
+    
+    dg_end_single_time_commands(ddev, cmd);
+
+	dg_buf_destroy(&idb);
+	
+	
+	dg_create_texture_sampler(ddev, &tex.sampler);
+	
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.mip_levels = 0;
+	tex.width = tex_w;
+	tex.height = tex_h;
+    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
+	
+	return tex;
+}
+
+
 static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
@@ -1839,10 +1933,12 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth)
     rt->depth_active = (depth > 0) ? 1 : 0;
     for (u32 i = 0; i < rt->color_attachment_count; ++i)
     {
-        rt->color_attachments[i] = dg_create_texture_image(ddev,"../assets/sample.png",ddev->swap.image_format);
+        //rt->color_attachments[i] = dg_create_texture_image(ddev,"../assets/sample.png",ddev->swap.image_format);
+        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,1024,1024,ddev->swap.image_format);
     }
     if (rt->depth_active)
-        rt->depth_attachment = dg_create_depth_attachment(ddev, DG_DEPTH_SIZE, DG_DEPTH_SIZE);
+        //rt->depth_attachment = dg_create_depth_attachment(ddev, DG_DEPTH_SIZE, DG_DEPTH_SIZE);
+        rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
 }
 
 static void dg_ubo_data_buffer_clear(dgUBODataBuffer *buf, u32 frame_num)
@@ -1996,45 +2092,86 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
-    dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+   
 
-    //drawcall 1 (background)
-    dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
-    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 0);
-    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 1);
-    dgTexture t[2] = {t1,t2};
-    dg_set_desc_set(ddev,&ddev->fullscreen_pipe, &t, 2, 2);
-    dg_draw(ddev, 3,0);
+    {
+        dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
-/*
-    //drawcall 2
-    dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dgBuffer buffers[] = {base_vbo, normal_vbo, tex_vbo};
-    u64 offsets[] = {0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-    dg_bind_index_buffer(ddev, &base_ibo);
+        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        float data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
+        dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
+        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
+        dgTexture t[2] = {t2,t2};
+        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, &t, 2, 2);
+        dg_draw(ddev, 3,0);
 
-    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-    dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
-    dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
-    dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-*/
+        dg_rendering_end(ddev);
+    }
+
+    dg_wait_idle(ddev);
+
 
 /*
-    mat4 data2[4] = {0.9,-1.f* (sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-    dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 0);
-    dg_set_desc_set(ddev,&ddev->base_pipe, data2, sizeof(data), 1);
-    dg_set_desc_set(ddev,&ddev->base_pipe, &t, 1, 2);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-*/
- 
- 
+    {
+        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_bind_pipeline(ddev, &ddev->base_pipe);
+        dgBuffer buffers[] = {base_vbo};
+        u64 offsets[] = {0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+        dg_bind_index_buffer(ddev, &base_ibo, 0);
 
-    dg_rendering_end(ddev);
+        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 1);
+        dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+
+        dg_rendering_end(ddev);
+    }
+*/
+
+    {
+        dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE);
+        dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+        dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+        dg_bind_pipeline(ddev, &ddev->def_pipe);
+        dgBuffer buffers[] = {base_vbo};
+        u64 offsets[] = {0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+        dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 1);
+        dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+
+        dg_rendering_end(ddev);
+    }
+
+
+    dg_wait_idle(ddev);
+    {
+        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+
+        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        float data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
+        dg_bind_pipeline(ddev, &ddev->composition_pipe);
+        dg_set_desc_set(ddev,&ddev->composition_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->composition_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
+        dg_set_desc_set(ddev,&ddev->composition_pipe, def_rt.color_attachments, 3, 2);
+        dg_draw(ddev, 3,0);
+
+        dg_rendering_end(ddev);
+    }
+
 
 }
 
@@ -2094,8 +2231,10 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
+    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag"));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
+    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag"));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag"));
     assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
@@ -2119,30 +2258,15 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_vbo, sizeof(dgVertex) * 24, cube_vertices);
 	
-	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&pos_vbo, sizeof(cube_positions), cube_positions);
-	
-    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&normal_vbo, sizeof(cube_normals), cube_normals);
-	
-	
-    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&tex_vbo, sizeof(cube_tex_coords), cube_tex_coords);
-	
-	
-	
 	//create index buffer
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    //dg_rt_init(&dd, &def_rt, 4, TRUE);
+    dg_rt_init(&dd, &def_rt, 4, TRUE);
 
-    t1 = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    t2 = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
-    t2 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 	return 1;
 }

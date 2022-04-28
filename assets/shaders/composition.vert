@@ -29,12 +29,13 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	float modifier;
 } ObjectData;
 
-layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
-layout(set = 2, binding = 1) uniform sampler2D tex_sampler2;
+layout(set = 2, binding = 0) uniform sampler2D g_pos;
+layout(set = 2, binding = 1) uniform sampler2D g_normal;
+layout(set = 2, binding = 2) uniform sampler2D g_albedo_spec;
 
 
 void main() {
     f_tex_coord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
-	f_color = colors[gl_VertexIndex];
+    f_color = colors[gl_VertexIndex];
     gl_Position = vec4(f_tex_coord * 2.0 -1.0, 0.8999, 1.0f);
 }

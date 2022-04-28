@@ -177,6 +177,7 @@ void dui_present(void) {
   //UI drawcall 
   dg_bind_pipeline(&dd, &dd.dui_pipe);
   dg_set_viewport(&dd, 0,0,dd.swap.extent.width, dd.swap.extent.height);
+  dg_set_scissor(&dd, 0,0,dd.swap.extent.width, dd.swap.extent.height);
   //dg_set_viewport(&dd, 0,0,600,400);
 
   dgBuffer buffers[] = {vbo};

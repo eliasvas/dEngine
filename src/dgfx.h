@@ -132,6 +132,8 @@ typedef struct dgDevice
 
     dgPipeline fullscreen_pipe;
     dgPipeline base_pipe;
+    dgPipeline def_pipe;
+    dgPipeline composition_pipe;
     dgPipeline dui_pipe;
 
     VkCommandPool command_pool;

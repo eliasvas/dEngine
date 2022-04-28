@@ -3,11 +3,9 @@
 
 extern mu_Context ctx;
 
-//this is an application, it should be a thing on its own! (an exe referencing dengine.dll)
-
-
 //FEATURES TODO
-//make the engine self compile (no external dependencies) to a single executable
+//Render Targets should have customizable widths/height AND formats for each texture in the RT
+//make the engine self compile (no external dependencies) to a single executable (pack shaders in a .inl basically)
 //shader/texture CACHING!!!!!
 //Multithreading!!!!
 //-Engine logging

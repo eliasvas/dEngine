@@ -17,11 +17,15 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
 
 
-layout(location = 0) out vec3 f_color;
-layout(location = 1) out vec2 f_tex_coord;
+layout(location = 0) out vec3 f_frag_pos;
+layout(location = 1) out vec3 f_normal;
+layout(location = 2) out vec2 f_tex_coord;
+
 void main() {
     gl_Position = vec4(vertex_pos  *ObjectData.color.x, 1.0);
     gl_Position.x += GlobalData.view[0][1];
-    f_color = vertex_normal;
+    f_normal = vertex_normal;
+    f_frag_pos = vertex_pos;
     f_tex_coord = tex_coord;
+    
 }
