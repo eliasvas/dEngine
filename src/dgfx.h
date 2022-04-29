@@ -187,7 +187,7 @@ void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo
 void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset);
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
 void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
-    dgTexture *depth_tex, b32 clear);
+    dgTexture *depth_tex, b32 clear_color, b32 clear_depth);
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format);

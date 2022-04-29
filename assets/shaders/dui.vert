@@ -21,7 +21,8 @@ layout(location = 0) out vec4 f_color;
 layout(location = 1) out vec2 f_tex_coord;
 
 void main() {
-    gl_Position = GlobalData.proj * GlobalData.view * vec4(vertex_pos.x, vertex_pos.y, -1.0,1.0);
+    gl_Position = GlobalData.proj * GlobalData.view * vec4(vertex_pos.x, vertex_pos.y, 1.0,1.0);
     f_color= vec4(vertex_normal.x, vertex_normal.y, vertex_normal.z, vertex_pos.z);
     f_tex_coord = tex_coord;
+    gl_Position.z = 0.0;
 }

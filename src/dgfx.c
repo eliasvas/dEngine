@@ -1388,18 +1388,18 @@ static void dg_descriptor_allocator_reset_pools(dgDescriptorAllocator *da)
 }
 
 
-void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear)
+void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear_color, b32 clear_depth)
 {
     VkRenderingAttachmentInfoKHR color_attachments[DG_MAX_COLOR_ATTACHMENTS];
-    VkAttachmentLoadOp load_op = (clear > 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
+    VkAttachmentLoadOp cload_op = (clear_color > 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
     memset(color_attachments, 0, sizeof(VkRenderingAttachmentInfoKHR) * DG_MAX_COLOR_ATTACHMENTS);
 
     if (tex == NULL)
     {
         color_attachments[0].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
         color_attachments[0].imageView = dd.swap.image_views[dd.image_index];
-        color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-        color_attachments[0].loadOp = load_op;
+        color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+        color_attachments[0].loadOp = cload_op;
         color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
         color_attachments[0].clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
     }
@@ -1409,13 +1409,14 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
         {
             color_attachments[i].sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR;
             color_attachments[i].imageView = tex[i].view;
-            color_attachments[i].imageLayout = VK_IMAGE_LAYOUT_ATTACHMENT_OPTIMAL_KHR;
-            color_attachments[i].loadOp = load_op;
+            color_attachments[i].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+            color_attachments[i].loadOp = cload_op;
             color_attachments[i].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
             color_attachments[i].clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
         }
     }
 
+    VkAttachmentLoadOp dload_op = (clear_depth> 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
     VkRenderingAttachmentInfoKHR depth_attachment = {0};
     depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
     depth_attachment.pNext = NULL; 
@@ -1423,8 +1424,10 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
         depth_attachment.imageView = ddev->swap.depth_attachment.view;
     else
         depth_attachment.imageView = depth_tex->view;
-    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL_KHR;
-    depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.imageLayout = VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL;
+
+    //depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    depth_attachment.loadOp = dload_op;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
     depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
 
@@ -2095,27 +2098,10 @@ void dg_frame_begin(dgDevice *ddev)
 
    
 
-    {
-        dg_rendering_begin(ddev, NULL, 1, NULL, TRUE);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-
-        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        float data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
-        dg_bind_pipeline(ddev, &ddev->fullscreen_pipe);
-        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
-        dgTexture t[2] = {t2,t2};
-        dg_set_desc_set(ddev,&ddev->fullscreen_pipe, &t, 2, 2);
-        dg_draw(ddev, 3,0);
-
-        dg_rendering_end(ddev);
-    }
-
-    dg_wait_idle(ddev);
+    //dg_wait_idle(ddev);
 
     {
-        dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE);
+        dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
         dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
         dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
         dg_bind_pipeline(ddev, &ddev->def_pipe);
@@ -2125,9 +2111,9 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 10), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
-        mat4 object_data = mat4_mul(mat4_translate(v3(0,0,-5)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * sin(5 * dtime_sec(dtime_now())),-10)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
@@ -2139,17 +2125,38 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_wait_idle(ddev);
     {
-        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE);
+        dg_rendering_begin(ddev, NULL, 1, NULL, TRUE, TRUE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
         float data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        dg_set_desc_set(ddev,&ddev->composition_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->composition_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
         dg_set_desc_set(ddev,&ddev->composition_pipe, def_rt.color_attachments, 3, 2);
         dg_draw(ddev, 3,0);
+
+        dg_rendering_end(ddev);
+    }
+
+    {
+        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_bind_pipeline(ddev, &ddev->base_pipe);
+        dgBuffer buffers[] = {base_vbo};
+        u64 offsets[] = {0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+        dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+        //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
+        //mat4 object_data = m4d(1.0f);
+        mat4 object_data = mat4_mul(mat4_translate(v3(0,-1 * sin(5 * dtime_sec(dtime_now())),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->base_pipe, &object_data, sizeof(object_data), 1);
+        dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 
         dg_rendering_end(ddev);
     }
@@ -2159,6 +2166,8 @@ void dg_frame_begin(dgDevice *ddev)
 
 void dg_frame_end(dgDevice *ddev)
 {
+
+    
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
     VkSubmitInfo si = {0};
@@ -2215,7 +2224,7 @@ void dg_device_init(void)
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag"));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
-    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag"));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,"def.vert", "base.frag"));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag"));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag"));
     assert(dg_create_command_pool(&dd));
@@ -2247,7 +2256,7 @@ b32 dgfx_init(void)
 
     dg_rt_init(&dd, &def_rt, 4, TRUE);
 
-    t2 = dg_create_texture_image(&dd, "../assets/sample.png", VK_FORMAT_R8G8B8A8_SRGB);
+    t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
 	return 1;

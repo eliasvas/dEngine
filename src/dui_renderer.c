@@ -169,7 +169,7 @@ void dui_present(void) {
   dg_buf_unmap(&ibo);
 
 
-  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE);
+  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE, TRUE);
   //dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
   //dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
 

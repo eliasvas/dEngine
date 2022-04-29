@@ -1,8 +1,8 @@
 #version 450
 
-layout(location = 0) in vec3 f_color;
-
-layout(location = 1) in vec2 f_tex_coord;
+layout(location = 0) in vec3 f_frag_pos;
+layout(location = 1) in vec3 f_normal;
+layout(location = 2) in vec2 f_tex_coord;
 
 layout(location = 0) out vec4 out_color;
 
@@ -22,5 +22,5 @@ vec3 dir_light = vec3(-1,1,0.2);
 
 void main() {
 	//out_color = vec4(f_color.x, f_color.y, f_color.z, 1.0);
-	out_color = texture(tex_sampler1, f_tex_coord);
+	out_color = texture(tex_sampler1, f_tex_coord) * vec4(ObjectData.color,1.0);
 }

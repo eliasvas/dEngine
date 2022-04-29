@@ -781,20 +781,20 @@ INLINE mat4 mat4_rotate(f32 angle, vec3 axis)
 
     axis = vec3_normalize(axis);
 
-    float sinA = sin(to_radians(angle));
-    float cosA = cos(to_radians(angle));
-    float cos_val = 1.0f - cosA;
+    f32 sinA = sinf(to_radians(angle));
+    f32 cosA = cosf(to_radians(angle));
+    f32 cos_val = 1.0f - cosA;
 
     res.elements[0][0] = (axis.x * axis.x * cos_val) + cosA;
-    res.elements[0][1] = (axis.x * axis.y * cos_val) + (axis.z * sinA);
-    res.elements[0][2] = (axis.x * axis.z * cos_val) - (axis.y * sinA);
+    res.elements[0][1] = (axis.x * axis.y * cos_val) - (axis.z * sinA);
+    res.elements[0][2] = (axis.x * axis.z * cos_val) + (axis.y * sinA);
 
-    res.elements[1][0] = (axis.y * axis.x * cos_val) - (axis.z * sinA);
+    res.elements[1][0] = (axis.y * axis.x * cos_val) + (axis.z * sinA);
     res.elements[1][1] = (axis.y * axis.y * cos_val) + cosA;
-    res.elements[1][2] = (axis.y * axis.z * cos_val) + (axis.x * sinA);
+    res.elements[1][2] = (axis.y * axis.z * cos_val) - (axis.x * sinA);
 
-    res.elements[2][0] = (axis.z * axis.x * cos_val) + (axis.y * sinA);
-    res.elements[2][1] = (axis.z * axis.y * cos_val) - (axis.x * sinA);
+    res.elements[2][0] = (axis.z * axis.x * cos_val) - (axis.y * sinA);
+    res.elements[2][1] = (axis.z * axis.y * cos_val) + (axis.x * sinA);
     res.elements[2][2] = (axis.z * axis.z * cos_val) + cosA;
 
     return (res);
@@ -803,9 +803,9 @@ INLINE mat4 mat4_rotate(f32 angle, vec3 axis)
 INLINE mat4 mat4_scale(vec3 s)
 {
     mat4 res = m4d(1.f);
-    res.elements[0][0] *= s.x;
-    res.elements[1][1] *= s.y;
-    res.elements[2][2] *= s.z;
+    res.elements[0][0] = s.x;
+    res.elements[1][1] = s.y;
+    res.elements[2][2] = s.z;
     return res;
 }
 
