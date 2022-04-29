@@ -16,7 +16,7 @@ extern mu_Context ctx;
 
 static void test_window(mu_Context *ctx) {
   /* do window */
-  if (mu_begin_window(ctx, "Demo Window", mu_rect(40, 40, 300, 350))) {
+  if (mu_begin_window(ctx, "Demo Window", mu_rect(40, 40, 150, 150))) {
     mu_Container *win = mu_get_current_container(ctx);
     win->rect.w = mu_max(win->rect.w, 240);
     win->rect.h = mu_max(win->rect.h, 200);
@@ -30,66 +30,11 @@ static void test_window(mu_Context *ctx) {
       sprintf(buf, "%d, %d", win->rect.x, win->rect.y); mu_label(ctx, buf);
       mu_label(ctx, "Size:");
       sprintf(buf, "%d, %d", win->rect.w, win->rect.h); mu_label(ctx, buf);
+      static int checks[3] = { 1, 0, 1 };
+      mu_label(ctx, "Grid:");
+      mu_checkbox(ctx, "On/Off", &checks[0]);
+
     }
-
-    /* labels + buttons */
-    if (mu_header_ex(ctx, "Test Buttons", MU_OPT_EXPANDED)) {
-      mu_layout_row(ctx, 3, (int[]) { 86, -110, -1 }, 0);
-      mu_label(ctx, "Test buttons 1:");
-      if (mu_button(ctx, "Button 1")) { printf("Pressed button 1"); }
-      if (mu_button(ctx, "Button 2")) { printf("Pressed button 2"); }
-      mu_label(ctx, "Test buttons 2:");
-      if (mu_button(ctx, "Button 3")) { printf("Pressed button 3"); }
-      if (mu_button(ctx, "Popup")) { mu_open_popup(ctx, "Test Popup"); }
-      if (mu_begin_popup(ctx, "Test Popup")) {
-        mu_button(ctx, "Hello");
-        mu_button(ctx, "World");
-        mu_end_popup(ctx);
-      }
-    }
-
-    /* tree */
-    if (mu_header_ex(ctx, "Tree and Text", MU_OPT_EXPANDED)) {
-      mu_layout_row(ctx, 2, (int[]) { 140, -1 }, 0);
-      mu_layout_begin_column(ctx);
-      if (mu_begin_treenode(ctx, "Test 1")) {
-        if (mu_begin_treenode(ctx, "Test 1a")) {
-          mu_label(ctx, "Hello");
-          mu_label(ctx, "world");
-          mu_end_treenode(ctx);
-        }
-        if (mu_begin_treenode(ctx, "Test 1b")) {
-          if (mu_button(ctx, "Button 1")) { printf("Pressed button 1"); }
-          if (mu_button(ctx, "Button 2")) { printf("Pressed button 2"); }
-          mu_end_treenode(ctx);
-        }
-        mu_end_treenode(ctx);
-      }
-      if (mu_begin_treenode(ctx, "Test 2")) {
-        mu_layout_row(ctx, 2, (int[]) { 54, 54 }, 0);
-        if (mu_button(ctx, "Button 3")) { printf("Pressed button 3"); }
-        if (mu_button(ctx, "Button 4")) { printf("Pressed button 4"); }
-        if (mu_button(ctx, "Button 5")) { printf("Pressed button 5"); }
-        if (mu_button(ctx, "Button 6")) { printf("Pressed button 6"); }
-        mu_end_treenode(ctx);
-      }
-      if (mu_begin_treenode(ctx, "Test 3")) {
-        static int checks[3] = { 1, 0, 1 };
-        mu_checkbox(ctx, "Checkbox 1", &checks[0]);
-        mu_checkbox(ctx, "Checkbox 2", &checks[1]);
-        mu_checkbox(ctx, "Checkbox 3", &checks[2]);
-        mu_end_treenode(ctx);
-      }
-      mu_layout_end_column(ctx);
-
-      mu_layout_begin_column(ctx);
-      mu_layout_row(ctx, 1, (int[]) { -1 }, 0);
-      mu_text(ctx, "Lorem ipsum dolor sit amet, consectetur adipiscing "
-        "elit. Maecenas lacinia, sem eu lacinia molestie, mi risus faucibus "
-        "ipsum, eu varius magna felis a nulla.");
-      mu_layout_end_column(ctx);
-    }
-
     mu_end_window(ctx);
   }
 }

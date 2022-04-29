@@ -1587,8 +1587,7 @@ static VkFormat dg_find_depth_format(dgDevice *ddev)
 {	VkFormat c[] = {VK_FORMAT_D32_SFLOAT, VK_FORMAT_D32_SFLOAT_S8_UINT, VK_FORMAT_D24_UNORM_S8_UINT};
 	return dg_find_supported_format(
                                 ddev,
-                                c,
-                                VK_IMAGE_TILING_OPTIMAL,
+                                c, VK_IMAGE_TILING_OPTIMAL,
                                 VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT,3);
     
 }
@@ -2097,9 +2096,9 @@ void dg_frame_begin(dgDevice *ddev)
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
    
+    mat4 inv = mat4_inv(mat4_mul(mat4_translate(v3(0,4,15)), mat4_rotate(PI, v3(1,0,0))));
 
-    //dg_wait_idle(ddev);
-
+    //draw to deferred FBO
     {
         dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
         dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
@@ -2111,9 +2110,9 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {inv, perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100), m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
-        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * sin(5 * dtime_sec(dtime_now())),-10)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * sin(5 * dtime_sec(dtime_now())),0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
@@ -2130,7 +2129,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        float data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
+        f32 data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
         dg_set_desc_set(ddev,&ddev->composition_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
         dg_set_desc_set(ddev,&ddev->composition_pipe, def_rt.color_attachments, 3, 2);
@@ -2138,6 +2137,8 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
+
+    
 
     {
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
@@ -2150,7 +2151,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {m4d(1.0f), perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {inv, perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
         mat4 object_data = mat4_mul(mat4_translate(v3(0,-1 * sin(5 * dtime_sec(dtime_now())),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
@@ -2161,7 +2162,17 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
 
-
+    //draw the grid ???
+    {
+        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_bind_pipeline(ddev, &ddev->grid_pipe);
+        float object_data = 2.0f;
+        dg_set_desc_set(ddev,&ddev->grid_pipe, &object_data, sizeof(object_data), 1);
+        dg_draw(ddev, 6,0);
+        dg_rendering_end(ddev);
+    }
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2223,6 +2234,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag"));
+    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag"));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"def.vert", "base.frag"));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag"));

@@ -58,7 +58,7 @@ void dconfig_save(void)
 void dconfig_default(void)
 {
     engine_config.graphics_api = DG_VULKAN;
-    engine_config.default_resolution = v2(1280,720); 
+    engine_config.default_resolution = v2(800,600); 
     sprintf(engine_config.shader_path, "../assets/shaders/");
     sprintf(engine_config.spirv_path, "../build/shaders/");
 }

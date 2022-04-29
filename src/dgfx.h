@@ -131,6 +131,7 @@ typedef struct dgDevice
     dgSwapchain swap;
 
     dgPipeline fullscreen_pipe;
+    dgPipeline grid_pipe;
     dgPipeline base_pipe;
     dgPipeline def_pipe;
     dgPipeline composition_pipe;
