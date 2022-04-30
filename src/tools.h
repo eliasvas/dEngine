@@ -781,20 +781,20 @@ INLINE mat4 mat4_rotate(f32 angle, vec3 axis)
 
     axis = vec3_normalize(axis);
 
-    f32 sinA = sinf(to_radians(angle));
-    f32 cosA = cosf(to_radians(angle));
-    f32 cos_val = 1.0f - cosA;
+    float sinA = sin(to_radians(angle));
+    float cosA = cos(to_radians(angle));
+    float cos_val = 1.0f - cosA;
 
     res.elements[0][0] = (axis.x * axis.x * cos_val) + cosA;
-    res.elements[0][1] = (axis.x * axis.y * cos_val) - (axis.z * sinA);
-    res.elements[0][2] = (axis.x * axis.z * cos_val) + (axis.y * sinA);
+    res.elements[0][1] = (axis.x * axis.y * cos_val) + (axis.z * sinA);
+    res.elements[0][2] = (axis.x * axis.z * cos_val) - (axis.y * sinA);
 
-    res.elements[1][0] = (axis.y * axis.x * cos_val) + (axis.z * sinA);
+    res.elements[1][0] = (axis.y * axis.x * cos_val) - (axis.z * sinA);
     res.elements[1][1] = (axis.y * axis.y * cos_val) + cosA;
-    res.elements[1][2] = (axis.y * axis.z * cos_val) - (axis.x * sinA);
+    res.elements[1][2] = (axis.y * axis.z * cos_val) + (axis.x * sinA);
 
-    res.elements[2][0] = (axis.z * axis.x * cos_val) - (axis.y * sinA);
-    res.elements[2][1] = (axis.z * axis.y * cos_val) + (axis.x * sinA);
+    res.elements[2][0] = (axis.z * axis.x * cos_val) + (axis.y * sinA);
+    res.elements[2][1] = (axis.z * axis.y * cos_val) - (axis.x * sinA);
     res.elements[2][2] = (axis.z * axis.z * cos_val) + cosA;
 
     return (res);
@@ -946,8 +946,6 @@ INLINE mat4 orthographic_proj(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
 {
     mat4 res = m4();
 
-    //the quotents are in reverse because we were supposed to do one more matrix multiplication to negate z..
-    //its basically two steps in one..
     res.elements[0][0] = 2.0f / (r - l);
     res.elements[1][1] = 2.0f / (b - t);
     res.elements[2][2] = 2.0f / (n - f);
@@ -1028,67 +1026,6 @@ INLINE mat4 look_at(vec3 eye, vec3 center, vec3 fake_up)
 
     return res;
 }
-
-INLINE mat4 
-swap_cols_mat4(mat4 mat, u32 col1, u32 col2)
-{
-    vec4 second_column = v4(mat.elements[col2][0],mat.elements[col2][1], mat.elements[col2][2], mat.elements[col2][3]);
-    for (u32 i = 0; i < 4; ++i)
-        mat.elements[col2][i] = mat.elements[col1][i];
-    for (u32 i = 0; i < 4; ++i)
-        mat.elements[col1][i] = second_column.elements[i];
-    return mat;
-}
-
-INLINE mat4
-swap_rows_mat4(mat4 mat, u32 row1, u32 row2)
-{
-   vec4 second_row = v4(mat.elements[0][row2], mat.elements[1][row2], mat.elements[2][row2], mat.elements[3][row2]); 
-   for (u32 i = 0; i < 4; ++i)
-       mat.elements[i][row2] = mat.elements[i][row1];
-   for (u32 i = 0; i < 4; ++i)
-       mat.elements[i][row1] = second_row.elements[i];
-   return mat;
-}
-
-INLINE mat4 negate_row_mat4(mat4 mat, u32 row)
-{
-    for (u32 i = 0; i < 4; ++i)
-        mat.elements[i][row] = -1.f * mat.elements[i][row];
-    return mat;
-}
-
-INLINE mat4 negate_col_mat4(mat4 mat, u32 col)
-{
-    for (u32 i = 0; i < 4; ++i)
-        mat.elements[col][i] = -1.f * mat.elements[col][i];
-    return mat;
-}
-//we must swap columns 2 and 3 then swap rows 2 and 3
-//and then negate column 3 and row 3 TODO(ilias): check this shit
-INLINE mat4
-blender_to_opengl_mat4(mat4 mat)
-{
-   mat = swap_cols_mat4(mat, 2,3);
-   mat = swap_rows_mat4(mat,2,3);
-   mat = negate_col_mat4(mat, 3);
-   mat = negate_row_mat4(mat, 3);
-   return mat;
-}
-INLINE mat4
-blender_to_opengl(mat4 mat)
-{
-   return mat;
-}
-
-
-
-INLINE mat4
-maya_to_opengl(mat4 mat)
-{
-    return mat;
-}
-
 
 //some operator overloading
 #ifdef __cplusplus
@@ -1420,7 +1357,7 @@ INLINE Quaternion quat_normalize(Quaternion l)
 {
     Quaternion res;
 
-    f32 len = sqrt(quat_dot(l,l));
+    f32 len = sqrtf(quat_dot(l,l));
     res = quat_divf(l,len);
 
     return res;

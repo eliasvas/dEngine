@@ -8,7 +8,7 @@
 #include "dtime.h"
 #include "../ext/microui/microui.h"
 #include "../ext/microui/atlas.inl"
-
+#include "dcamera.h"
 
 dgBuffer pos_vbo;
 dgBuffer normal_vbo;
@@ -20,6 +20,7 @@ dgBuffer base_ibo;
 dgTexture t1;
 dgTexture t2;
 dgRT def_rt;
+dCamera cam;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -2095,8 +2096,9 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
-   
-    mat4 inv = mat4_inv(mat4_mul(mat4_translate(v3(0,4,15)), mat4_rotate(PI, v3(1,0,0))));
+    dcamera_update(&cam);
+    mat4 inv = dcamera_get_view_matrix(&cam);
+    //mat4 inv = look_at(v3(0,4,15), vec3_add(v3(0,0,-1), v3(0,4,15)), v3(0,1,0));
 
     //draw to deferred FBO
     {
@@ -2249,6 +2251,8 @@ void dg_device_init(void)
 
     dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
 	printf("Vulkan initialized correctly!\n");
+
+    dcamera_init(&cam);
 }
 
 b32 dgfx_init(void)
