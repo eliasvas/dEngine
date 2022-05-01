@@ -980,6 +980,14 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 	shader_stages[0] = dg_pipe_shader_stage_create_info(pipe->vert_shader.stage, pipe->vert_shader.module);
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
 
+    u32 output_var_count = pipe->frag_shader.info.output_variable_count;
+    //we cut all builtin out variables like gl_FragDepth and stuff
+    for (u32 i = 0; i < pipe->frag_shader.info.output_variable_count; ++i)
+        if (pipe->frag_shader.info.output_variables[i]->built_in != -1)
+            --output_var_count;
+
+
+
  
     VkVertexInputBindingDescription bind_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
@@ -1009,7 +1017,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     }
 
     VkPipelineColorBlendStateCreateInfo color_blend_state =  
-    dg_pipe_color_blend_state_create_info(&blend_attachment_states[0],pipe->frag_shader.info.output_variable_count);
+    dg_pipe_color_blend_state_create_info(&blend_attachment_states[0],output_var_count);
 
     VkPipelineDepthStencilStateCreateInfo ds_state = 
     dg_pipe_depth_stencil_state_create_info_basic();
@@ -1057,7 +1065,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     // New create info to define color, depth and stencil attachments at pipeline create time
     VkPipelineRenderingCreateInfoKHR pipe_renderingCI = {0};
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
-    pipe_renderingCI.colorAttachmentCount = pipe->frag_shader.info.output_variable_count;
+    pipe_renderingCI.colorAttachmentCount = output_var_count;
     pipe_renderingCI.pColorAttachmentFormats = color_formats;
     //TODO(ilias): set these for when we want depth 
     pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
