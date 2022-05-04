@@ -1067,10 +1067,9 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
     pipe_renderingCI.colorAttachmentCount = output_var_count;
     pipe_renderingCI.pColorAttachmentFormats = color_formats;
-    //TODO(ilias): set these for when we want depth 
     pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
     pipe_renderingCI.stencilAttachmentFormat = ddev->swap.depth_attachment.format;
-    // Chain into the pipeline creat einfo
+    // Chain into the pipeline create info
     pipeCI.pNext = &pipe_renderingCI;
 
 
@@ -2120,9 +2119,9 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {inv, perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {inv, perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100), m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
-        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * sin(5 * dtime_sec(dtime_now())),0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        mat4 object_data = mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
@@ -2161,9 +2160,9 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {inv, perspective_proj(45.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {inv, perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
-        mat4 object_data = mat4_mul(mat4_translate(v3(0,-1 * sin(5 * dtime_sec(dtime_now())),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->base_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);

@@ -34,6 +34,7 @@ typedef struct dInputState
 
 
     s32 mouse_pos_x, mouse_pos_y;
+    s32 mouse_delta_x, mouse_delta_y;
 }dInputState;
 
 //This is the input singleton
@@ -144,13 +145,22 @@ void dinput_update(void)
         }
     }
 
-    SDL_GetMouseState(&dis.mouse_pos_x, &dis.mouse_pos_y);
+    s32 mp_x, mp_y;
+    SDL_GetMouseState(&mp_x, &mp_y);
+    dis.mouse_delta_x = mp_x - dis.mouse_pos_x;
+    dis.mouse_delta_y = mp_y - dis.mouse_pos_y;
+    dis.mouse_pos_x = mp_x;
+    dis.mouse_pos_y = mp_y;
     //printf("mouse pos: %i %i\n", dis.mouse_pos_x, dis.mouse_pos_y);
 }
 
 ivec2 dinput_get_mouse_pos(void)
 {
     return (ivec2){dis.mouse_pos_x, dis.mouse_pos_y};
+}
+ivec2 dinput_get_mouse_delta(void)
+{
+    return (ivec2){dis.mouse_delta_x, dis.mouse_delta_y};
 }
 b32 dkey_pressed(dKey k)
 {

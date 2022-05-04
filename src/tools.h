@@ -781,9 +781,9 @@ INLINE mat4 mat4_rotate(f32 angle, vec3 axis)
 
     axis = vec3_normalize(axis);
 
-    float sinA = sin(to_radians(angle));
-    float cosA = cos(to_radians(angle));
-    float cos_val = 1.0f - cosA;
+    f32 sinA = sin(to_radians(angle));
+    f32 cosA = cos(to_radians(angle));
+    f32 cos_val = 1.0f - cosA;
 
     res.elements[0][0] = (axis.x * axis.x * cos_val) + cosA;
     res.elements[0][1] = (axis.x * axis.y * cos_val) + (axis.z * sinA);
@@ -958,14 +958,17 @@ INLINE mat4 orthographic_proj(f32 l, f32 r, f32 b, f32 t, f32 n, f32 f)
     return res;
 }
 
-INLINE mat4 perspective_proj(f32 fov, f32 aspect, f32 n, f32 f)
+INLINE mat4 perspective_proj(f32 vfov, f32 aspect, f32 n, f32 f)
 {
     mat4 res = m4();
 
-    f32 cot = 1.0f / tan(fov * (PI / 360.0f));
+    f32 fov_rad = vfov * 2 * PI / 360.0f;
+    //f32 focal_length2 = 1.0f / tan(fov_rad / 2.0f);
+    f32 focal_length = 1.0f / tan(to_radians(vfov/2.0f));
 
-    res.elements[0][0] = cot / aspect;
-    res.elements[1][1] = -cot;
+
+    res.elements[0][0] = focal_length / aspect;
+    res.elements[1][1] = -focal_length;
 
     res.elements[2][2] = (f)/(n - f);
     res.elements[2][3] = -1.0f;
@@ -996,32 +999,34 @@ INLINE mat4 perspective_proj_vk(f32 fov, f32 aspect, f32 n, f32 f)
     return res;
 }
 
-INLINE mat4 look_at(vec3 eye, vec3 center, vec3 fake_up)
+//this whole matrix is transposed so we don't have to inverse it at the end, 
+//more info at https://www.3dgep.com/understanding-the-view-matrix/
+INLINE mat4 look_at(vec3 eye, vec3 target, vec3 fake_up)
 {
     mat4 res = m4();
 
-    vec3 f = vec3_normalize(vec3_sub(center, eye));
-    vec3 r = vec3_normalize(vec3_cross(f, fake_up));
-    vec3 up = vec3_cross(r, f);
+    vec3 zaxis = vec3_normalize(vec3_sub(eye, target));
+    vec3 xaxis = vec3_normalize(vec3_cross(fake_up, zaxis));
+    vec3 yaxis = vec3_cross(zaxis, xaxis);
 
-    res.elements[0][0] = r.x;
-    res.elements[0][1] = up.x;
-    res.elements[0][2] = -f.x;
+    res.elements[0][0] = xaxis.x;
+    res.elements[0][1] = yaxis.x;
+    res.elements[0][2] = zaxis.x;
     res.elements[0][3] = 0.0f;
 
-    res.elements[1][0] = r.y;
-    res.elements[1][1] = up.y;
-    res.elements[1][2] = -f.y;
+    res.elements[1][0] = xaxis.y;
+    res.elements[1][1] = yaxis.y;
+    res.elements[1][2] = zaxis.y;
     res.elements[1][3] = 0.0f;
 
-    res.elements[2][0] = r.z;
-    res.elements[2][1] = up.z;
-    res.elements[2][2] = -f.z;
+    res.elements[2][0] = xaxis.z;
+    res.elements[2][1] = yaxis.z;
+    res.elements[2][2] = zaxis.z;
     res.elements[2][3] = 0.0f;
 
-    res.elements[3][0] = -vec3_dot(r, eye);
-    res.elements[3][1] = -vec3_dot(up, eye);
-    res.elements[3][2] = vec3_dot(f, eye);
+    res.elements[3][0] = -vec3_dot(xaxis, eye);
+    res.elements[3][1] = -vec3_dot(yaxis, eye);
+    res.elements[3][2] = -vec3_dot(zaxis, eye);
     res.elements[3][3] = 1.0f;
 
     return res;
