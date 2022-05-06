@@ -20,6 +20,7 @@ dgBuffer base_ibo;
 dgTexture t1;
 dgTexture t2;
 dgRT def_rt;
+dgRT shadow_rt;
 dCamera cam;
 
 //NOTE(ilias): This is UGLY AF!!!!
@@ -490,6 +491,13 @@ static void dg_cleanup_swapchain(dgDevice *ddev)
     //clear depth attachment of swapchain
 }
 
+static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
+{
+    vkDestroyImage(ddev->device, tex->image,NULL);
+    vkDestroyImageView(ddev->device, tex->view,NULL);
+    vkDestroySampler(ddev->device, tex->sampler, NULL);
+}
+
 static VkImageView dg_create_image_view(VkImage image, VkFormat format,  VkImageAspectFlags aspect_flags)
 {
 	VkImageView image_view;
@@ -514,9 +522,9 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_NEAREST;
 	sampler_info.minFilter = VK_FILTER_NEAREST;
-	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
 	
 	VkPhysicalDeviceProperties prop = {0};
 	vkGetPhysicalDeviceProperties(ddev->physical_device, &prop);
@@ -1132,6 +1140,8 @@ void dg_wait_idle(dgDevice *ddev)
     vkDeviceWaitIdle(ddev->device);
 }
 
+static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height);
+static void dg_rt_cleanup(dgDevice *ddev, dgRT* rt);
 static void dg_recreate_swapchain(dgDevice *ddev)
 {
     vkDeviceWaitIdle(ddev->device);
@@ -1143,6 +1153,10 @@ static void dg_recreate_swapchain(dgDevice *ddev)
     dg_create_swapchain_image_views(ddev);
     main_window.width = ddev->swap.extent.width;
     main_window.height = ddev->swap.extent.height;
+
+    //(optional): recreate the deferred render target so it can be scaled
+    dg_rt_cleanup(ddev, &def_rt);
+    dg_rt_init(&dd, &def_rt, 4, TRUE, ddev->swap.extent.width, ddev->swap.extent.height);
 
     
     //dg_create_pipeline(ddev, &ddev->fullscreen_pipe, "fullscreen.vert", "fullscreen.frag");
@@ -1644,6 +1658,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
     depth_attachment.width = width;
     depth_attachment.height = height;
+    depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
     dg_create_texture_sampler(ddev, &depth_attachment.sampler);
     
 	return depth_attachment;
@@ -1937,20 +1952,29 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	return tex;
 }
 
-static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth)
+static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height)
 {
     rt->color_attachment_count = color_count;
     rt->depth_active = (depth > 0) ? 1 : 0;
     for (u32 i = 0; i < rt->color_attachment_count; ++i)
     {
-        //rt->color_attachments[i] = dg_create_texture_image(ddev,"../assets/sample.png",ddev->swap.image_format);
-        //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,1024,1024,ddev->swap.image_format);
-        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,ddev->swap.extent.width,ddev->swap.extent.height,ddev->swap.image_format);
+        //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
+        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
-        rt->depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height);
+        rt->depth_attachment = dg_create_depth_attachment(ddev, width,height);
 }
+static void dg_rt_cleanup(dgDevice *ddev, dgRT* rt)
+{
+    for (u32 i = 0; i < rt->color_attachment_count; ++i)
+    {
+        dg_cleanup_texture(ddev,&rt->color_attachments[i]);
+    }
+    if (rt->depth_active)
+        dg_cleanup_texture(ddev,&rt->depth_attachment);
+}
+
 
 static void dg_ubo_data_buffer_clear(dgUBODataBuffer *buf, u32 frame_num)
 {
@@ -2105,6 +2129,8 @@ void dg_frame_begin(dgDevice *ddev)
 
     dcamera_update(&cam);
     mat4 inv = dcamera_get_view_matrix(&cam);
+
+    mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100);
     //mat4 inv = look_at(v3(0,4,15), vec3_add(v3(0,0,-1), v3(0,4,15)), v3(0,1,0));
 
     //draw to deferred FBO
@@ -2118,17 +2144,51 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
-        //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {inv, perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100), m4d(1.0f),m4d(1.0f)};
-        //mat4 object_data = m4d(1.0f);
+        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
         mat4 object_data = mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+        //small cube
         dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+        //big cube
+        mat4 big_data = mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100)));
+        dg_set_desc_set(ddev,&ddev->def_pipe, &big_data, sizeof(big_data), 1);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 
         dg_rendering_end(ddev);
     }
+    mat4 light_proj = orthographic_proj(-20,20,-20,20,0.1,50);
+    mat4 light_view = look_at(v3(0,3,5),v3(0,0,-8),v3(0,1,0));
+    mat4 lsm = mat4_mul(proj, light_view);
+
+
+    //draw to shadow map
+    {
+        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, TRUE, TRUE);
+        dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
+        dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
+        dg_bind_pipeline(ddev, &ddev->shadow_pipe);
+        dgBuffer buffers[] = {base_vbo};
+        u64 offsets[] = {0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+        dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
+        mat4 object_data[2] = {mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm};
+        //small cube
+        dg_set_desc_set(ddev,&ddev->shadow_pipe, data, sizeof(data), 0);
+        dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+        //big cube
+        mat4 big_data[2] = {mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm};
+        dg_set_desc_set(ddev,&ddev->shadow_pipe, big_data, sizeof(big_data), 1);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+
+        dg_rendering_end(ddev);
+    }
+
+
 
 
     dg_wait_idle(ddev);
@@ -2138,10 +2198,15 @@ void dg_frame_begin(dgDevice *ddev)
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        f32 data_fullscreen[5] = {0.01,0.01,0.01,1.0, 1.0};//color + alpha
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        dg_set_desc_set(ddev,&ddev->composition_pipe, data_fullscreen, sizeof(data_fullscreen), 1);
-        dg_set_desc_set(ddev,&ddev->composition_pipe, def_rt.color_attachments, 3, 2);
+        mat4 data_fullscreen = lsm;
+        dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
+        dgTexture textures[4];
+        textures[0] = def_rt.color_attachments[0];
+        textures[1] = def_rt.color_attachments[1];
+        textures[2] = def_rt.color_attachments[2];
+        textures[3] = shadow_rt.depth_attachment;
+        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
         dg_draw(ddev, 3,0);
 
         dg_rendering_end(ddev);
@@ -2160,7 +2225,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {inv, perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 50), m4d(1.0f),m4d(1.0f)};
+        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
         //mat4 object_data = m4d(1.0f);
         mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
         dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
@@ -2243,6 +2308,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag"));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag"));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag"));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"def.vert", "base.frag"));
@@ -2277,7 +2343,8 @@ b32 dgfx_init(void)
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
-    dg_rt_init(&dd, &def_rt, 4, TRUE);
+    dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
+    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 1024, 1024);
 
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);

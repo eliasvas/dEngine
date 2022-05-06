@@ -42,13 +42,13 @@ void dcamera_update(dCamera *camera)
         camera->yaw += -dkey_down(DK_RMB) * cDT * camera->speed * dinput_get_mouse_delta().x; 
     }
     if (dkey_down(DK_W))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, cDT * camera->speed));
-    if (dkey_down(DK_S))
         camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, -cDT * camera->speed));
+    if (dkey_down(DK_S))
+        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, cDT * camera->speed));
     if (dkey_down(DK_A))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), cDT * camera->speed));
-    if (dkey_down(DK_D))
         camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), -cDT * camera->speed));
+    if (dkey_down(DK_D))
+        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), cDT * camera->speed));
 }
 
 mat4 dcamera_get_view_matrix(dCamera *camera)
@@ -56,7 +56,7 @@ mat4 dcamera_get_view_matrix(dCamera *camera)
     if (camera->mode == DCAM_MODE_FPS)
     {
         mat4 ret = fps_view(camera->pos, camera->pitch, camera->yaw);
-        camera->front = v3(-ret.raw[2], -ret.raw[6], -ret.raw[10]);
+        camera->front = v3(ret.raw[2], ret.raw[6], ret.raw[10]);
         return ret;
     }
     return look_at(camera->pos, vec3_add(camera->pos,camera->front), camera->up);

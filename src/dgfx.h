@@ -136,6 +136,7 @@ typedef struct dgDevice
     dgPipeline def_pipe;
     dgPipeline composition_pipe;
     dgPipeline dui_pipe;
+    dgPipeline shadow_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;
@@ -169,7 +170,7 @@ typedef struct dgRT
 }dgRT;
 
 
-static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth);
+static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height);
 
 b32 dgfx_init(void);
 
