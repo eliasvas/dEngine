@@ -11,6 +11,7 @@ extern mu_Context ctx;
 //-Engine logging
 //-Profiling
 //-Basic Sound (+ Audio compression/decompression)
+//Textures and RTs should have different formats and pipelines should know about it! (also look at pipe barriers and synchronization!)
 
 
 

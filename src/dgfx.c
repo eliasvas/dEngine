@@ -383,6 +383,7 @@ static VkSurfaceFormatKHR dg_choose_swap_surface_format(dgSwapChainSupportDetail
     for (u32 i = 0; i < details.format_count; ++i)
     {
         if (details.formats[i].format == VK_FORMAT_R8G8B8A8_SRGB  &&
+        //if (details.formats[i].format == VK_FORMAT_R16G16B16A16_SFLOAT &&
             details.formats[i].colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             return details.formats[i];
@@ -1067,7 +1068,12 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkFormat color_formats[DG_MAX_COLOR_ATTACHMENTS];
     for (u32 i = 0; i< DG_MAX_COLOR_ATTACHMENTS; ++i)
     {
-        color_formats[i] = ddev->swap.image_format;
+        //if only one output, it means we write to swapchain, else, we write in some Render Target, 
+        //and all RTs are RGBA16 @FIX this when time
+        if (output_var_count > 1)
+            color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
+        else 
+            color_formats[i] = ddev->swap.image_format;
     }
  
     // New create info to define color, depth and stencil attachments at pipeline create time
@@ -1646,24 +1652,6 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 }
 
 
-static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height)
-{
-	dgTexture depth_attachment = {0};
-	depth_attachment.format = dg_find_depth_format(ddev);
-	
-	dg_create_image(ddev,width, height, 
-		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
-		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
-
-	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
-    depth_attachment.width = width;
-    depth_attachment.height = height;
-    depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
-    dg_create_texture_sampler(ddev, &depth_attachment.sampler);
-    
-	return depth_attachment;
-}
-
 static VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
 {
 	VkCommandBufferAllocateInfo alloc_info = {0};
@@ -1695,6 +1683,48 @@ static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_
 	vkQueueSubmit(ddev->graphics_queue, 1, &submit_info, VK_NULL_HANDLE);
 	vkQueueWaitIdle(ddev->graphics_queue);
 	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
+}
+
+static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height)
+{
+	dgTexture depth_attachment = {0};
+	depth_attachment.format = dg_find_depth_format(ddev);
+	
+	dg_create_image(ddev,width, height, 
+		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
+
+	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
+    depth_attachment.width = width;
+    depth_attachment.height = height;
+    depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
+
+///*
+    //transition to layout general
+    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
+    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
+    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
+    imageMemoryBarrier.image = depth_attachment.image;
+    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
+
+    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
+    vkCmdPipelineBarrier(
+        cmd,
+        VK_PIPELINE_STAGE_HOST_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0,
+        0, NULL,
+        0, NULL,
+        1, &imageMemoryBarrier);
+    dg_end_single_time_commands(ddev, cmd);
+    //*/
+
+
+    dg_create_texture_sampler(ddev, &depth_attachment.sampler);
+    
+	return depth_attachment;
 }
 
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
@@ -1815,31 +1845,6 @@ static dgTexture dg_create_texture_image_basic(dgDevice *ddev, u32 tex_w, u32 te
         0, NULL,
         1, &imageMemoryBarrier);
 
-
-    VkBufferImageCopy region = {0};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
-
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
-	region.imageOffset = (VkOffset3D){0, 0, 0};
-	region.imageExtent = (VkExtent3D){
-		tex_w,
-		tex_h,
-		1
-	};
-	vkCmdCopyBufferToImage(
-		cmd,
-		idb.buffer,
-		tex.image,
-		VK_IMAGE_LAYOUT_GENERAL,
-		1,
-		&region
-	);
-    
     dg_end_single_time_commands(ddev, cmd);
 
 	dg_buf_destroy(&idb);
@@ -2159,8 +2164,8 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
     mat4 light_proj = orthographic_proj(-20,20,-20,20,0.1,50);
-    mat4 light_view = look_at(v3(0,3,5),v3(0,0,-8),v3(0,1,0));
-    mat4 lsm = mat4_mul(proj, light_view);
+    mat4 light_view = look_at(v3(0,5,5),v3(0,0,-8),v3(0,1,0));
+    mat4 lsm = mat4_mul(light_proj, light_view);
 
 
     //draw to shadow map
@@ -2184,7 +2189,6 @@ void dg_frame_begin(dgDevice *ddev)
         mat4 big_data[2] = {mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm};
         dg_set_desc_set(ddev,&ddev->shadow_pipe, big_data, sizeof(big_data), 1);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-
         dg_rendering_end(ddev);
     }
 
@@ -2304,6 +2308,7 @@ void dg_device_init(void)
 	assert(dg_surface_create(&dd,&main_window));
 	assert(dg_pick_physical_device(&dd));
 	assert(dg_create_logical_device(&dd));
+    assert(dg_create_command_pool(&dd));
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
@@ -2314,7 +2319,6 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"def.vert", "base.frag"));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag"));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag"));
-    assert(dg_create_command_pool(&dd));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
