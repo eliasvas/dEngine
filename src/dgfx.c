@@ -1230,7 +1230,7 @@ static void dg_prepare_command_buffer(dgDevice *ddev, VkCommandBuffer c)
         0, 
         VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
         VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,
+        VK_IMAGE_LAYOUT_DEPTH_ATTACHMENT_OPTIMAL,  //@check: should this be LAYOUT_GENERAL mb???
         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
         VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT,
         (VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 }
@@ -1699,28 +1699,20 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
     depth_attachment.height = height;
     depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
 
-///*
-    //transition to layout general
-    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageMemoryBarrier.image = depth_attachment.image;
-    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 };
-
+    //transition depth image to layout general (because im lazy :D)
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    vkCmdPipelineBarrier(
+    dg_image_memory_barrier(
         cmd,
+        depth_attachment.image,
+        VK_ACCESS_HOST_WRITE_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_PREINITIALIZED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, NULL,
-        0, NULL,
-        1, &imageMemoryBarrier);
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 }
+    );
     dg_end_single_time_commands(ddev, cmd);
-    //*/
-
 
     dg_create_texture_sampler(ddev, &depth_attachment.sampler);
     
@@ -1738,22 +1730,17 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageMemoryBarrier.image = tex.image;
-    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-    vkCmdPipelineBarrier(
+    dg_image_memory_barrier(
         cmd,
+        tex.image,
+        VK_ACCESS_HOST_WRITE_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_PREINITIALIZED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, NULL,
-        0, NULL,
-        1, &imageMemoryBarrier);
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
 
 
     VkBufferImageCopy region = {0};
@@ -1814,36 +1801,19 @@ static dgTexture dg_create_texture_image_basic(dgDevice *ddev, u32 tex_w, u32 te
 	
 
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    /*
-    //first transition to layout general
     dg_image_memory_barrier(
         cmd,
-        ddev->swap.images[ddev->image_index], 
-        0, 
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-    );
-    */
-    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageMemoryBarrier.image = tex.image;
-    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-    vkCmdPipelineBarrier(
-        cmd,
+        tex.image,
+        VK_ACCESS_HOST_WRITE_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_PREINITIALIZED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, NULL,
-        0, NULL,
-        1, &imageMemoryBarrier);
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+
+
 
     dg_end_single_time_commands(ddev, cmd);
 
@@ -1885,36 +1855,19 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	
 
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    /*
-    //first transition to layout general
     dg_image_memory_barrier(
         cmd,
-        ddev->swap.images[ddev->image_index], 
-        0, 
-        VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT,
-        VK_IMAGE_LAYOUT_UNDEFINED,
-        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-        VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-    );
-    */
-    VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
-    imageMemoryBarrier.srcAccessMask = VK_ACCESS_HOST_WRITE_BIT;
-    imageMemoryBarrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
-    imageMemoryBarrier.oldLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
-    imageMemoryBarrier.newLayout = VK_IMAGE_LAYOUT_GENERAL;
-    imageMemoryBarrier.image = tex.image;
-    imageMemoryBarrier.subresourceRange =(VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 };
-
-    vkCmdPipelineBarrier(
-        cmd,
+        tex.image,
+        VK_ACCESS_HOST_WRITE_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_PREINITIALIZED,
+        VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        0,
-        0, NULL,
-        0, NULL,
-        1, &imageMemoryBarrier);
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+
+
 
 
     VkBufferImageCopy region = {0};
@@ -2218,6 +2171,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     
 
+    /*
     {
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
@@ -2239,6 +2193,7 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
+    */
 
     //draw the grid ???
     {
