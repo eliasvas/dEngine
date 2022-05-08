@@ -523,9 +523,9 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_NEAREST;
 	sampler_info.minFilter = VK_FILTER_NEAREST;
-	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
-	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
+	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
 	
 	VkPhysicalDeviceProperties prop = {0};
 	vkGetPhysicalDeviceProperties(ddev->physical_device, &prop);
@@ -2017,6 +2017,24 @@ void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height)
 }
 
 
+void dg_get_frustum_cornersWS(vec4 *corners, mat4 proj, mat4 view)
+{
+    mat4 inv = mat4_inv(mat4_mul(proj, view));
+    u32 corner_counter = 0;
+    for (u32 x = 0; x < 2; ++x)
+    {
+        for (u32 y = 0; y < 2; ++y)
+        {
+            for (u32 z = 0; z < 2; ++z)
+            {
+                vec4 pt = mat4_mulv(inv, v4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f));
+                corners[corner_counter++] = vec4_mulf(pt, 1.0f/pt.w);;
+            }
+        }
+    }
+    assert(corner_counter == 8);
+}
+
 void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
 { 
     //first we get the layout, then we 
@@ -2062,6 +2080,25 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
 }
 
 
+void draw_cube(dgDevice *ddev, mat4 model)
+{
+    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->base_pipe);
+    dgBuffer buffers[] = {base_vbo};
+    u64 offsets[] = {0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+    //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+    //mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+    dg_set_desc_set(ddev,&ddev->base_pipe, &model, sizeof(model), 1);
+    dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+
+    dg_rendering_end(ddev);
+}
 
 
 void dg_frame_begin(dgDevice *ddev)
@@ -2087,9 +2124,9 @@ void dg_frame_begin(dgDevice *ddev)
 
     dcamera_update(&cam);
     mat4 inv = dcamera_get_view_matrix(&cam);
-
     mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100);
-    //mat4 inv = look_at(v3(0,4,15), vec3_add(v3(0,0,-1), v3(0,4,15)), v3(0,1,0));
+
+    //mat4 inv= look_at(v3(0,5,5),v3(0,0,-8),v3(0,1,0));
 
     //draw to deferred FBO
     {
@@ -2116,7 +2153,8 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
-    mat4 light_proj = orthographic_proj(-20,20,-20,20,0.1,50);
+    mat4 light_proj_ortho = orthographic_proj(-5,5,-5,5,1,50);
+    mat4 light_proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 30);
     mat4 light_view = look_at(v3(0,5,5),v3(0,0,-8),v3(0,1,0));
     mat4 lsm = mat4_mul(light_proj, light_view);
 
@@ -2170,6 +2208,12 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     
+    draw_cube(ddev, mat4_inv(light_view));
+
+    vec4 corners[8];
+    dg_get_frustum_cornersWS(corners, light_proj_ortho, light_view);
+    for (u32 i = 0; i < 8; ++i)
+        draw_cube(ddev, mat4_translate(v3(corners[i].x, corners[i].y, corners[i].z)));
 
     /*
     {
