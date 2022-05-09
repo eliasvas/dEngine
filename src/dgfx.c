@@ -532,6 +532,7 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	
 	sampler_info.anisotropyEnable = VK_FALSE;
 	sampler_info.maxAnisotropy = prop.limits.maxSamplerAnisotropy;
+	//sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.borderColor = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
 	sampler_info.unnormalizedCoordinates = VK_FALSE;
 	sampler_info.compareEnable = VK_FALSE;
@@ -2027,7 +2028,7 @@ void dg_get_frustum_cornersWS(vec4 *corners, mat4 proj, mat4 view)
         {
             for (u32 z = 0; z < 2; ++z)
             {
-                vec4 pt = mat4_mulv(inv, v4(2.0f * x - 1.0f, 2.0f * y - 1.0f, 2.0f * z - 1.0f, 1.0f));
+                vec4 pt = mat4_mulv(inv, v4(2.0f * x - 1.0f, 2.0f * y - 1.0f, z, 1.0f));
                 corners[corner_counter++] = vec4_mulf(pt, 1.0f/pt.w);;
             }
         }
@@ -2153,15 +2154,70 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
-    mat4 light_proj_ortho = orthographic_proj(-5,5,-5,5,1,50);
-    mat4 light_proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 30);
-    mat4 light_view = look_at(v3(0,5,5),v3(0,0,-8),v3(0,1,0));
-    mat4 lsm = mat4_mul(light_proj, light_view);
+    //mat4 light_proj_ortho = orthographic_proj(-5,5,-5,5,-20,20);
+    //mat4 light_proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 30);
+
+
+    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
+    //vec3 light_pos = v3(0,0,0);
+    //mat4 light_view = look_at(light_pos,vec3_add(light_pos,light_dir),v3(0,1,0));
+
+
+    vec4 corners[8];
+    dg_get_frustum_cornersWS(corners, proj, inv);
+    vec3 frustum_center = v3(0,0,0);
+    for (u32 i = 0; i < 8; ++i)
+    {
+        frustum_center = vec3_add(frustum_center, v3(corners[i].x, corners[i].y, corners[i].z));
+    }
+    frustum_center= vec3_mulf(frustum_center, 1.0f/8.0f);
+
+    mat4 light_view = look_at(frustum_center,vec3_add(frustum_center,light_dir),v3(0,1,0));
+
+
+    f32 minZ = FLT_MAX;
+    f32 minX = FLT_MAX;
+    f32 minY = FLT_MAX;
+    f32 maxY =-FLT_MAX;
+    f32 maxX =-FLT_MAX;
+    f32 maxZ =-FLT_MAX;
+    for (u32 i = 0; i < 8;++i)
+    {
+        //find in terms of the light's  view matrix, what are the max and min coordinates of the Frustum
+        vec4 trf = mat4_mulv(light_view, v4(corners[i].x, corners[i].y, corners[i].z, 1.0f));
+        minX = minimum(minX, trf.x);
+        minY = minimum(minY, trf.y);
+        minZ = minimum(minZ, trf.z);
+        maxX = maximum(maxX, trf.x);
+        maxY = maximum(maxY, trf.y);
+        maxZ = maximum(maxZ, trf.z);
+    }
+    float z_mul = 10.0f;
+    if (minZ < 0)
+    {
+        minZ *= z_mul;
+    }
+    else
+    {
+        minZ /= z_mul;
+    }
+
+    if (maxZ < 0)
+    {
+        maxZ /= z_mul;
+    }
+    else
+    {
+        maxZ *= z_mul;
+    }
+
+    mat4 light_ortho = orthographic_proj(minX, maxX, minY, maxY, minZ, maxZ);
+
+    mat4 lsm = mat4_mul(light_ortho, light_view);
 
 
     //draw to shadow map
-    {
-        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, TRUE, TRUE);
+    { dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, TRUE, TRUE);
         dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
         dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
         dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2208,12 +2264,14 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     
-    draw_cube(ddev, mat4_inv(light_view));
+    //draw_cube(ddev, mat4_inv(light_view));
+    
+    draw_cube(ddev, mat4_translate(v3(frustum_center.x, frustum_center.y, frustum_center.z)));
 
-    vec4 corners[8];
-    dg_get_frustum_cornersWS(corners, light_proj_ortho, light_view);
-    for (u32 i = 0; i < 8; ++i)
-        draw_cube(ddev, mat4_translate(v3(corners[i].x, corners[i].y, corners[i].z)));
+    //for (u32 i = 0; i < 8; ++i)
+        //draw_cube(ddev, mat4_translate(v3(corners[i].x, corners[i].y, corners[i].z)));
+
+
 
     /*
     {
@@ -2347,7 +2405,7 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
-    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 1024, 1024);
+    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 8000, 8000);
 
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);

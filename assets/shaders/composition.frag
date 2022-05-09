@@ -35,8 +35,11 @@ float shadow_calc(vec4 frag_pos_light_space)
     // get depth of current fragment from light's perspective
     float current_depth = proj_coords.z;
     // check whether current frag pos is in shadow
-    float shadow = current_depth > closest_depth + 0.0001 ? 1.0 : 0.0;
-
+    float shadow = current_depth > closest_depth + 0.001 ? 1.0 : 0.0;
+    if(proj_coords.z > 1.0)
+        shadow = 1.0;
+    if(proj_coords.z < 0.0)
+        shadow = 1.0;
     return shadow;
 }  
 
@@ -51,7 +54,8 @@ void main()
     vec4 frag_pos_light_space = ObjectData.lsm * vec4(frag_pos,1.0);
     float shadow = shadow_calc(frag_pos_light_space);
     
-    vec3 lighting = 0.2 * albedo + 0.8 * albedo * (1.0 - shadow);
+    //vec3 lighting = vec3(shadow);
+    vec3 lighting = 0.2 * albedo +0.8 * albedo *(1 - shadow);
     
     frag_color = vec4(lighting, 1.0);
 }  
