@@ -975,7 +975,7 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 	return info;
 }
 
-static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name)
+static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name, char *geom_name)
 {
     //these are dummies, we bind our scissors and viewports per drawcall
     VkRect2D s = scissor(0,0,0,0);
@@ -985,10 +985,14 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     //read shaders and register them in the pipeline builder
 	dg_shader_create(ddev->device, &pipe->vert_shader, vert_name, VK_SHADER_STAGE_VERTEX_BIT); 
 	dg_shader_create(ddev->device, &pipe->frag_shader, frag_name, VK_SHADER_STAGE_FRAGMENT_BIT);
-	u32 shader_stages_count = 2;
-    VkPipelineShaderStageCreateInfo shader_stages[2];
+    if (geom_name != NULL)
+        dg_shader_create(ddev->device, &pipe->geom_shader, geom_name, VK_SHADER_STAGE_GEOMETRY_BIT);
+	u32 shader_stages_count = 2 + (geom_name != NULL);
+    VkPipelineShaderStageCreateInfo shader_stages[3];
 	shader_stages[0] = dg_pipe_shader_stage_create_info(pipe->vert_shader.stage, pipe->vert_shader.module);
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
+    if (geom_name != NULL)
+        shader_stages[2] = dg_pipe_shader_stage_create_info(pipe->geom_shader.stage, pipe->geom_shader.module);
 
     u32 output_var_count = pipe->frag_shader.info.output_variable_count;
     //we cut all builtin out variables like gl_FragDepth and stuff
@@ -2080,6 +2084,47 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
         vkCmdDraw(ddev->command_buffers[ddev->current_frame], vertex_count, 1, 0, 0);
 }
 
+void draw_cube_def(dgDevice *ddev, mat4 model)
+{
+
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    dg_bind_pipeline(ddev, &ddev->def_pipe);
+    dgBuffer buffers[] = {base_vbo};
+    u64 offsets[] = {0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+    dg_set_desc_set(ddev,&ddev->def_pipe, &model, sizeof(model), 1);
+    dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+
+    dg_rendering_end(ddev);
+
+}
+
+void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm)
+{
+
+    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, FALSE, FALSE);
+    dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
+    dg_bind_pipeline(ddev, &ddev->shadow_pipe);
+    dgBuffer buffers[] = {base_vbo};
+    u64 offsets[] = {0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+    mat4 object_data[2] = {model, lsm};
+    dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+    dg_rendering_end(ddev);
+
+
+
+}
+
 
 void draw_cube(dgDevice *ddev, mat4 model)
 {
@@ -2094,7 +2139,8 @@ void draw_cube(dgDevice *ddev, mat4 model)
 
     //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
     //mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
-    dg_set_desc_set(ddev,&ddev->base_pipe, &model, sizeof(model), 1);
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,0.0,0.0,1.0}};
+    dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
 
@@ -2154,15 +2200,12 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
-    //mat4 light_proj_ortho = orthographic_proj(-5,5,-5,5,-20,20);
-    //mat4 light_proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 30);
+    draw_cube_def(ddev, mat4_translate(v3(4,0,0)));
+    draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
+    draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
 
 
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
-    //vec3 light_pos = v3(0,0,0);
-    //mat4 light_view = look_at(light_pos,vec3_add(light_pos,light_dir),v3(0,1,0));
-
-
     vec4 corners[8];
     dg_get_frustum_cornersWS(corners, proj, inv);
     vec3 frustum_center = v3(0,0,0);
@@ -2238,6 +2281,9 @@ void dg_frame_begin(dgDevice *ddev)
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
         dg_rendering_end(ddev);
     }
+    draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm);
 
 
 
@@ -2264,12 +2310,10 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     
-    //draw_cube(ddev, mat4_inv(light_view));
-    
     draw_cube(ddev, mat4_translate(v3(frustum_center.x, frustum_center.y, frustum_center.z)));
 
-    //for (u32 i = 0; i < 8; ++i)
-        //draw_cube(ddev, mat4_translate(v3(corners[i].x, corners[i].y, corners[i].z)));
+    //for (u32 i = 0; i < 5; ++i)
+        //draw_cube(ddev, mat4_translate(v3(0,0,i*3)));
 
 
 
@@ -2369,13 +2413,13 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
-    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag"));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag"));
-    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag"));
-    assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag"));
-    assert(dg_create_pipeline(&dd, &dd.base_pipe,"def.vert", "base.frag"));
-    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag"));
-    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag"));
+    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", NULL));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
@@ -2405,7 +2449,7 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
-    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 8000, 8000);
+    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 2048,2048);
 
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);

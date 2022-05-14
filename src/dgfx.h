@@ -75,7 +75,7 @@ typedef struct dgPipeline
 {
     dgShader vert_shader;
     dgShader frag_shader;
-    //dgShader compute_shader;
+    dgShader geom_shader;
 
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
