@@ -15,6 +15,7 @@
 #define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64 //for the cache
 #define DG_MAX_DESCRIPTOR_SETS 4 //overall
 #define DG_MAX_DESCRIPTOR_SET_BINDINGS 4 //overall
+#define DG_MAX_CASCADES 4
 
 typedef struct dgShader 
 {

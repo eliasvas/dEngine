@@ -2125,6 +2125,82 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm)
 
 }
 
+//calculates the cascaded shadow map's light space matrix
+static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, u32 frustum_count)
+{
+    frustum_count = minimum(frustum_count, DG_MAX_CASCADES);
+    u32 current_frustum = 0;
+    f32 near_plane  = proj.elements[3][2]/proj.elements[2][2];
+    f32 far_plane = (near_plane * proj.elements[2][2])/(1+proj.elements[2][2]);
+    f32 cascade_limits[DG_MAX_CASCADES+1];
+    cascade_limits[0] = near_plane;
+    cascade_limits[frustum_count] = far_plane;
+    for(u32 i = 1; i < frustum_count; ++i)
+        cascade_limits[i] =  
+            cascade_limits[0]+(cascade_limits[frustum_count]-cascade_limits[0])/(frustum_count - i);
+    
+    for (u32 f=0; f < frustum_count; ++f)
+    {
+        f32 cascade_near = cascade_limits[f]; 
+        f32 cascade_far = cascade_limits[f+1]; 
+
+        mat4 cascade_proj = proj;
+        cascade_proj.elements[2][2] =cascade_far/(cascade_near-cascade_far);
+        cascade_proj.elements[3][2] =(cascade_near* cascade_far)/(cascade_near-cascade_far);
+        
+        vec4 corners[8];
+        dg_get_frustum_cornersWS(corners, cascade_proj, view);
+        vec3 frustum_center = v3(0,0,0);
+        for (u32 i = 0; i < 8; ++i)
+        {
+            frustum_center = vec3_add(frustum_center, v3(corners[i].x, corners[i].y, corners[i].z));
+        }
+        frustum_center= vec3_mulf(frustum_center, 1.0f/8.0f);
+
+        mat4 light_view = look_at(frustum_center,vec3_add(frustum_center,ld),v3(0,1,0));
+
+
+        f32 minZ = FLT_MAX;
+        f32 minX = FLT_MAX;
+        f32 minY = FLT_MAX;
+        f32 maxY =-FLT_MAX;
+        f32 maxX =-FLT_MAX;
+        f32 maxZ =-FLT_MAX;
+        for (u32 i = 0; i < 8;++i)
+        {
+            //find in terms of the light's  view matrix, what are the max and min coordinates of the Frustum
+            vec4 trf = mat4_mulv(light_view, v4(corners[i].x, corners[i].y, corners[i].z, 1.0f));
+            minX = minimum(minX, trf.x);
+            minY = minimum(minY, trf.y);
+            minZ = minimum(minZ, trf.z);
+            maxX = maximum(maxX, trf.x);
+            maxY = maximum(maxY, trf.y);
+            maxZ = maximum(maxZ, trf.z);
+        }
+        float z_mul = 10.0f;
+        if (minZ < 0)
+        {
+            minZ *= z_mul;
+        }
+        else
+        {
+            minZ /= z_mul;
+        }
+
+        if (maxZ < 0)
+        {
+            maxZ /= z_mul;
+        }
+        else
+        {
+            maxZ *= z_mul;
+        }
+
+        mat4 light_ortho = orthographic_proj(minX, maxX, minY, maxY, minZ, maxZ);
+
+        lsm[current_frustum++] = mat4_mul(light_ortho, light_view);
+    }
+}
 
 void draw_cube(dgDevice *ddev, mat4 model)
 {
@@ -2204,60 +2280,9 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
 
-
+    mat4 lsm;
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
-    vec4 corners[8];
-    dg_get_frustum_cornersWS(corners, proj, inv);
-    vec3 frustum_center = v3(0,0,0);
-    for (u32 i = 0; i < 8; ++i)
-    {
-        frustum_center = vec3_add(frustum_center, v3(corners[i].x, corners[i].y, corners[i].z));
-    }
-    frustum_center= vec3_mulf(frustum_center, 1.0f/8.0f);
-
-    mat4 light_view = look_at(frustum_center,vec3_add(frustum_center,light_dir),v3(0,1,0));
-
-
-    f32 minZ = FLT_MAX;
-    f32 minX = FLT_MAX;
-    f32 minY = FLT_MAX;
-    f32 maxY =-FLT_MAX;
-    f32 maxX =-FLT_MAX;
-    f32 maxZ =-FLT_MAX;
-    for (u32 i = 0; i < 8;++i)
-    {
-        //find in terms of the light's  view matrix, what are the max and min coordinates of the Frustum
-        vec4 trf = mat4_mulv(light_view, v4(corners[i].x, corners[i].y, corners[i].z, 1.0f));
-        minX = minimum(minX, trf.x);
-        minY = minimum(minY, trf.y);
-        minZ = minimum(minZ, trf.z);
-        maxX = maximum(maxX, trf.x);
-        maxY = maximum(maxY, trf.y);
-        maxZ = maximum(maxZ, trf.z);
-    }
-    float z_mul = 10.0f;
-    if (minZ < 0)
-    {
-        minZ *= z_mul;
-    }
-    else
-    {
-        minZ /= z_mul;
-    }
-
-    if (maxZ < 0)
-    {
-        maxZ /= z_mul;
-    }
-    else
-    {
-        maxZ *= z_mul;
-    }
-
-    mat4 light_ortho = orthographic_proj(minX, maxX, minY, maxY, minZ, maxZ);
-
-    mat4 lsm = mat4_mul(light_ortho, light_view);
-
+    dg_calc_lsm(light_dir, proj, inv, &lsm, 1);
 
     //draw to shadow map
     { dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, TRUE, TRUE);
@@ -2310,7 +2335,7 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     
-    draw_cube(ddev, mat4_translate(v3(frustum_center.x, frustum_center.y, frustum_center.z)));
+    //draw_cube(ddev, mat4_translate(v3(frustum_center.x, frustum_center.y, frustum_center.z)));
 
     //for (u32 i = 0; i < 5; ++i)
         //draw_cube(ddev, mat4_translate(v3(0,0,i*3)));
