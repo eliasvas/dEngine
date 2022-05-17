@@ -499,14 +499,14 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
     vkDestroySampler(ddev->device, tex->sampler, NULL);
 }
 
-static VkImageView dg_create_image_view(VkImage image, VkFormat format,  VkImageAspectFlags aspect_flags)
+static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags)
 {
 	VkImageView image_view;
 	
 	VkImageViewCreateInfo view_info = {0};
 	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	view_info.image = image;
-	view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+	view_info.viewType = view_type;
 	view_info.format = format;
 	view_info.subresourceRange.aspectMask = aspect_flags;
 	view_info.subresourceRange.baseMipLevel = 0;
@@ -549,7 +549,7 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
     ddev->swap.image_views = (VkImageView*)malloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
-		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_ASPECT_COLOR_BIT);
+		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT);
     return DSUCCESS;
 }
 
@@ -870,7 +870,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             VkDescriptorSetLayoutBinding binding ={0};
             binding.binding = current_set.bindings[j]->binding; 
             binding.descriptorCount = 1;//current_set.bindings[j]->count;
-            binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+            binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
             binding.descriptorType = current_set.bindings[j]->descriptor_type;
 
             dbf_push(desc_set_layout_bindings, binding);
@@ -1699,7 +1699,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
 
-	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format, VK_IMAGE_ASPECT_DEPTH_BIT);
+	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT);
     depth_attachment.width = width;
     depth_attachment.height = height;
     depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
@@ -1748,29 +1748,33 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
     );
 
 
-    VkBufferImageCopy region = {0};
-	region.bufferOffset = 0;
-	region.bufferRowLength = 0;
-	region.bufferImageHeight = 0;
+    //if there is data to be copied, copy it
+    if (data != NULL)
+    {
+        VkBufferImageCopy region = {0};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
 
-	region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-	region.imageSubresource.mipLevel = 0;
-	region.imageSubresource.baseArrayLayer = 0;
-	region.imageSubresource.layerCount = 1;
-	region.imageOffset = (VkOffset3D){0, 0, 0};
-	region.imageExtent = (VkExtent3D){
-		tex_w,
-		tex_h,
-		1
-	};
-	vkCmdCopyBufferToImage(
-		cmd,
-		idb.buffer,
-		tex.image,
-		VK_IMAGE_LAYOUT_GENERAL,
-		1,
-		&region
-	);
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = (VkOffset3D){0, 0, 0};
+        region.imageExtent = (VkExtent3D){
+            tex_w,
+            tex_h,
+            1
+        };
+        vkCmdCopyBufferToImage(
+            cmd,
+            idb.buffer,
+            tex.image,
+            VK_IMAGE_LAYOUT_GENERAL,
+            1,
+            &region
+        );
+    }
     
     dg_end_single_time_commands(ddev, cmd);
 
@@ -1779,7 +1783,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1787,55 +1791,6 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	return tex;
 }
-static dgTexture dg_create_texture_image_basic(dgDevice *ddev, u32 tex_w, u32 tex_h, VkFormat format)
-{
-	dgTexture tex;
-    stbi_uc *pixels = malloc(sizeof(stbi_uc) * tex_w * tex_h * 4);
-	VkDeviceSize image_size = tex_w * tex_h * 4;
-	
-	
-	//[2]: we create a buffer to hold the pixel information (we also fill it)
-	dgBuffer idb;
-	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, image_size, pixels);
-	//[3]: we free the cpu side image, we don't need it
-	stbi_image_free(pixels);
-	//[4]: we create the VkImage that is undefined right now
-	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
-		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
-	
-
-    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    dg_image_memory_barrier(
-        cmd,
-        tex.image,
-        VK_ACCESS_HOST_WRITE_BIT, 
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_LAYOUT_PREINITIALIZED,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_HOST_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
-    );
-
-
-
-    dg_end_single_time_commands(ddev, cmd);
-
-	dg_buf_destroy(&idb);
-	
-	
-	dg_create_texture_sampler(ddev, &tex.sampler);
-	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
-	tex.mip_levels = 0;
-	tex.width = tex_w;
-	tex.height = tex_h;
-    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
-	
-	return tex;
-}
-
 
 static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
@@ -1906,7 +1861,7 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1922,7 +1877,8 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     for (u32 i = 0; i < rt->color_attachment_count; ++i)
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
-        rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
+        //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,VK_FORMAT_R16G16B16A16_SFLOAT);
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
@@ -2439,7 +2395,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", "sm.geom"));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", NULL));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", NULL));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", NULL));

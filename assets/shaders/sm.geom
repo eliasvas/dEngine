@@ -1,8 +1,7 @@
 #version 450
 
-layout(location = 0) in vec3 vertex_pos;
-layout(location = 1) in vec3 vertex_normal;
-layout(location = 2) in vec2 tex_coord;
+layout(triangles, invocations = 5) in;
+layout(triangle_strip, max_vertices = 3) out;
 
 layout(set = 0, binding = 0) uniform  GlobalBuffer{
 	mat4 view;
@@ -19,7 +18,13 @@ layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
 
 
 void main() {
-    gl_Position = ObjectData.model * vec4(vertex_pos, 1.0);
-    
+	for (int i = 0; i < 3; ++i)
+    {
+        gl_Position = 
+            ObjectData.lsm[gl_InvocationID] * gl_in[i].gl_Position;
+        gl_Layer = gl_InvocationID;
+        EmitVertex();
+    }
+    EndPrimitive();
 }
 

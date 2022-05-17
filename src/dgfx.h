@@ -168,6 +168,7 @@ typedef struct dgRT
     dgTexture depth_attachment;
     u32 color_attachment_count;
     b32 depth_active;
+    b32 cascaded_depth;
 }dgRT;
 
 

@@ -11,5 +11,13 @@ do
 	echo "Compiling $f"
 	glslc "$f" -o ../../build/shaders/"$f".spv
 done
+
+for f in *.geom
+do
+	echo "Compiling $f"
+	glslc "$f" -o ../../build/shaders/"$f".spv
+done
+
+
 cd ..
 cd ..
