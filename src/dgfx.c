@@ -21,6 +21,7 @@ dgTexture t1;
 dgTexture t2;
 dgRT def_rt;
 dgRT shadow_rt;
+dgRT csm_rt;
 dCamera cam;
 
 //NOTE(ilias): This is UGLY AF!!!!
@@ -420,7 +421,7 @@ static VkExtent2D dg_choose_swap_extent(dgSwapChainSupportDetails details)
 }
 
 #define MAX_SWAP_IMAGE_COUNT 2
-static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height);
+static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height, u32 layer_count);
 static b32 dg_create_swapchain(dgDevice *ddev)
 {
 
@@ -477,7 +478,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     ddev->swap.image_count = image_count;//TODO(ilias): check
     //printf("New swapchain image_count: %i\n", image_count);
     //printf("New swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
-	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height);
+	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height,1);
 	
     return DSUCCESS;
 }
@@ -499,7 +500,7 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
     vkDestroySampler(ddev->device, tex->sampler, NULL);
 }
 
-static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags)
+static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags, u32 layer_count)
 {
 	VkImageView image_view;
 	
@@ -512,7 +513,7 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageV
 	view_info.subresourceRange.baseMipLevel = 0;
 	view_info.subresourceRange.levelCount = 1;
 	view_info.subresourceRange.baseArrayLayer = 0;
-	view_info.subresourceRange.layerCount = 1;
+	view_info.subresourceRange.layerCount = layer_count;
 	VK_CHECK(vkCreateImageView(dd.device, &view_info, NULL, &image_view));
 	return image_view;
 }
@@ -549,7 +550,7 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
     ddev->swap.image_views = (VkImageView*)malloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
-		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT);
+		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT,1);
     return DSUCCESS;
 }
 
@@ -567,6 +568,7 @@ VkShaderModule dg_create_shader_module(char *code, u32 size)
 	VK_CHECK(vkCreateShaderModule(dd.device, &create_info, NULL, &shader_module));
 	return shader_module;
 }
+
 void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, VkShaderStageFlagBits stage)
 {
     char path[128];
@@ -1625,7 +1627,7 @@ static VkFormat dg_find_depth_format(dgDevice *ddev)
     
 }
 
-static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format, VkImageTiling tiling, 
+static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format,u32 layers, VkImageTiling tiling, 
 VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *image_memory)
 {
 	VkImageCreateInfo image_info = {0};
@@ -1635,7 +1637,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 	image_info.extent.height = height;
 	image_info.extent.depth = 1;
 	image_info.mipLevels = 1;
-	image_info.arrayLayers = 1;
+	image_info.arrayLayers = layers;
 	image_info.format = format;
 	image_info.tiling = tiling;
 	image_info.initialLayout = VK_IMAGE_LAYOUT_PREINITIALIZED;
@@ -1690,16 +1692,19 @@ static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_
 	vkFreeCommandBuffers(ddev->device, ddev->command_pool, 1, &command_buffer);
 }
 
-static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height)
+static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height, u32 layer_count)
 {
 	dgTexture depth_attachment = {0};
 	depth_attachment.format = dg_find_depth_format(ddev);
 	
 	dg_create_image(ddev,width, height, 
-		depth_attachment.format, VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		depth_attachment.format, layer_count,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
 
-	depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT);
+    if (layer_count > 1)
+        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_DEPTH_BIT,layer_count);
+    else
+        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT,1);
     depth_attachment.width = width;
     depth_attachment.height = height;
     depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
@@ -1715,7 +1720,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
         VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, 1 }
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_DEPTH_BIT, 0, 1, 0, layer_count }
     );
     dg_end_single_time_commands(ddev, cmd);
 
@@ -1730,7 +1735,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	dgBuffer idb;
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
-	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, format, 1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1783,7 +1788,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1810,7 +1815,7 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	//[3]: we free the cpu side image, we don't need it
 	stbi_image_free(pixels);
 	//[4]: we create the VkImage that is undefined right now
-	dg_create_image(ddev, tex_w, tex_h, format, VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, format, 1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1861,13 +1866,21 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT);
+	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
 	return tex;
+}
+
+static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width, u32 height)
+{
+    rt->color_attachment_count = cascade_count;
+    rt->depth_active = TRUE;
+    rt->cascaded_depth = TRUE;
+    rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
 }
 
 static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height)
@@ -1882,7 +1895,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
-        rt->depth_attachment = dg_create_depth_attachment(ddev, width,height);
+        rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,1);
 }
 static void dg_rt_cleanup(dgDevice *ddev, dgRT* rt)
 {
@@ -2063,7 +2076,7 @@ void draw_cube_def(dgDevice *ddev, mat4 model)
 void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm)
 {
 
-    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, FALSE, FALSE);
+    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &csm_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2236,12 +2249,12 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
 
-    mat4 lsm;
+    mat4 lsm[DG_MAX_CASCADES];
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
-    dg_calc_lsm(light_dir, proj, inv, &lsm, 1);
+    dg_calc_lsm(light_dir, proj, inv, lsm, 3);
 
     //draw to shadow map
-    { dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &shadow_rt.depth_attachment, TRUE, TRUE);
+    { dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &csm_rt.depth_attachment, TRUE, TRUE);
         dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
         dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
         dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2251,20 +2264,20 @@ void dg_frame_begin(dgDevice *ddev)
         dg_bind_index_buffer(ddev, &base_ibo, 0);
 
         mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
-        mat4 object_data[2] = {mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm};
+        mat4 object_data[2] = {mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm[0]};
         //small cube
         dg_set_desc_set(ddev,&ddev->shadow_pipe, data, sizeof(data), 0);
         dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
         //big cube
-        mat4 big_data[2] = {mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm};
+        mat4 big_data[2] = {mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm[0]};
         dg_set_desc_set(ddev,&ddev->shadow_pipe, big_data, sizeof(big_data), 1);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
         dg_rendering_end(ddev);
     }
-    draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm);
-    draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm);
-    draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm[0]);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm[0]);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm[0]);
 
 
 
@@ -2277,13 +2290,13 @@ void dg_frame_begin(dgDevice *ddev)
 
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        mat4 data_fullscreen = lsm;
+        mat4 data_fullscreen = lsm[0];
         dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
         dgTexture textures[4];
         textures[0] = def_rt.color_attachments[0];
         textures[1] = def_rt.color_attachments[1];
         textures[2] = def_rt.color_attachments[2];
-        textures[3] = shadow_rt.depth_attachment;
+        textures[3] = csm_rt.depth_attachment;
         dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
         dg_draw(ddev, 3,0);
 
@@ -2431,6 +2444,7 @@ b32 dgfx_init(void)
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
     dg_rt_init(&dd, &shadow_rt, 1, TRUE, 2048,2048);
+    dg_rt_init_csm(&dd, &csm_rt, 3, 2048,2048);
 
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);

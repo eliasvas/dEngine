@@ -19,7 +19,7 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform sampler2D g_pos;
 layout(set = 2, binding = 1) uniform sampler2D g_normal;
 layout(set = 2, binding = 2) uniform sampler2D g_albedo_spec;
-layout(set = 2, binding = 3) uniform sampler2D depth_map;
+layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
 
 
 
@@ -31,7 +31,7 @@ float shadow_calc(vec4 frag_pos_light_space)
     // transform to [0,1] range
     proj_coords.xy = proj_coords.xy * 0.5 + 0.5;
     // get closest depth value from light's perspective (using [0,1] range fragPosLight as coords)
-    float closest_depth = texture(depth_map, proj_coords.xy).r; 
+    float closest_depth = texture(depth_map, vec3(proj_coords.xy,0)).r; 
     // get depth of current fragment from light's perspective
     float current_depth = proj_coords.z;
     // check whether current frag pos is in shadow

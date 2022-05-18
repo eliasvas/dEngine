@@ -30,7 +30,7 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform sampler2D g_pos;
 layout(set = 2, binding = 1) uniform sampler2D g_normal;
 layout(set = 2, binding = 2) uniform sampler2D g_albedo_spec;
-layout(set = 2, binding = 3) uniform sampler2D depth_map;
+layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
 
 void main() {
     f_tex_coord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
