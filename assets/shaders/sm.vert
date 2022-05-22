@@ -12,14 +12,14 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	mat4 model;
-	mat4 lsm[4];
+	mat4 lsm;
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
 
 
 void main() {
-    gl_Position = ObjectData.model * vec4(vertex_pos, 1.0);
+    gl_Position = ObjectData.lsm * ObjectData.model * vec4(vertex_pos, 1.0);
     
 }
 

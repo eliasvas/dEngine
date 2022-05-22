@@ -500,7 +500,7 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
     vkDestroySampler(ddev->device, tex->sampler, NULL);
 }
 
-static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags, u32 layer_count)
+static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer)
 {
 	VkImageView image_view;
 	
@@ -512,7 +512,7 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageV
 	view_info.subresourceRange.aspectMask = aspect_flags;
 	view_info.subresourceRange.baseMipLevel = 0;
 	view_info.subresourceRange.levelCount = 1;
-	view_info.subresourceRange.baseArrayLayer = 0;
+	view_info.subresourceRange.baseArrayLayer = base_layer;
 	view_info.subresourceRange.layerCount = layer_count;
 	VK_CHECK(vkCreateImageView(dd.device, &view_info, NULL, &image_view));
 	return image_view;
@@ -550,7 +550,7 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
     ddev->swap.image_views = (VkImageView*)malloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
-		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT,1);
+		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT,1,0);
     return DSUCCESS;
 }
 
@@ -1702,9 +1702,9 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
 
     if (layer_count > 1)
-        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_DEPTH_BIT,layer_count);
+        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_DEPTH_BIT,layer_count,0);
     else
-        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT,1);
+        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT,1,0);
     depth_attachment.width = width;
     depth_attachment.height = height;
     depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
@@ -1788,7 +1788,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1);
+	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1866,7 +1866,7 @@ static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkForma
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
 	
-	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1);
+	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1881,6 +1881,11 @@ static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width
     rt->depth_active = TRUE;
     rt->cascaded_depth = TRUE;
     rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
+    for (u32 i =0; i < cascade_count; ++i)
+    {
+        rt->cascade_views[i] = dg_create_image_view(rt->depth_attachment.image, rt->depth_attachment.format, 
+        VK_IMAGE_VIEW_TYPE_2D_ARRAY,VK_IMAGE_ASPECT_DEPTH_BIT,1,i);
+    }
 }
 
 static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height)
@@ -2073,10 +2078,25 @@ void draw_cube_def(dgDevice *ddev, mat4 model)
 
 }
 
-void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm)
+/*
+typedef struct dgTexture{
+    VkSampler sampler;
+    VkImage image;
+    VkImageLayout image_layout;
+    VkDeviceMemory mem;
+    VkImageView view;
+    VkFormat format;
+    u32 width, height;
+    u32 mip_levels;
+} dgTexture;
+*/
+
+void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_index)
 {
 
-    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &csm_rt.depth_attachment, FALSE, FALSE);
+    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
+    depth_tex_to_write.view = csm_rt.cascade_views[cascade_index];
+    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2089,13 +2109,10 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm)
     dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
     dg_rendering_end(ddev);
-
-
-
 }
 
 //calculates the cascaded shadow map's light space matrix
-static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, u32 frustum_count)
+static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, f32 *frustum_dists,u32 frustum_count)
 {
     frustum_count = minimum(frustum_count, DG_MAX_CASCADES);
     u32 current_frustum = 0;
@@ -2106,7 +2123,7 @@ static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, u32 frustum_co
     cascade_limits[frustum_count] = far_plane;
     for(u32 i = 1; i < frustum_count; ++i)
         cascade_limits[i] =  
-            cascade_limits[0]+(cascade_limits[frustum_count]-cascade_limits[0])/(frustum_count - i);
+            cascade_limits[0]+(cascade_limits[frustum_count]-cascade_limits[0])/((frustum_count+1) - i);
     
     for (u32 f=0; f < frustum_count; ++f)
     {
@@ -2167,6 +2184,7 @@ static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, u32 frustum_co
 
         mat4 light_ortho = orthographic_proj(minX, maxX, minY, maxY, minZ, maxZ);
 
+        frustum_dists[current_frustum] = cascade_far;
         lsm[current_frustum++] = mat4_mul(light_ortho, light_view);
     }
 }
@@ -2209,6 +2227,7 @@ void dg_frame_begin(dgDevice *ddev)
     vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
 
 
+
     dg_ubo_data_buffer_clear(&ddev->ubo_buf, ddev->current_frame);
     dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
 
@@ -2218,66 +2237,49 @@ void dg_frame_begin(dgDevice *ddev)
     mat4 inv = dcamera_get_view_matrix(&cam);
     mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.width, 0.01, 100);
 
-    //mat4 inv= look_at(v3(0,5,5),v3(0,0,-8),v3(0,1,0));
 
+
+    //set desc set 0
+    mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
+    dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
+     
     //draw to deferred FBO
-    {
-        dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
-        dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-        dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
-        dg_bind_pipeline(ddev, &ddev->def_pipe);
-        dgBuffer buffers[] = {base_vbo};
-        u64 offsets[] = {0};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-        dg_bind_index_buffer(ddev, &base_ibo, 0);
-
-        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
-        mat4 object_data = mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
-        //small cube
-        dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->def_pipe, &object_data, sizeof(object_data), 1);
-        dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-        //big cube
-        mat4 big_data = mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100)));
-        dg_set_desc_set(ddev,&ddev->def_pipe, &big_data, sizeof(big_data), 1);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-
-        dg_rendering_end(ddev);
-    }
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
+    dg_rendering_end(ddev);
+    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
+        mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))));
+    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))));
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
 
+
+
     mat4 lsm[DG_MAX_CASCADES];
+    f32 fdist[DG_MAX_CASCADES];
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
-    dg_calc_lsm(light_dir, proj, inv, lsm, 3);
+    u32 cascade_count = 3;
+    dg_calc_lsm(light_dir, proj, inv, lsm,fdist, cascade_count);
 
-    //draw to shadow map
-    { dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &csm_rt.depth_attachment, TRUE, TRUE);
-        dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
-        dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
-        dg_bind_pipeline(ddev, &ddev->shadow_pipe);
-        dgBuffer buffers[] = {base_vbo};
-        u64 offsets[] = {0};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-        dg_bind_index_buffer(ddev, &base_ibo, 0);
-
-        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
-        mat4 object_data[2] = {mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm[0]};
-        //small cube
-        dg_set_desc_set(ddev,&ddev->shadow_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-        //big cube
-        mat4 big_data[2] = {mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm[0]};
-        dg_set_desc_set(ddev,&ddev->shadow_pipe, big_data, sizeof(big_data), 1);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+    //clear the shadowmap
+    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
+    for (u32 i = 0; i < DG_MAX_CASCADES; ++i)
+    {
+        depth_tex_to_write.view = csm_rt.cascade_views[i];
+        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, TRUE, TRUE);
         dg_rendering_end(ddev);
     }
-    draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm[0]);
-    draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm[0]);
-    draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm[0]);
+
+    //draw to shadow map
+    for (u32 i = 0;i < cascade_count;++i)
+    {
+        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
+            mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm[i],i);
+        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm[i],i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm[i],i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm[i],i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm[i],i);
+    }
 
 
 
@@ -2290,7 +2292,8 @@ void dg_frame_begin(dgDevice *ddev)
 
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        mat4 data_fullscreen = lsm[0];
+        //FIX:  datafullscreen should be as big as the number of cascades, but im bored
+        mat4 data_fullscreen[5] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0} };
         dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
         dgTexture textures[4];
         textures[0] = def_rt.color_attachments[0];
@@ -2408,7 +2411,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", "sm.geom"));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", NULL));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", NULL));
     assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", NULL));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", NULL));
@@ -2443,8 +2446,8 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
-    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 2048,2048);
-    dg_rt_init_csm(&dd, &csm_rt, 3, 2048,2048);
+    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 512,512);
+    dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);

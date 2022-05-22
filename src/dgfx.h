@@ -169,6 +169,8 @@ typedef struct dgRT
     u32 color_attachment_count;
     b32 depth_active;
     b32 cascaded_depth;
+
+    VkImageView cascade_views[5];
 }dgRT;
 
 

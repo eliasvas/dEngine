@@ -24,7 +24,8 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 } GlobalData;
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
-	mat4 lsm;
+	mat4 lsm[4];
+	vec4 fdist;
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D g_pos;
