@@ -4,6 +4,8 @@
         "dgfx.h": "c",
         "dconfig.h": "c",
         "microui.h": "c",
-        "tools.h": "c"
+        "tools.h": "c",
+        "dwin.h": "c",
+        "typeinfo": "c"
     }
 }

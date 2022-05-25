@@ -19,6 +19,7 @@ static dgBuffer ibo;
 static s32 buf_idx;
 
 extern dgDevice dd;
+extern dWindow main_window;
 
 dgTexture font_atlas;
 mu_Rect mr;

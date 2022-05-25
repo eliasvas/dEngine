@@ -5,6 +5,7 @@
 extern dgDevice dd;
 
 mu_Context ctx;
+dWindow main_window;
 
 extern dConfig engine_config;
 

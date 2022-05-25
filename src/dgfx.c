@@ -9,6 +9,9 @@
 #include "../ext/microui/microui.h"
 #include "../ext/microui/atlas.inl"
 #include "dcamera.h"
+#include "dmodel.h"
+
+dModel water_bottle;
 
 dgBuffer pos_vbo;
 dgBuffer normal_vbo;
@@ -39,8 +42,9 @@ extern dWindow main_window;
 	} while (0);
 
 static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
-"VK_EXT_extended_dynamic_state"
-, VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME ,
+    VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+    VK_KHR_MULTIVIEW_EXTENSION_NAME,
 };
 
 static const char *validation_layers[]= {
@@ -637,15 +641,6 @@ VkPipelineShaderStageCreateInfo
 	return info;
 }
 
-static VkVertexInputBindingDescription dg_get_bind_desc_basic(void)
-{
-    VkVertexInputBindingDescription bind_desc = {0};
-    bind_desc.binding = 0;
-    bind_desc.stride = sizeof(dgVertex);
-    bind_desc.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
-    return bind_desc;
-}
-
 static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *bind_desc,u32 vert_size, u32 binding_count)
 {
     for (u32 i = 0; i < binding_count; ++i)
@@ -654,6 +649,16 @@ static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *
         bind_desc[i].stride = vert_size;
         bind_desc[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
     }
+}
+
+//counts how many bindings are used
+static u32 dg_get_attr_binding_count(dgShader *shader)
+{
+    for (u32 i = 0; i< shader->info.input_variable_count;++i)
+    {
+        u32 binding = shader->info.input_variables[i]->location;
+    }
+
 }
 
 static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, u32 *vert_size)
@@ -1477,7 +1482,8 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.colorAttachmentCount = (tex == NULL) ? 1 : attachment_count;
     rendering_info.pColorAttachments = color_attachments;
     rendering_info.pDepthAttachment = &depth_attachment;
-    rendering_info.pStencilAttachment = &depth_attachment;
+    //rendering_info.pStencilAttachment = &depth_attachment;
+    rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
 
     vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
 }
@@ -1797,7 +1803,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	return tex;
 }
 
-static dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
+dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
 	//[0]: we read an image and store all the pixels in a pointer
@@ -2232,6 +2238,23 @@ void dg_frame_begin(dgDevice *ddev)
     dg_descriptor_allocator_reset_pools(&ddev->desc_alloc[ddev->current_frame]);
 
     dg_prepare_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
+    //CLEAR ALL FBO's before drawing
+    
+    //clear deferred FBO
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
+    dg_rendering_end(ddev);
+    //clear the shadowmap
+    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
+    for (u32 i = 0; i < DG_MAX_CASCADES; ++i)
+    {
+        depth_tex_to_write.view = csm_rt.cascade_views[i];
+        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, TRUE, TRUE);
+        dg_rendering_end(ddev);
+    }
+    //clear swapchain?
+    //dg_rendering_begin(ddev, NULL, 1, NULL, TRUE, TRUE);
+
+
 
     dcamera_update(&cam);
     mat4 inv = dcamera_get_view_matrix(&cam);
@@ -2243,9 +2266,7 @@ void dg_frame_begin(dgDevice *ddev)
     mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
     dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
      
-    //draw to deferred FBO
-    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
-    dg_rendering_end(ddev);
+    
     draw_cube_def(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
         mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))));
     draw_cube_def(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))));
@@ -2260,16 +2281,6 @@ void dg_frame_begin(dgDevice *ddev)
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, inv, lsm,fdist, cascade_count);
-
-    //clear the shadowmap
-    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
-    for (u32 i = 0; i < DG_MAX_CASCADES; ++i)
-    {
-        depth_tex_to_write.view = csm_rt.cascade_views[i];
-        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, TRUE, TRUE);
-        dg_rendering_end(ddev);
-    }
-
     //draw to shadow map
     for (u32 i = 0;i < cascade_count;++i)
     {
@@ -2286,7 +2297,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_wait_idle(ddev);
     {
-        dg_rendering_begin(ddev, NULL, 1, NULL, TRUE, TRUE);
+        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE, FALSE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
@@ -2306,49 +2317,19 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
 
-    
-    //draw_cube(ddev, mat4_translate(v3(frustum_center.x, frustum_center.y, frustum_center.z)));
-
-    //for (u32 i = 0; i < 5; ++i)
-        //draw_cube(ddev, mat4_translate(v3(0,0,i*3)));
-
-
-
-    /*
-    {
-        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_bind_pipeline(ddev, &ddev->base_pipe);
-        dgBuffer buffers[] = {base_vbo};
-        u64 offsets[] = {0};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-        dg_bind_index_buffer(ddev, &base_ibo, 0);
-
-        //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        mat4 data[4] = {inv, proj, m4d(1.0f),m4d(1.0f)};
-        //mat4 object_data = m4d(1.0f);
-        mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
-        dg_set_desc_set(ddev,&ddev->base_pipe, data, sizeof(data), 0);
-        dg_set_desc_set(ddev,&ddev->base_pipe, &object_data, sizeof(object_data), 1);
-        dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
-        dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
-
-        dg_rendering_end(ddev);
-    }
-    */
-
     //draw the grid ???
     {
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_bind_pipeline(ddev, &ddev->grid_pipe);
-        float object_data = 2.0f;
+        //@FIX: why float copy doesn't work due to alignment and we have to copy v4's ?????? (SPIR-V thing)
+        vec4 object_data = (vec4){2.0f};
         dg_set_desc_set(ddev,&ddev->grid_pipe, &object_data, sizeof(object_data), 1);
         dg_draw(ddev, 6,0);
         dg_rendering_end(ddev);
     }
+
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2452,5 +2433,6 @@ b32 dgfx_init(void)
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
+    dmodel_load_gltf("WaterBottle");
 	return 1;
 }

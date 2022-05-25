@@ -11,7 +11,6 @@
 #include "dwin.h"
 #include "dgfx.h"
 
-dWindow main_window;
 
 void dcore_init(void);
 

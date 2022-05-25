@@ -197,6 +197,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count,
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format);
+dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format);
 
 void dg_buf_destroy(dgBuffer *buf);
 VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset);
