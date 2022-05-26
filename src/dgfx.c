@@ -19,6 +19,11 @@ dgBuffer tex_vbo;
 
 dgDevice dd;
 dgBuffer base_vbo;
+
+dgBuffer base_pos;
+dgBuffer base_norm;
+dgBuffer base_tex;
+
 dgBuffer base_ibo;
 dgTexture t1;
 dgTexture t2;
@@ -80,7 +85,7 @@ vec2 cube_tex_coords[] = {
 	{0, 1},   {1, 1},   {1, 0},   {0, 0}                // v4,v7,v6,v5 (back)
 };
 
-u32 cube_indices[] = {
+u16 cube_indices[] = {
      0, 1, 2,   2, 3, 0,    // v0-v1-v2, v2-v3-v0 (front)
      4, 5, 6,   6, 7, 4,    // v0-v3-v4, v4-v5-v0 (right)
      8, 9,10,  10,11, 8,    // v0-v5-v6, v6-v1-v0 (top)
@@ -489,8 +494,6 @@ static b32 dg_create_swapchain(dgDevice *ddev)
 
 static void dg_cleanup_swapchain(dgDevice *ddev)
 {
-   //vkDestroyPipeline(ddev->device, ddev->fullscreen_pipe.pipeline, NULL); 
-   //vkDestroyPipelineLayout(ddev->device, ddev->fullscreen_pipe.pipeline_layout, NULL);
    for (u32 i = 0; i < ddev->swap.image_count; ++i)
         vkDestroyImageView(ddev->device, ddev->swap.image_views[i], NULL);
     vkDestroySwapchainKHR(ddev->device, ddev->swap.swapchain, NULL);
@@ -641,39 +644,30 @@ VkPipelineShaderStageCreateInfo
 	return info;
 }
 
-static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *bind_desc,u32 vert_size, u32 binding_count)
+static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *bind_desc,VkVertexInputAttributeDescription *attr_desc, u32 attr_count, b32 pack_attribs)
 {
+
+    u32 binding_count = (pack_attribs) ? 1 : attr_count;
+
     for (u32 i = 0; i < binding_count; ++i)
     {
         bind_desc[i].binding = i;
-        bind_desc[i].stride = vert_size;
+        bind_desc[i].stride = attr_desc[i].offset;
         bind_desc[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
     }
 }
 
-//counts how many bindings are used
-static u32 dg_get_attr_binding_count(dgShader *shader)
+static u32 dg_get_vertex_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, VkVertexInputBindingDescription *bind_desc, b32 pack_attribs)
 {
-    for (u32 i = 0; i< shader->info.input_variable_count;++i)
-    {
-        u32 binding = shader->info.input_variables[i]->location;
-    }
-
-}
-
-static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, u32 *vert_size)
-{
-    u32 attr_index = 0;
     u32 global_offset = 0;
     u32 attribute_count = shader->info.input_variable_count;
-
     memset(attr_desc, 0, sizeof(VkVertexInputAttributeDescription) * DG_VERTEX_INPUT_ATTRIB_MAX);
 
     for (u32 i = 0; i < shader->info.input_variable_count; ++i)
     {
         for (u32 j = 0; j <shader->info.input_variable_count; ++j)
         {
-            attr_index = (u32)shader->info.input_variables[j]->location;
+            u32 attr_index = (u32)shader->info.input_variables[j]->location;
             if (shader->info.input_variables[j]->built_in != -1)
             {
                 --attribute_count;
@@ -683,40 +677,57 @@ static u32 dg_get_attr_desc(dgShader *shader, VkVertexInputAttributeDescription 
             {
                 SpvReflectInterfaceVariable *input_var = shader->info.input_variables[j];
                 memset(&attr_desc[attr_index], 0, sizeof(VkVertexInputAttributeDescription));
-                attr_desc[attr_index].binding = 0; //TODO(inv): check dis shit
-                //attr_desc[attr_index].binding = i; //TODO(inv): check dis shit
+                attr_desc[attr_index].binding = (pack_attribs) ? 0 : attr_index;
                 attr_desc[attr_index].format = input_var->format;
-                attr_desc[attr_index].location= input_var->location;
-                //attr_desc[attr_index].location= 0;
-                attr_desc[attr_index].offset = global_offset;
-                //attr_desc[attr_index].offset = 0;
+                attr_desc[attr_index].location = input_var->location;
+                //attr_desc[attr_index].offset = (pack_attribs) ? global_offset : input_var->numeric.vector.component_count * sizeof(f32) ;
+                attr_desc[attr_index].offset = (pack_attribs) ? global_offset : 0;
                 global_offset += input_var->numeric.vector.component_count * sizeof(f32);
 
+                bind_desc[i].stride = input_var->numeric.vector.component_count * sizeof(f32);
 
                 break;
             }
 
         }
 
+        for (u32 i = 0; i < attribute_count;++i)
+        {
+            u32 attr_index = (u32)shader->info.input_variables[i]->location;
+            bind_desc[attr_index].inputRate= VK_VERTEX_INPUT_RATE_VERTEX;
+            if (pack_attribs)
+            {
+                bind_desc[attr_index].binding = 0;
+                bind_desc[attr_index].stride = global_offset;
+            }
+            else
+            {
+                bind_desc[attr_index].binding = attr_index;
+                //bind_desc[i].stride is already calculated above :D
+            }
+        }
+
     }
-    *vert_size = global_offset;
+
     return attribute_count;
 }
 
 static VkPipelineVertexInputStateCreateInfo 
-dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDescription *bind_desc, VkVertexInputAttributeDescription *attr_desc)
+dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDescription *bind_desc, VkVertexInputAttributeDescription *attr_desc, b32 pack_attribs)
 {
     u32 vert_size;
-    u32 attribute_count = dg_get_attr_desc(shader, attr_desc, &vert_size);
-    u32 binding_count = 1;//TODO(inv): this should become an option
-    dg_get_bind_desc(shader,bind_desc,vert_size, binding_count);
+    //fills attribute AND binding descriptions for our pipe's vertices
+    u32 binding_count = dg_get_vertex_desc(shader, attr_desc, bind_desc,pack_attribs);
  
 	VkPipelineVertexInputStateCreateInfo info = {0};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	info.pNext = NULL;
-	info.vertexBindingDescriptionCount = (attribute_count >0) ? binding_count : 0;
+    if (pack_attribs)
+        info.vertexBindingDescriptionCount = (binding_count >0) ? 1 : 0;
+    else
+        info.vertexBindingDescriptionCount = (binding_count >0) ? binding_count : 0;
     info.pVertexBindingDescriptions = bind_desc;
-	info.vertexAttributeDescriptionCount = attribute_count;
+	info.vertexAttributeDescriptionCount = binding_count;
     info.pVertexAttributeDescriptions = attr_desc;
 
 	return info;
@@ -982,7 +993,7 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 	return info;
 }
 
-static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name, char *geom_name)
+static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name, b32 pack_vert_attribs)
 {
     //these are dummies, we bind our scissors and viewports per drawcall
     VkRect2D s = scissor(0,0,0,0);
@@ -992,14 +1003,10 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     //read shaders and register them in the pipeline builder
 	dg_shader_create(ddev->device, &pipe->vert_shader, vert_name, VK_SHADER_STAGE_VERTEX_BIT); 
 	dg_shader_create(ddev->device, &pipe->frag_shader, frag_name, VK_SHADER_STAGE_FRAGMENT_BIT);
-    if (geom_name != NULL)
-        dg_shader_create(ddev->device, &pipe->geom_shader, geom_name, VK_SHADER_STAGE_GEOMETRY_BIT);
-	u32 shader_stages_count = 2 + (geom_name != NULL);
+	u32 shader_stages_count = 2;
     VkPipelineShaderStageCreateInfo shader_stages[3];
 	shader_stages[0] = dg_pipe_shader_stage_create_info(pipe->vert_shader.stage, pipe->vert_shader.module);
 	shader_stages[1] = dg_pipe_shader_stage_create_info(pipe->frag_shader.stage, pipe->frag_shader.module);
-    if (geom_name != NULL)
-        shader_stages[2] = dg_pipe_shader_stage_create_info(pipe->geom_shader.stage, pipe->geom_shader.module);
 
     u32 output_var_count = pipe->frag_shader.info.output_variable_count;
     //we cut all builtin out variables like gl_FragDepth and stuff
@@ -1013,7 +1020,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkVertexInputBindingDescription bind_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkPipelineVertexInputStateCreateInfo vert_input_state = 
-    dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc);
+    dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc, pack_vert_attribs);
 
 
 
@@ -1177,7 +1184,6 @@ static void dg_recreate_swapchain(dgDevice *ddev)
     dg_rt_init(&dd, &def_rt, 4, TRUE, ddev->swap.extent.width, ddev->swap.extent.height);
 
     
-    //dg_create_pipeline(ddev, &ddev->fullscreen_pipe, "fullscreen.vert", "fullscreen.frag");
     dg_create_command_buffers(ddev);
 }
 
@@ -2052,7 +2058,7 @@ void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo
 }
 void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset)
 {
-    vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, ibo_offset, VK_INDEX_TYPE_UINT32);
+    vkCmdBindIndexBuffer(ddev->command_buffers[ddev->current_frame], ibo->buffer, ibo_offset, VK_INDEX_TYPE_UINT16);
 }
 
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
@@ -2078,7 +2084,7 @@ void draw_cube_def(dgDevice *ddev, mat4 model)
 
     dg_set_desc_set(ddev,&ddev->def_pipe, &model, sizeof(model), 1);
     dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 
@@ -2113,7 +2119,7 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_inde
 
     mat4 object_data[2] = {model, lsm};
     dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 }
 
@@ -2201,9 +2207,9 @@ void draw_cube(dgDevice *ddev, mat4 model)
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dgBuffer buffers[] = {base_vbo};
-    u64 offsets[] = {0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dgBuffer buffers[] = {base_pos, base_norm, base_tex};
+    u64 offsets[] = {0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
 
     //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
@@ -2211,7 +2217,7 @@ void draw_cube(dgDevice *ddev, mat4 model)
     mat4 object_data[2] = {model, {1.0,1.0,1.0,0.0,0.0,1.0}};
     dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u32));
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }
@@ -2276,6 +2282,7 @@ void dg_frame_begin(dgDevice *ddev)
 
 
 
+
     mat4 lsm[DG_MAX_CASCADES];
     f32 fdist[DG_MAX_CASCADES];
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
@@ -2330,6 +2337,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
 
+    draw_cube(ddev, mat4_translate(v3(0,5,0)));
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2391,13 +2399,13 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
-    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", NULL));
-    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", NULL));
+    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", TRUE));
+    //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", FALSE));
+    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", TRUE));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
@@ -2420,6 +2428,18 @@ b32 dgfx_init(void)
 	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
 	&base_vbo, sizeof(dgVertex) * 24, cube_vertices);
+	
+	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&base_pos, sizeof(vec3) * 24, cube_positions);
+	
+	dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&base_norm, sizeof(vec3) * 24, cube_normals);
+
+    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&base_tex, sizeof(vec2) * 24, cube_tex_coords);
 	
 	//create index buffer
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 

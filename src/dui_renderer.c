@@ -11,7 +11,7 @@
 
 // pos/norm/tex --> pos/col/tex
 static dgVertex vertices[BUFFER_SIZE*4]; 
-static u32 index_buf[BUFFER_SIZE*6];
+static u16 index_buf[BUFFER_SIZE*6];
 
 static dgBuffer vbo;
 static dgBuffer ibo;
@@ -38,7 +38,7 @@ void dui_init(void) {
 	//create index buffer
 	dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-	&ibo, BUFFER_SIZE * sizeof(u32) * 6, NULL);
+	&ibo, BUFFER_SIZE * sizeof(u16) * 6, NULL);
 
 
 }
@@ -160,13 +160,13 @@ void dui_clear(mu_Color clr) {
 void dui_present(void) {
   if (!buf_idx)return;
   u32 vbo_size = BUFFER_SIZE * sizeof(dgVertex) * 4;
-  u32 ibo_size = BUFFER_SIZE * sizeof(u32) * 6;
+  u32 ibo_size = BUFFER_SIZE * sizeof(u16) * 6;
   dg_buf_map(&vbo,VK_WHOLE_SIZE, 0);
   memcpy(vbo.mapped, vertices, buf_idx * sizeof(dgVertex) * 4);
   dg_buf_unmap(&vbo);
 
   dg_buf_map(&ibo, VK_WHOLE_SIZE, 0);
-  memcpy(ibo.mapped, index_buf, buf_idx * sizeof(u32) * 6);
+  memcpy(ibo.mapped, index_buf, buf_idx * sizeof(u16) * 6);
   dg_buf_unmap(&ibo);
 
 

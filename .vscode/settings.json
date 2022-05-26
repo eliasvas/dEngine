@@ -6,6 +6,7 @@
         "microui.h": "c",
         "tools.h": "c",
         "dwin.h": "c",
-        "typeinfo": "c"
+        "typeinfo": "c",
+        "assert.h": "c"
     }
 }
