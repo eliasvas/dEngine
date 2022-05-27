@@ -11,6 +11,7 @@
 #include "dcamera.h"
 #include "dmodel.h"
 
+extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 dModel water_bottle;
 
 dgBuffer pos_vbo;
@@ -644,18 +645,6 @@ VkPipelineShaderStageCreateInfo
 	return info;
 }
 
-static void dg_get_bind_desc(dgShader *shader, VkVertexInputBindingDescription *bind_desc,VkVertexInputAttributeDescription *attr_desc, u32 attr_count, b32 pack_attribs)
-{
-
-    u32 binding_count = (pack_attribs) ? 1 : attr_count;
-
-    for (u32 i = 0; i < binding_count; ++i)
-    {
-        bind_desc[i].binding = i;
-        bind_desc[i].stride = attr_desc[i].offset;
-        bind_desc[i].inputRate = VK_VERTEX_INPUT_RATE_VERTEX;//per-vertex
-    }
-}
 
 static u32 dg_get_vertex_desc(dgShader *shader, VkVertexInputAttributeDescription *attr_desc, VkVertexInputBindingDescription *bind_desc, b32 pack_attribs)
 {
@@ -2207,9 +2196,9 @@ void draw_cube(dgDevice *ddev, mat4 model)
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dgBuffer buffers[] = {base_pos, base_norm, base_tex};
-    u64 offsets[] = {0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
+    dgBuffer buffers[] = {base_tex,base_norm,base_norm,base_pos};
+    u64 offsets[] = {0,0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
 
     //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
@@ -2337,7 +2326,8 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
 
-    draw_cube(ddev, mat4_translate(v3(0,5,0)));
+    //draw_cube(ddev, mat4_translate(v3(0,5,0)));
+    draw_model(ddev, &water_bottle,mat4_translate(v3(0,3,0)));
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2453,6 +2443,6 @@ b32 dgfx_init(void)
     t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
-    dmodel_load_gltf("WaterBottle");
+    water_bottle = dmodel_load_gltf("WaterBottle");
 	return 1;
 }

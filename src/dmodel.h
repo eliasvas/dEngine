@@ -10,6 +10,7 @@ typedef struct dMesh
     dgBuffer pos_buf;
     dgBuffer norm_buf;
     dgBuffer tex_buf;
+    dgBuffer tang_buf;
     dgBuffer index_buf;
 }dMesh;
 

@@ -1,5 +1,6 @@
 #include "dmodel.h"
 #define CGLTF_IMPLEMENTATION
+#define CGLTF_WRITE_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 
 extern dgDevice dd;
@@ -14,6 +15,13 @@ dModel dmodel_load_gltf(const char *filename)
     cgltf_options options = {0};
     cgltf_data *data = NULL;
     cgltf_result result = cgltf_parse_file(&options, filepath, &data);
+    //sprintf(filepath,"../assets/%s/%s.bin",filename,filename);
+    if (cgltf_load_buffers(&options, data, filepath) != cgltf_result_success)
+    {
+        model.finished_loading = 0;
+        printf("couldnt load gltf data\n");
+        return model;
+    }
     if (result != cgltf_result_success)
     {
         model.finished_loading = 0;
@@ -36,26 +44,32 @@ dModel dmodel_load_gltf(const char *filename)
         //FIX: we onlysupport one primitive (e.g) triangle per mesh
         cgltf_primitive primitive = data->meshes[i].primitives[0];
 
-        //create position buffer
-        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.pos_buf,primitive.attributes[3].data->count * primitive.attributes[3].data->stride,primitive.attributes[3].data->buffer_view);
 
-        //create normal buffer
+        //create pos buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.norm_buf,primitive.attributes[1].data->count * primitive.attributes[1].data->stride,primitive.attributes[1].data->buffer_view);
+        &mesh.pos_buf,primitive.attributes[3].data->buffer_view->size,primitive.attributes[3].data->buffer_view->buffer->data + primitive.attributes[3].data->buffer_view->offset);
+ 
+        //create tex buffer 
+        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+        &mesh.tex_buf,primitive.attributes[0].data->buffer_view->size,primitive.attributes[0].data->buffer_view->buffer->data + primitive.attributes[0].data->buffer_view->offset);
 
-        //create texcoord buffer
+        //create norm buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.tex_buf,primitive.attributes[0].data->count * primitive.attributes[0].data->stride,primitive.attributes[0].data->buffer_view);
+        &mesh.norm_buf,primitive.attributes[1].data->buffer_view->size,primitive.attributes[1].data->buffer_view->buffer->data + primitive.attributes[1].data->buffer_view->offset);
+ 
+        //create tangent buffer 
+        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+        &mesh.tang_buf,primitive.attributes[2].data->buffer_view->size,primitive.attributes[2].data->buffer_view->buffer->data + primitive.attributes[2].data->buffer_view->offset);
  
         
         //create index buffer
         dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.index_buf, primitive.indices->count * primitive.indices->stride, primitive.indices->buffer_view);
+        &mesh.index_buf, primitive.indices->count *sizeof(u16), primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
 
         model.meshes[model.meshes_count++] = mesh;
 
@@ -65,3 +79,25 @@ dModel dmodel_load_gltf(const char *filename)
     cgltf_free(data);
     return model;
 }
+
+
+extern dgRT def_rt;
+void draw_model(dgDevice *ddev, dModel *m, mat4 model)
+{
+    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->base_pipe);
+    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].tang_buf,m->meshes[0].pos_buf};
+    u64 offsets[] = {0,0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+    dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
+    dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
+    dg_set_desc_set(ddev,&ddev->base_pipe, &m->textures[0], 1, 2);
+    dg_draw(ddev, 24,m->meshes[0].index_buf.size/sizeof(u16));
+
+    dg_rendering_end(ddev);
+}
+
