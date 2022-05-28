@@ -23,7 +23,8 @@ layout(location = 2) out vec2 f_tex_coord;
 
 void main() {
     gl_Position = GlobalData.proj * GlobalData.view * ObjectData.model * vec4(vertex_pos, 1.0);
-    f_normal = vertex_normal;
+    vec3 N = mat3(transpose(inverse(ObjectData.model))) * vertex_normal;  
+    f_normal = N;
     f_frag_pos = (ObjectData.model * vec4(vertex_pos,1.0f)).xyz;
     f_tex_coord = tex_coord;
     
