@@ -2,6 +2,7 @@
 #include "dui_renderer.h"
 
 extern mu_Context ctx;
+extern dgDevice dd;
 
 //FEATURES TODO
 //Render Targets should have customizable widths/height AND formats for each texture in the RT
@@ -29,11 +30,11 @@ static void test_window(mu_Context *ctx) {
       mu_layout_row(ctx, 2, (int[]) { 54, -1 }, 0);
       mu_label(ctx,"Position:");
       sprintf(buf, "%d, %d", win->rect.x, win->rect.y); mu_label(ctx, buf);
-      mu_label(ctx, "Size:");
-      sprintf(buf, "%d, %d", win->rect.w, win->rect.h); mu_label(ctx, buf);
-      static int checks[3] = { 1, 0, 1 };
+      mu_label(ctx, "Shad:");
+      mu_checkbox(ctx, "On/Off", &dd.shadow_pass_active);
       mu_label(ctx, "Grid:");
-      mu_checkbox(ctx, "On/Off", &checks[0]);
+      mu_checkbox(ctx, "On/Off", &dd.grid_active);
+
 
     }
     mu_end_window(ctx);

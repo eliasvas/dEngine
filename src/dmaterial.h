@@ -5,18 +5,18 @@
 
 typedef enum dMaterialSettings
 {
-    DMATERIAL_DIFFUSE= 0x1,
-    DMATERIAL_SPECULAR= 0x2,
+    DMATERIAL_BASE_COLOR= 0x1,
+    DMATERIAL_EMISSIVE= 0x2,
+    DMATERIAL_NORMAL= 0x4,
+    DMATERIAL_ORM= 0x8,
 }dMaterialSettings;
 
 typedef struct dMaterial
 {
-    vec3 base_color;
-    f32  metallic;
-    f32 roughness;
-
-    dgTexture diffuse;
-    dgTexture specular;
+    dgTexture base_color;
+    dgTexture emissive;
+    dgTexture normal;
+    dgTexture orm; //occlusion/roughness/metallic
 
     dMaterialSettings settings;
 }dMaterial;

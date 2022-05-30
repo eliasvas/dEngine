@@ -153,6 +153,9 @@ typedef struct dgDevice
 
     u32 image_index; //current image index to draw
     u32 current_frame;
+
+    b32 shadow_pass_active;
+    b32 grid_active;
 }dgDevice;
 
 typedef struct dgVertex

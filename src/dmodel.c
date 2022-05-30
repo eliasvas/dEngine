@@ -41,7 +41,7 @@ dModel dmodel_load_gltf(const char *filename)
     for (u32 i = 0; i< data->meshes_count; ++i)
     {
         dMesh mesh = {0};
-        //FIX: we onlysupport one primitive (e.g) triangle per mesh
+        //FIX: we only support one primitive (e.g) triangle per mesh
         cgltf_primitive primitive = data->meshes[i].primitives[0];
 
 
@@ -95,7 +95,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
     mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
     dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->base_pipe, &m->textures[0], 1, 2);
+    dg_set_desc_set(ddev,&ddev->base_pipe, &m->textures[0], 4, 2);
     dg_draw(ddev, 24,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);

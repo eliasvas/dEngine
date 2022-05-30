@@ -18,8 +18,10 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	vec3 color[2];
 } ObjectData;
 
-layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;
-
+layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
+layout(set = 2, binding = 1) uniform sampler2D orm_tex;
+layout(set = 2, binding = 2) uniform sampler2D normal_tex;
+layout(set = 2, binding = 3) uniform sampler2D emissive_tex;
 
 layout(location = 0) out vec3 f_frag_pos;
 layout(location = 1) out vec3 f_normal;

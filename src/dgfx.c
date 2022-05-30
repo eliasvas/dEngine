@@ -2094,6 +2094,7 @@ typedef struct dgTexture{
 
 void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_index)
 {
+    if (!ddev->shadow_pass_active)return;
 
     dgTexture depth_tex_to_write = csm_rt.depth_attachment;
     depth_tex_to_write.view = csm_rt.cascade_views[cascade_index];
@@ -2314,7 +2315,7 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     //draw the grid ???
-    {
+    if (ddev->grid_active){
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
@@ -2404,6 +2405,8 @@ void dg_device_init(void)
 
 
     dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
+    dd.shadow_pass_active = FALSE;
+    dd.grid_active = TRUE;
 	printf("Vulkan initialized correctly!\n");
 
     dcamera_init(&cam);
