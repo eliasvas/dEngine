@@ -7,7 +7,7 @@ void dconfig_load(void)
 {
     char set[64], field[64];
     memset(&engine_config, 0, sizeof(engine_config));
-    FILE *config = fopen("../dconf", "rw");
+    FILE *config = fopen("../dconf", "r+");
     if (config == NULL){dconfig_default();return;}
     while(!feof(config))
     {

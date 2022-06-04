@@ -65,7 +65,7 @@ void destroy(void)
 
 int main(void)
 {
-    
+    printf("init??\n");
     init();
     while(update())
     {

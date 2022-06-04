@@ -1,3 +1,6 @@
+#include "tools.h"
+#if !defined (BUILD_WIN)
+
 #include "dfiber.h"
 
 b32 fibers_ok(void)
@@ -70,3 +73,5 @@ void djob_manager_init(dJobManager *m)
     djob_queue_init(&m->job_queue);
     m->next_index = 0;
 }
+
+#endif

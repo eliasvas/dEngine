@@ -1,5 +1,5 @@
-#include <SDL2/SDL.h>
-#include <SDL2/SDL_opengl.h>
+#include <SDL2/include/SDL.h>
+#include <SDL2/include/SDL_opengl.h>
 #include <assert.h>
 #include "dui_renderer.h"
 #include "../ext/microui/atlas.inl"

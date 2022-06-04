@@ -48,28 +48,28 @@ dModel dmodel_load_gltf(const char *filename)
         //create pos buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.pos_buf,primitive.attributes[3].data->buffer_view->size,primitive.attributes[3].data->buffer_view->buffer->data + primitive.attributes[3].data->buffer_view->offset);
+        &mesh.pos_buf,primitive.attributes[3].data->buffer_view->size,(char*)primitive.attributes[3].data->buffer_view->buffer->data + primitive.attributes[3].data->buffer_view->offset);
  
         //create tex buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.tex_buf,primitive.attributes[0].data->buffer_view->size,primitive.attributes[0].data->buffer_view->buffer->data + primitive.attributes[0].data->buffer_view->offset);
+        &mesh.tex_buf,primitive.attributes[0].data->buffer_view->size,(char*)primitive.attributes[0].data->buffer_view->buffer->data + primitive.attributes[0].data->buffer_view->offset);
 
         //create norm buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.norm_buf,primitive.attributes[1].data->buffer_view->size,primitive.attributes[1].data->buffer_view->buffer->data + primitive.attributes[1].data->buffer_view->offset);
+        &mesh.norm_buf,primitive.attributes[1].data->buffer_view->size,(char*)primitive.attributes[1].data->buffer_view->buffer->data + primitive.attributes[1].data->buffer_view->offset);
  
         //create tangent buffer 
         dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.tang_buf,primitive.attributes[2].data->buffer_view->size,primitive.attributes[2].data->buffer_view->buffer->data + primitive.attributes[2].data->buffer_view->offset);
+        &mesh.tang_buf,primitive.attributes[2].data->buffer_view->size,(char*)primitive.attributes[2].data->buffer_view->buffer->data + primitive.attributes[2].data->buffer_view->offset);
  
         
         //create index buffer
         dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
         (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.index_buf, primitive.indices->count *sizeof(u16), primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
+        &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
 
         model.meshes[model.meshes_count++] = mesh;
 

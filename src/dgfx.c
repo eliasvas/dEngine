@@ -135,7 +135,7 @@ b32 dg_create_instance(dgDevice *ddev) {
 		"VK_KHR_surface",
 #if defined(BUILD_UNIX)
         "VK_KHR_xlib_surface",
-#elif defined (BUILD_WINDOWS)
+#elif defined (BUILD_WIN)
         "VK_KHR_win32_surface",
 #endif
         VK_EXT_DEBUG_UTILS_EXTENSION_NAME,
@@ -159,6 +159,7 @@ b32 dg_create_instance(dgDevice *ddev) {
 
 	//for (u32 i = 0; i < ext_count; ++i)printf("EXT: %s\n", extensions[i].extensionName);
 	ddev->instance = instance;
+    assert(instance);
 
 	return TRUE;
 }
@@ -306,7 +307,11 @@ b32 dg_pick_physical_device(dgDevice *ddev)
     VkPhysicalDevice devices[DG_PHYSICAL_DEVICE_MAX];
     vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because llvmpipe is 0 and we don't want that! no vulkan 1.3!!
+#ifdef BUILD_UNIX
     for (u32 i = 1; i < device_count; ++i)
+#else
+    for (u32 i = 0; i < device_count; ++i)
+#endif
         if (is_device_suitable(devices[i], ddev->surface))
 			{
 				ddev->physical_device = devices[i];
@@ -1269,12 +1274,12 @@ static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buff
 {
     VK_CHECK(vkEndCommandBuffer(command_buffer));
 
-    VkSubmitInfo submitInfo = {};
+    VkSubmitInfo submitInfo = {0};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &command_buffer;
 
-    VkFenceCreateInfo fenceCI= {};
+    VkFenceCreateInfo fenceCI= {0};
     fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCI.flags = 0;
     VkFence fence;
@@ -1326,7 +1331,7 @@ static void dg_descriptor_allocator_cleanup(dgDescriptorAllocator *da)
         vkDestroyDescriptorPool(da->device, da->used_pools[i], NULL);
     }
     H32_static_clear(&da->desc_type_hash);
-    free(da->pool_sizes);
+    //free(da->pool_sizes);
 }
 
 //this is TERRIBLY SLOWWW~!!!!! @FIX (maybe we don't need to fix because a single pool handles a lot of descriptors??? @inspect)
@@ -1549,6 +1554,7 @@ static u32 find_mem_type(u32 type_filter, VkMemoryPropertyFlags properties)
             return i;
     }
     printf("Failed to find suitable memory type!");
+    return 0;
 }
 
 void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, dgBuffer*buf, VkDeviceSize size, void *data)
@@ -1612,6 +1618,7 @@ static VkFormat dg_find_supported_format(dgDevice *ddev, VkFormat *candidates, V
 		}
 	}
 	printf("Couldn't find desired depth buffer format!");
+    return 0;
 }
 
 
