@@ -59,23 +59,23 @@ u32 dmutex_unlock(DMutex *m)
 }
 
 static DMutex foo_mutex;
-void thread_inc(void *i) //simply increments a value
+void dthread_inc(void *i) //simply increments a value
 {
     dmutex_lock(&foo_mutex);
     (*((u32*)i))++;
     dmutex_unlock(&foo_mutex);
 }
-b32 threads_ok(void)
+b32 dthreads_ok(void)
 {
     u32 i = 4;
     foo_mutex= dmutex_create();
-    DThread t1 = dthread_create(thread_inc, &i);
-    DThread t2 = dthread_create(thread_inc, &i);
+    DThread t1 = dthread_create(dthread_inc, &i);
+    DThread t2 = dthread_create(dthread_inc, &i);
 
-    //printf("i before thread increment: %i\n", i);
+    printf("i before thread increment: %i\n", i);
     dthread_wait_end(&t1, INFINITE_MS);
     dthread_wait_end(&t2, INFINITE_MS);
-    //printf("i after thread increment: %i\n", i);
+    printf("i after thread increment: %i\n", i);
     return (i==6);
 }
 
