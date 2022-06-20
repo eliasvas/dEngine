@@ -9,6 +9,7 @@
 #include "../ext/microui/microui.h"
 #include "../ext/microui/atlas.inl"
 #include "dcamera.h"
+#include "dmem.h"
 #include "dmodel.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
@@ -96,7 +97,7 @@ u16 cube_indices[] = {
 };
 static dgVertex *cube_build_verts(void)
 {
-	dgVertex *verts = (dgVertex*)malloc(sizeof(dgVertex) * 24);
+	dgVertex *verts = (dgVertex*)dalloc(sizeof(dgVertex) * 24);
 	for (u32 i =0; i < 24; ++i)
 	{
 		verts[i].pos = cube_positions[i];
@@ -154,7 +155,7 @@ b32 dg_create_instance(dgDevice *ddev) {
 	//(OPTIONAL): extension support
 	u32 ext_count = 0;
 	vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
-	VkExtensionProperties *extensions = (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * ext_count);
+	VkExtensionProperties *extensions = (VkExtensionProperties*)dalloc(sizeof(VkExtensionProperties) * ext_count);
 	vkEnumerateInstanceExtensionProperties(NULL, &ext_count, extensions);
 
 	//for (u32 i = 0; i < ext_count; ++i)printf("EXT: %s\n", extensions[i].extensionName);
@@ -204,7 +205,7 @@ static u32 dg_check_device_extension_support(VkPhysicalDevice device)
 {
     u32 ext_count;
     vkEnumerateDeviceExtensionProperties(device, NULL, &ext_count, NULL);
-    VkExtensionProperties *available_extensions = (VkExtensionProperties*)malloc(sizeof(VkExtensionProperties) * ext_count);
+    VkExtensionProperties *available_extensions = (VkExtensionProperties*)dalloc(sizeof(VkExtensionProperties) * ext_count);
     
     vkEnumerateDeviceExtensionProperties(device, NULL, &ext_count, available_extensions);
     /*
@@ -258,7 +259,7 @@ static dgSwapChainSupportDetails dg_query_swapchain_support(VkPhysicalDevice dev
     
     if (format_count != 0)
     {
-        details.formats = (VkSurfaceFormatKHR*)malloc(sizeof(VkSurfaceFormatKHR) * format_count);
+        details.formats = (VkSurfaceFormatKHR*)dalloc(sizeof(VkSurfaceFormatKHR) * format_count);
         vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats);
     }
     u32 present_mode_count;
@@ -267,7 +268,7 @@ static dgSwapChainSupportDetails dg_query_swapchain_support(VkPhysicalDevice dev
     
     if (present_mode_count != 0)
     {
-        details.present_modes = (VkPresentModeKHR*)malloc(sizeof(VkPresentModeKHR) * present_mode_count);
+        details.present_modes = (VkPresentModeKHR*)dalloc(sizeof(VkPresentModeKHR) * present_mode_count);
         vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes);
     }
     
@@ -486,7 +487,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     VK_CHECK(vkCreateSwapchainKHR(ddev->device, &create_info, NULL, &ddev->swap.swapchain));
 
     vkGetSwapchainImagesKHR(ddev->device, ddev->swap.swapchain, &image_count, NULL);
-    ddev->swap.images = (VkImage*)malloc(sizeof(VkImage) * image_count);
+    ddev->swap.images = (VkImage*)dalloc(sizeof(VkImage) * image_count);
     vkGetSwapchainImagesKHR(ddev->device, ddev->swap.swapchain, &image_count, ddev->swap.images);
     ddev->swap.image_format = surface_format.format;
     ddev->swap.extent = extent;
@@ -561,7 +562,7 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 
 static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
-    ddev->swap.image_views = (VkImageView*)malloc(sizeof(VkImageView) * ddev->swap.image_count);
+    ddev->swap.image_views = (VkImageView*)dalloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
 		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT,1,0);
     return DSUCCESS;
@@ -1109,10 +1110,10 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 
 static b32 dg_create_sync_objects(dgDevice *ddev)
 {
-    ddev->image_available_semaphores = (VkSemaphore*)malloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT);
-    ddev->render_finished_semaphores = (VkSemaphore*)malloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT);
-    ddev->in_flight_fences = (VkFence*)malloc(sizeof(VkFence) * MAX_FRAMES_IN_FLIGHT);
-    ddev->images_in_flight = (VkFence*)malloc(sizeof(VkFence) * ddev->swap.image_count);
+    ddev->image_available_semaphores = (VkSemaphore*)dalloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT);
+    ddev->render_finished_semaphores = (VkSemaphore*)dalloc(sizeof(VkSemaphore) * MAX_FRAMES_IN_FLIGHT);
+    ddev->in_flight_fences = (VkFence*)dalloc(sizeof(VkFence) * MAX_FRAMES_IN_FLIGHT);
+    ddev->images_in_flight = (VkFence*)dalloc(sizeof(VkFence) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)ddev->images_in_flight[i] = VK_NULL_HANDLE;
     
     VkSemaphoreCreateInfo semaphore_info = {0};
@@ -1145,7 +1146,7 @@ static b32 dg_create_command_pool(dgDevice *ddev)
 
 static b32 dg_create_command_buffers(dgDevice *ddev)
 {
-    ddev->command_buffers = (VkCommandBuffer*)malloc(sizeof(VkCommandBuffer) * ddev->swap.image_count);
+    ddev->command_buffers = (VkCommandBuffer*)dalloc(sizeof(VkCommandBuffer) * ddev->swap.image_count);
     VkCommandBufferAllocateInfo alloc_info = {0};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = ddev->command_pool; //where to allocate the buffer from

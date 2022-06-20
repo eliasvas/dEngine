@@ -89,9 +89,23 @@ typedef char      b8;
 
 INLINE b32 is_pow2(u32 val)
 {
-    b32 res = ((val & ~(val - 1)) == val);
+    b32 res = ((val & (val - 1)) == 0);
     return(res);
 }
+
+static u64 align_fwd(u64 ptr, u64 align)
+{
+    u64 p,a,mod;
+    assert(is_pow2(align));
+    p = ptr;
+    a = (u64)align;
+    mod = p % a;
+    if (mod != 0)
+        p+=a - mod;
+    return p;
+
+}
+
 static b32
 char_is_alpha(s32 c)
 {

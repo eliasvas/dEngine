@@ -16,12 +16,12 @@ void dcore_init(void)
     //Initialize Memory Allocators
     memset(&main_arena, 0, sizeof(Arena));
     u32 main_arena_size = megabytes(1);
-    void *main_arena_mem = malloc(main_arena_size);
+    void *main_arena_mem = dalloc(main_arena_size);
     main_arena = arena_init(main_arena_mem, main_arena_size);
 
     memset(&temp_arena, 0, sizeof(Arena));
     u32 temp_arena_size = megabytes(1);
-    void *temp_arena_mem = malloc(megabytes(1));
+    void *temp_arena_mem = dalloc(megabytes(1));
     temp_arena = arena_init(temp_arena_mem, temp_arena_size);
 
     //Read engine Config

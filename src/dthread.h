@@ -20,6 +20,8 @@ typedef struct DThread
 #endif
 }DThread;
 
+b32 dthreads_ok(void);
+
 
 
 typedef struct DMutex

@@ -1,6 +1,7 @@
 #ifndef DFIBER_H
 #define DFIBER_H
 #include "tools.h"
+#include "dmem.h"
 /*
     This is a simple N:1 fiber implementation,
     later in the engine this should become M:N as in 
@@ -47,7 +48,7 @@ typedef struct dJobQueue
 
 static void *stack_basic(void)
 {
-  char *data = malloc(JOB_QUEUE_STACK_SIZE/8);
+  char *data = dalloc(JOB_QUEUE_STACK_SIZE/8);
   //this points to the end of data, because stack grows downwards
   char *sp = (char*)(data + sizeof(JOB_QUEUE_STACK_SIZE)); 
   //align stack pointer to 16 byte boundary

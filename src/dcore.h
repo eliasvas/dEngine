@@ -3,13 +3,14 @@
 #include "tools.h"
 #include "microui/microui.h"
 //include all subsystems so we can manage them
+#include "dmem.h"
 #include "dconfig.h"
 #include "dtime.h"
-//#include "dfiber.h"
 #include "dthread.h"
 #include "dinput.h"
 #include "dwin.h"
 #include "dgfx.h"
+//#include "dfiber.h"
 
 
 void dcore_init(void);
