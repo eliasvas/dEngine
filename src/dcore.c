@@ -12,23 +12,18 @@ extern dConfig engine_config;
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
+    //Initialize basic engine allocators 
+    dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
+    dmem_linear_init(&temp_alloc, dalloc(megabytes(2)), megabytes(2));
+    //dmem_linear_alloc(&temp_alloc, 64);
+    //assert(temp_alloc.curr_offset == 64 && temp_alloc.prev_offset == 0);
 
-    //Initialize Memory Allocators
-    memset(&main_arena, 0, sizeof(Arena));
-    u32 main_arena_size = megabytes(1);
-    void *main_arena_mem = dalloc(main_arena_size);
-    main_arena = arena_init(main_arena_mem, main_arena_size);
+    //Read engine Config file
+    dconfig_default();
+    //dconfig_load();
+    //dconfig_save();
 
-    memset(&temp_arena, 0, sizeof(Arena));
-    u32 temp_arena_size = megabytes(1);
-    void *temp_arena_mem = dalloc(megabytes(1));
-    temp_arena = arena_init(temp_arena_mem, temp_arena_size);
-
-    //Read engine Config
-    //dconfig_default();
-    dconfig_load();
-    dconfig_save();
-
+    //create the main window
     dwindow_create(&main_window, "Main Window", engine_config.default_resolution.x, engine_config.default_resolution.y, DWINDOW_OPT_VULKAN | DWINDOW_OPT_RESIZABLE);
 
 
@@ -39,14 +34,7 @@ void dcore_init(void)
     //Threading Initialization (none needed) + Testing
     assert(dthreads_ok());
 
-/*
-    //Fiber Job System/Fiber Initialization + Testing
-    djob_manager_init(&job_manager);
-    memset(&main_context, 0, sizeof(main_context));
-    assert(fibers_ok());
-*/
-
-
+    
     //Initialize input system
     dinput_init();
 
@@ -68,16 +56,18 @@ void dcore_init(void)
 
 void dcore_update(void)
 {
+    DPROFILER_START("UPDATE");
     dg_frame_end(&dd);
-    arena_clear(&temp_arena);
+    dmem_linear_free_all(&temp_alloc);
 
     dg_frame_begin(&dd);
+    DPROFILER_END();
 }
 
 void dcore_destroy(void)
 {
 
-    arena_free(&main_arena, main_arena.memory_size);
-    arena_free(&temp_arena, temp_arena.memory_size);
+    dmem_linear_free(&temp_alloc);
+    dmem_linear_free(&scratch_alloc);
 }
 

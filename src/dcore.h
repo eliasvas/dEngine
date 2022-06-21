@@ -10,6 +10,7 @@
 #include "dinput.h"
 #include "dwin.h"
 #include "dgfx.h"
+#include "dprofiler.h"
 //#include "dfiber.h"
 
 
@@ -19,6 +20,7 @@ void dcore_update(void);
 
 void dcore_destroy(void);
 
-static Arena temp_arena, main_arena;
+//static Arena temp_arena, main_arena;
+static dLinearAllocator temp_alloc, scratch_alloc;  
 
 #endif

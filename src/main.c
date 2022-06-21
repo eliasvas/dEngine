@@ -5,6 +5,7 @@ extern mu_Context ctx;
 extern dgDevice dd;
 
 //FEATURES TODO
+//Thread Pool + job graph!
 //Render Targets should have customizable widths/height AND formats for each texture in the RT
 //make the engine self compile (no external dependencies) to a single executable (pack shaders in a .inl basically)
 //shader/texture CACHING!!!!!
