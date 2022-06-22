@@ -63,6 +63,7 @@ void destroy(void)
     dcore_destroy();
 }
 
+extern dProfiler global_profiler;
 int main(void)
 {
     init();
@@ -79,6 +80,20 @@ int main(void)
                 case MU_COMMAND_ICON: dui_draw_icon(cmd->icon.id, cmd->icon.rect, cmd->icon.color); break;
                 case MU_COMMAND_CLIP: dui_set_clip_rect(cmd->clip.rect); break;
             }
+        }
+
+        dProfilerTag *tag = &global_profiler.tags[hmget(global_profiler.name_hash, hash_str("UPDATE"))];
+        f32 ms_max = 0.f;
+        f32 ms_min = FLT_MAX;
+        for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
+            if (tag->samples[i] > ms_max)ms_max = tag->samples[i];
+            if (tag->samples[i] < ms_min)ms_min = tag->samples[i];
+        }
+        for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
+            f32 factor = (tag->samples[i] - ms_min) / (ms_max - ms_min);
+            mu_Rect rect = {50 + 30 * i,150,20,-100*factor};
+            mu_Color col = {255,255*factor,255*factor,255};
+            dui_draw_rect(rect,col);
         }
         dui_present();
     }

@@ -55,7 +55,7 @@ void dcore_init(void)
 
 
     //stbds_unit_tests();
-    ///*
+    /*
     int i, n;
     struct {int key; char value;} *hash = NULL;
     hmdefault(hash, 'l');
@@ -65,7 +65,9 @@ void dcore_init(void)
     for (u32 i = 0; i <= 4; ++i)
         printf("%c ", hmget(hash, i));
     printf("\n");
-    //*/
+    */
+    //Initialize the profiler
+    dprofiler_init(NULL);
 
     dg_frame_begin(&dd);
 }
