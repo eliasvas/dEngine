@@ -1,6 +1,9 @@
 #define DTIME_IMPLEMENTATION
 #include "dcore.h"
 #include "dui_renderer.h"
+#define STBDS_UNIT_TESTS
+#define STB_DS_IMPLEMENTATION
+#include "stb/stb_ds.h"
 
 extern dgDevice dd;
 
@@ -50,6 +53,19 @@ void dcore_init(void)
     ctx.text_height = dui_text_height;
     dui_init();
 
+
+    //stbds_unit_tests();
+    ///*
+    int i, n;
+    struct {int key; char value;} *hash = NULL;
+    hmdefault(hash, 'l');
+    i = 0; hmput(hash, i, 'h');
+    i = 1; hmput(hash, i, 'e');
+    i = 4; hmput(hash, i, 'o');
+    for (u32 i = 0; i <= 4; ++i)
+        printf("%c ", hmget(hash, i));
+    printf("\n");
+    //*/
 
     dg_frame_begin(&dd);
 }

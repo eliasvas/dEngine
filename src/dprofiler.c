@@ -14,6 +14,6 @@ u64 dprofiler_sample_end(dProfilerSample *sample) {
 
     //global profiler add sample {sample.name, elapsed_time} 
 
-    printf("%s takes: %.2lf ms\n", sample->name, dtime_ms(elapsed_time));
+    //printf("%s takes: %.2lf ms\n", sample->name, dtime_ms(elapsed_time));
     return dtime_ms(elapsed_time);
 }

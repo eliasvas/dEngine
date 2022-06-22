@@ -107,7 +107,7 @@ f64 dtime_ms(u64 ticks)
 
 f64 dtime_us(u64 ticks)
 {
-    return ticks / 1000.0;
+    return (f64)ticks / 1000.0;
 }
 
 f64 dtime_ns(u64 ticks) 

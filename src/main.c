@@ -3,7 +3,6 @@
 
 extern mu_Context ctx;
 extern dgDevice dd;
-
 //FEATURES TODO
 //Thread Pool + job graph!
 //Render Targets should have customizable widths/height AND formats for each texture in the RT
@@ -66,7 +65,6 @@ void destroy(void)
 
 int main(void)
 {
-    printf("init??\n");
     init();
     while(update())
     {
