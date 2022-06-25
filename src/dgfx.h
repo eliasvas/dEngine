@@ -135,6 +135,7 @@ typedef struct dgDevice
     dgPipeline grid_pipe;
     dgPipeline base_pipe;
     dgPipeline def_pipe;
+    dgPipeline pbr_def_pipe;
     dgPipeline composition_pipe;
     dgPipeline dui_pipe;
     dgPipeline shadow_pipe;

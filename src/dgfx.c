@@ -13,6 +13,7 @@
 #include "dmodel.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
+extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
 dModel water_bottle;
 
 dgBuffer pos_vbo;
@@ -2277,6 +2278,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
 
 
 
@@ -2336,7 +2338,7 @@ void dg_frame_begin(dgDevice *ddev)
     }
 
     //draw_cube(ddev, mat4_translate(v3(0,5,0)));
-    draw_model(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
+    draw_model(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2399,6 +2401,7 @@ void dg_device_init(void)
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,"pbr_def.vert", "pbr_def.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", TRUE));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));

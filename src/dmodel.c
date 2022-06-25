@@ -101,3 +101,27 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_rendering_end(ddev);
 }
 
+
+void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
+{
+
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
+    dg_bind_pipeline(ddev, &ddev->pbr_def_pipe);
+    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].tang_buf,m->meshes[0].pos_buf};
+    u64 offsets[] = {0,0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+    dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+
+
+
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
+    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
+    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
+    dg_draw(ddev, 24,m->meshes[0].index_buf.size/sizeof(u16));
+
+
+    dg_rendering_end(ddev);
+
+}

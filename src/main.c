@@ -90,9 +90,11 @@ int main(void)
             if (tag->samples[i] < ms_min)ms_min = tag->samples[i];
         }
         for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
-            f32 factor = (tag->samples[i] - ms_min) / (ms_max - ms_min);
-            mu_Rect rect = {50 + 30 * i,150,20,-100*factor};
-            mu_Color col = {255,255*factor,255*factor,255};
+            u32 index= (i +tag->next_sample_to_write) % MAX_SAMPLES_PER_NAME;
+            //f32 factor = (tag->samples[i] - ms_min) / (ms_max - ms_min);
+            f32 factor = tag->samples[index]/100.f;
+            mu_Rect rect = {50 + 10 * index,150,10,-100*factor};
+            mu_Color col = {255,255*(1-factor),255*(1-factor),255};
             dui_draw_rect(rect,col);
         }
         dui_present();
