@@ -2154,7 +2154,7 @@ static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, f32 *frustum_d
         }
         frustum_center= vec3_mulf(frustum_center, 1.0f/8.0f);
 
-        mat4 light_view = look_at(frustum_center,vec3_add(frustum_center,ld),v3(0,1,0));
+        mat4 light_view = look_at(frustum_center,vec3_sub(frustum_center,ld),v3(0,1,0));
 
 
         f32 minZ = FLT_MAX;
@@ -2285,7 +2285,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     mat4 lsm[DG_MAX_CASCADES];
     f32 fdist[DG_MAX_CASCADES];
-    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), -1);
+    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), 1);
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, view, lsm,fdist, cascade_count);
     //draw to shadow map
@@ -2311,7 +2311,7 @@ void dg_frame_begin(dgDevice *ddev)
         mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
         dg_bind_pipeline(ddev, &ddev->composition_pipe);
         //FIX:  datafullscreen should be as big as the number of cascades, but im bored
-        mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{0,1,0,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
+        mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
         dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
         dgTexture textures[4];
         textures[0] = def_rt.color_attachments[0];
@@ -2337,8 +2337,6 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
 
-    //draw_cube(ddev, mat4_translate(v3(0,5,0)));
-    draw_model(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
 }
 
 void dg_frame_end(dgDevice *ddev)

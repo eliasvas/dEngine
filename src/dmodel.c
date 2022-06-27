@@ -35,6 +35,7 @@ dModel dmodel_load_gltf(const char *filename)
     {
         sprintf(filepath, "../assets/%s/%s", filename,data->textures[i].image->uri);
         printf("image FILEPATH: %s\n", filepath);
+        //FIX: VERY important for normal mapping, all non opaque/diffuse textures should be linear!
         model.textures[i] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
     } 
 

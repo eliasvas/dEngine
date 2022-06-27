@@ -1,6 +1,8 @@
 #include "dcamera.h"
 f32 cDT = 1.0f/60.0f;
 
+//FIX: can't turn while moving?????
+
 void dcamera_init(dCamera *camera)
 {
     camera->pos = v3(0,4,15);

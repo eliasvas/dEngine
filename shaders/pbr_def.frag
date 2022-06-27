@@ -26,11 +26,18 @@ layout(set = 2, binding = 3) uniform sampler2D emissive_tex;
 
 vec3 dir_light = vec3(-1,1,0.2);
 
+vec4 srgb_to_linear(vec4 sRGB)
+{
+    bvec3 cutoff = lessThan(sRGB.rgb, vec3(0.04045));
+    vec3 higher = pow((sRGB.rgb + vec3(0.055))/vec3(1.055), vec3(2.4));
+    vec3 lower = sRGB.rgb/vec3(12.92);
+
+    return vec4(mix(higher, lower, cutoff), sRGB.a);
+}
+
+
 void main() {
-	g_albedo_spec = texture(base_color_tex, f_tex_coord.xy);
+	g_albedo_spec = (texture(base_color_tex, f_tex_coord.xy));
 	g_normal = vec4(f_normal.xyz,1.0);
 	g_pos = vec4(f_frag_pos.xyz,1.0);
-
-
-
 }
