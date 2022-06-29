@@ -2068,7 +2068,7 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
         vkCmdDraw(ddev->command_buffers[ddev->current_frame], vertex_count, 1, 0, 0);
 }
 
-void draw_cube_def(dgDevice *ddev, mat4 model)
+void draw_cube_def(dgDevice *ddev, mat4 model,vec4 col0, vec4 col1)
 {
 
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
@@ -2080,8 +2080,8 @@ void draw_cube_def(dgDevice *ddev, mat4 model)
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
 
-    dg_set_desc_set(ddev,&ddev->def_pipe, &model, sizeof(model), 1);
-    dg_set_desc_set(ddev,&ddev->def_pipe, &t2, 1, 2);
+    mat4 data[2] = {model, (mat4){col0.x,col0.y,col0.z,col0.w,col1.x,col1.y,col1.z,col1.w}};
+    dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(mat4) + 2 * sizeof(vec4), 1);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
 
     dg_rendering_end(ddev);
@@ -2215,7 +2215,6 @@ void draw_cube(dgDevice *ddev, mat4 model)
     //mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
     mat4 object_data[2] = {model, {1.0,1.0,1.0,0.0,0.0,1.0}};
     dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->base_pipe, &t2, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
 
     dg_rendering_end(ddev);
@@ -2273,11 +2272,11 @@ void dg_frame_begin(dgDevice *ddev)
      
     
     draw_cube_def(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
-        mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))));
-    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))));
-    draw_cube_def(ddev, mat4_translate(v3(4,0,0)));
-    draw_cube_def(ddev, mat4_translate(v3(8,0,0)));
-    draw_cube_def(ddev, mat4_translate(v3(16,0,0)));
+        mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), v4(1,1,1,1), v4(1,0,1,1));
+    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), v4(0.05,0.05,0.05,1), v4(0.9,0.2,0.2,1));
+    draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
+    draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
+    draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
 
 
