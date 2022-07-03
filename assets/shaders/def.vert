@@ -12,6 +12,7 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	mat4 model;
+    vec4 col[2];
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D tex_sampler1;

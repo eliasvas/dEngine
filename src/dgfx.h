@@ -71,12 +71,18 @@ typedef struct dgUBODataBuffer
     u32 buffer_offsets[MAX_FRAMES_IN_FLIGHT];
 }dgUBODataBuffer;
 
+typedef enum dgPipeOptions{
+    DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS = (1 << 0),
+    DG_PIPE_OPTION_BLEND = (1 << 1),
+    DG_PIPE_OPTION_COMPILE_SHADERS = (1 << 2),
+}dgPipeOptions;
+
 
 typedef struct dgPipeline 
 {
     dgShader vert_shader;
     dgShader frag_shader;
-    dgShader geom_shader;
+    //dgShader geom_shader;
 
     VkPipeline pipeline;
     VkPipelineLayout pipeline_layout;
@@ -85,6 +91,8 @@ typedef struct dgPipeline
     VkDescriptorPool descriptor_pools[16]; //pools need to be reallocated with every swapchain recreation! @TODO
     VkDescriptorSet* descriptor_sets;
     dgBuffer* uniform_buffers;
+
+    dgPipeOptions options;
 }dgPipeline;
 
 typedef struct dgDescriptorAllocator

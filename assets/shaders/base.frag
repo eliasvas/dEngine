@@ -32,5 +32,10 @@ void main() {
 	float occlusion = orm.x;
 	float roughness = orm.y;
 	float metallic = orm.z;
+
+
+
+	vec3 light_color = vec3(0.9,0.9,0.9);	
+
 	out_color = vec4(base_color,1.0) * vec4(ObjectData.color[1],1.0);
 }

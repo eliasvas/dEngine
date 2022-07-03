@@ -37,7 +37,13 @@ vec4 srgb_to_linear(vec4 sRGB)
 
 
 void main() {
-	g_albedo_spec = (texture(base_color_tex, f_tex_coord.xy));
-	g_normal = vec4(f_normal.xyz,1.0);
-	g_pos = vec4(f_frag_pos.xyz,1.0);
+	vec3 emissive = texture(emissive_tex, f_tex_coord).xyz;
+	vec3 orm = texture(orm_tex, f_tex_coord).xyz;
+	float occlusion = orm.x;
+	float roughness = orm.y;
+	float metallic = orm.z;
+
+	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, 1);
+	g_normal = vec4(f_normal.xyz,1);
+	g_pos = vec4(f_frag_pos.xyz,roughness);
 }

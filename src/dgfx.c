@@ -777,13 +777,13 @@ static VkPipelineMultisampleStateCreateInfo dg_pipe_multisampling_state_create_i
 	return info;
 }
 
-static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(void)
+static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(b32 blend_enabled)
 {
 	VkPipelineColorBlendAttachmentState color_blend_attachment = {0};
 	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+		VK_COLOR_COMPONENT_B_BIT;
 
-	color_blend_attachment.blendEnable = VK_TRUE;	
+	color_blend_attachment.blendEnable = (blend_enabled > 0) ? VK_TRUE : VK_FALSE;	
 
     color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
@@ -989,8 +989,9 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 	return info;
 }
 
-static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name, b32 pack_vert_attribs)
+static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name, char *frag_name, dgPipeOptions pipe_options)
 {
+    pipe->options = pipe_options;
     //these are dummies, we bind our scissors and viewports per drawcall
     VkRect2D s = scissor(0,0,0,0);
     VkViewport v = viewport(0,0,0,0);
@@ -1016,7 +1017,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkVertexInputBindingDescription bind_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkVertexInputAttributeDescription attr_desc[DG_VERTEX_INPUT_ATTRIB_MAX];
     VkPipelineVertexInputStateCreateInfo vert_input_state = 
-    dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc, pack_vert_attribs);
+    dg_pipe_vertex_input_state_create_info(&pipe->vert_shader, bind_desc, attr_desc, pipe->options & DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS);
 
 
 
@@ -1037,7 +1038,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkPipelineColorBlendAttachmentState blend_attachment_states[DG_MAX_COLOR_ATTACHMENTS];
     for (u32 i = 0; i < 4; ++i)
     {
-        blend_attachment_states[i] = dg_pipe_color_blend_attachment_state();
+        blend_attachment_states[i] = dg_pipe_color_blend_attachment_state(pipe->options & DG_PIPE_OPTION_BLEND);
     }
 
     VkPipelineColorBlendStateCreateInfo color_blend_state =  
@@ -2335,6 +2336,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_draw(ddev, 6,0);
         dg_rendering_end(ddev);
     }
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
 
 }
 
@@ -2397,14 +2399,14 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
-    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,"pbr_def.vert", "pbr_def.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", TRUE));
-    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", TRUE));
-    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
@@ -2414,7 +2416,7 @@ void dg_device_init(void)
 
     dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
     dd.shadow_pass_active = FALSE;
-    dd.grid_active = TRUE;
+    dd.grid_active = FALSE;
 	printf("Vulkan initialized correctly!\n");
 
     dcamera_init(&cam);
