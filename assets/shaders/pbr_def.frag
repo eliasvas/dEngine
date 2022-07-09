@@ -43,7 +43,7 @@ void main() {
 	float roughness = orm.y;
 	float metallic = orm.z;
 
-	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, 1);
-	g_normal = vec4(f_normal.xyz,1);
-	g_pos = vec4(f_frag_pos.xyz,roughness);
+	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, occlusion);
+	g_normal = vec4(f_normal.xyz,roughness);
+	g_pos = vec4(f_frag_pos.xyz,metallic);
 }
