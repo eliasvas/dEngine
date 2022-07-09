@@ -117,7 +117,7 @@ void main()
     float spec_str = 0.4;
     vec3 dir_light_color = vec3(9,9,9);
     vec3 V = normalize(ObjectData.view_pos.xyz - frag_pos);
-    vec3 H = normalize(-ObjectData.light_dir.xyz + V);
+    vec3 H = normalize(ObjectData.light_dir.xyz + V);
     vec3 N = normalize(norm);
     vec3 R = reflect(-ObjectData.light_dir.xyz, N);
     vec3 L = ObjectData.light_dir.xyz;
@@ -143,7 +143,7 @@ void main()
     float NdotL = max(dot(N,L), 0.0);
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
 
-    vec3 ambient = vec3(0.08) * albedo * ao;
+    vec3 ambient = vec3(0.03) * albedo;
     vec3 color = ambient + Lo;
 
     //color = color / (color + vec3(1.0));
