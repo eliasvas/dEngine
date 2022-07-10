@@ -72,10 +72,10 @@ b32 dthreads_ok(void)
     DThread t1 = dthread_create(dthread_inc, &i);
     DThread t2 = dthread_create(dthread_inc, &i);
 
-    printf("i before thread increment: %i\n", i);
+    //printf("i before thread increment: %i\n", i);
     dthread_wait_end(&t1, INFINITE_MS);
     dthread_wait_end(&t2, INFINITE_MS);
-    printf("i after thread increment: %i\n", i);
+    //printf("i after thread increment: %i\n", i);
     return (i==6);
 }
 

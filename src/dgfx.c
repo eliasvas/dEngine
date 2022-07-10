@@ -8,6 +8,8 @@
 #include "dtime.h"
 #include "../ext/microui/microui.h"
 #include "../ext/microui/atlas.inl"
+#include "vulkan/shaderc.h"
+#include "shaders.inl"
 #include "dcamera.h"
 #include "dmem.h"
 #include "dmodel.h"
@@ -586,11 +588,16 @@ VkShaderModule dg_create_shader_module(char *code, u32 size)
 
 void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, VkShaderStageFlagBits stage)
 {
+    if (str_size(filename) > 128)
+        return dg_shader_create_dynamic_ready(device, shader, filename, stage);
     char path[128];
     sprintf(path, "%s%s.spv", engine_config.spirv_path, filename);
 	u32 code_size;
 	u32 *shader_code = NULL;
-	if (read_file(path, &shader_code, &code_size) == -1){return;}
+	if (read_file(path, &shader_code, &code_size) == -1){
+        //if .SPV not found, create the shader dynamically! (from glsl source file)
+        return dg_shader_create_dynamic(device, shader, filename, stage);
+    }
 	shader->module = dg_create_shader_module((char*)shader_code, code_size);
 	shader->uses_push_constants = FALSE;
     //shader_reflect(shader_code, code_size, &shader->info);
@@ -600,6 +607,62 @@ void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, V
 	free(shader_code);
 
 }  
+void dg_shader_create_dynamic_ready(VkDevice device, dgShader *s, const char *filename, VkShaderStageFlagBits stage)
+{
+    char *glsl_text = filename;
+    u32 glsl_size = str_size(glsl_text);
+
+    shaderc_compiler_t compiler = shaderc_compiler_initialize();
+    shaderc_shader_kind shader_kind = (stage & VK_SHADER_STAGE_VERTEX_BIT) ? shaderc_glsl_vertex_shader : shaderc_glsl_fragment_shader;
+    shaderc_compilation_result_t result = shaderc_compile_into_spv(compiler, glsl_text, glsl_size,
+                                         shader_kind, "file",
+                                         "main", NULL);
+
+
+    assert(shaderc_result_get_compilation_status(result)== shaderc_compilation_status_success);
+
+	s->module = dg_create_shader_module((char*)shaderc_result_get_bytes(result), shaderc_result_get_length(result));
+	s->uses_push_constants = FALSE;
+	s->stage = stage;
+    spvReflectCreateShaderModule(shaderc_result_get_length(result), shaderc_result_get_bytes(result), &s->info);
+	//free(glsl_text);
+    shaderc_result_release(result);
+    shaderc_compiler_release(compiler);
+}  
+
+
+void dg_shader_create_dynamic(VkDevice device, dgShader *s, const char *filename, VkShaderStageFlagBits stage)
+{
+    char path[128];
+    sprintf(path, "%s%s", engine_config.shader_path, filename);
+    char *glsl_text;
+    u32 glsl_size;
+    //this means that either there is no such shader or that we entered a READY glsl 
+    //this is slow though so we should probably have a distinct path for ready shaders 
+	if (read_file(path, &glsl_text, &glsl_size) == -1)
+    {
+        glsl_text = filename;
+        glsl_size = str_size(glsl_text);
+    }
+
+    shaderc_compiler_t compiler = shaderc_compiler_initialize();
+    shaderc_shader_kind shader_kind = (stage & VK_SHADER_STAGE_VERTEX_BIT) ? shaderc_glsl_vertex_shader : shaderc_glsl_fragment_shader;
+    shaderc_compilation_result_t result = shaderc_compile_into_spv(compiler, glsl_text, glsl_size,
+                                         shader_kind, "file",
+                                         "main", NULL);
+
+
+    assert(shaderc_result_get_compilation_status(result)== shaderc_compilation_status_success);
+
+	s->module = dg_create_shader_module((char*)shaderc_result_get_bytes(result), shaderc_result_get_length(result));
+	s->uses_push_constants = FALSE;
+	s->stage = stage;
+    spvReflectCreateShaderModule(shaderc_result_get_length(result), shaderc_result_get_bytes(result), &s->info);
+	//free(glsl_text);
+    shaderc_result_release(result);
+    shaderc_compiler_release(compiler);
+}  
+
 
 static VkViewport viewport(f32 x, f32 y, f32 w, f32 h)
 {
@@ -2406,7 +2469,7 @@ void dg_device_init(void)
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.dui_pipe,"dui.vert", "dui.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND));
+    assert(dg_create_pipeline(&dd, &dd.dui_pipe,DUI_VERT, DUI_FRAG, DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND | DG_PIPE_OPTION_READY_SHADERS));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 

@@ -75,6 +75,7 @@ typedef enum dgPipeOptions{
     DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS = (1 << 0),
     DG_PIPE_OPTION_BLEND = (1 << 1),
     DG_PIPE_OPTION_COMPILE_SHADERS = (1 << 2),
+    DG_PIPE_OPTION_READY_SHADERS = (1 << 3), //you provide the source, not filename
 }dgPipeOptions;
 
 
