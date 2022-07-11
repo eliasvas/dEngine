@@ -10,6 +10,7 @@
 #include "../ext/microui/atlas.inl"
 #include "vulkan/shaderc.h"
 #include "shaders.inl"
+#include "dlog.h"
 #include "dcamera.h"
 #include "dmem.h"
 #include "dmodel.h"
@@ -17,6 +18,7 @@
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
 dModel water_bottle;
+dModel fox;
 
 dgBuffer pos_vbo;
 dgBuffer normal_vbo;
@@ -213,7 +215,7 @@ static u32 dg_check_device_extension_support(VkPhysicalDevice device)
     vkEnumerateDeviceExtensionProperties(device, NULL, &ext_count, available_extensions);
     /*
     for (u32 i = 0; i < ext_count; ++i)
-        printf("EXT %i: %s\n", i, available_extensions[i]);
+        dlog(NULL, "EXT %i: %s\n", i, available_extensions[i]);
 	*/
     for (u32 i = 0; i < array_count(device_extensions); ++i)
     {
@@ -288,7 +290,7 @@ static u32 is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface)
     vkGetPhysicalDeviceFeatures(device, &device_features);
     
     u32 extensions_supported = dg_check_device_extension_support(device);
-    if (extensions_supported == 0) printf("GRAPHICS DRIVER: some device extension not supported!!\n");
+    if (extensions_supported == 0) dlog(NULL, "GRAPHICS DRIVER: some device extension not supported!!\n");
     
     dgSwapChainSupportDetails swapchain_support = dg_query_swapchain_support(device, surface);
     
@@ -304,7 +306,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 
     if (device_count == 0)
 	{
-        printf("Failed to find GPUs with Vulkan support!");
+        dlog(NULL, "Failed to find GPUs with Vulkan support!");
 		return FALSE;
 	}
     
@@ -971,7 +973,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &layouts[current_set.set]));
             dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
                 (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, layouts[current_set.set]);
-            printf("Created (another) DSL!! :( \n");
+            dlog(NULL, "Created (another) DSL!! :( \n");
         }
         else
         {
@@ -1023,7 +1025,7 @@ static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShad
             VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &layout));
             dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
                 (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, layout);
-            printf("Created (another) DSL!! :( \n");
+            dlog(NULL, "Created (another) DSL!! :( \n");
         }
         else
         {
@@ -1619,7 +1621,7 @@ static u32 find_mem_type(u32 type_filter, VkMemoryPropertyFlags properties)
             (mem_properties.memoryTypes[i].propertyFlags & properties) == properties)
             return i;
     }
-    printf("Failed to find suitable memory type!");
+    dlog(NULL, "Failed to find suitable memory type!");
     return 0;
 }
 
@@ -2342,6 +2344,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
+    //draw_model_def(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
 
 
 
@@ -2399,7 +2402,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_draw(ddev, 6,0);
         dg_rendering_end(ddev);
     }
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
 
 }
 
@@ -2447,7 +2450,7 @@ void dg_frame_end(dgDevice *ddev)
         dg_recreate_swapchain(ddev);
     }
     else if (res != VK_SUCCESS)
-        printf("Failed to present swapchain image!\n");
+        dlog(NULL, "Failed to present swapchain image!\n");
 
     ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -2480,7 +2483,7 @@ void dg_device_init(void)
     dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
     dd.shadow_pass_active = FALSE;
     dd.grid_active = FALSE;
-	printf("Vulkan initialized correctly!\n");
+	dlog(NULL, "Vulkan initialized correctly!\n");
 
     dcamera_init(&cam);
 }
@@ -2520,5 +2523,6 @@ b32 dgfx_init(void)
     t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
+    //fox = dmodel_load_gltf("MetalRoughSpheres");
 	return 1;
 }

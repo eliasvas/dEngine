@@ -54,7 +54,7 @@ b32 djob_handle(dJobManager *m, dJobRequest req,u32 arg)
 
 void djob_manager_work(dJobManager *m)
 {
-    printf("djob_manager main start\n");
+    dlog(NULL, "djob_manager main start\n");
     volatile b32 exit = FALSE;
     while(!exit)
     {
@@ -65,7 +65,7 @@ void djob_manager_work(dJobManager *m)
         //swap_context(&main_context, task_context);
         djob_handle(&job_manager, global_request, global_arg);
     }
-    printf("djob_manager finished all jobs\n");
+    dlog(NULL, "djob_manager finished all jobs\n");
 }
 
 void djob_manager_init(dJobManager *m)

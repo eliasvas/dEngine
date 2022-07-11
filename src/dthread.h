@@ -10,7 +10,7 @@
 
 #define INFINITE_MS 4294967295
 
-typedef struct DThread
+typedef struct dThread
 {
 #ifdef BUILD_WIN
     HANDLE handle;
@@ -18,26 +18,26 @@ typedef struct DThread
 #else
     pthread_t thread;
 #endif
-}DThread;
+}dThread;
 
 b32 dthreads_ok(void);
 
 
 
-typedef struct DMutex
+typedef struct dMutex
 {
 #if defined(BUILD_WIN)
    HANDLE handle; 
 #else
     pthread_mutex_t mutex;
 #endif
-}DMutex;
+}dMutex;
 
-DThread dthread_create(void *proc, void *params);
-void dthread_wait_end(DThread *t, u32 millis);
-DMutex dmutex_create(void);
-u32 dmutex_lock(DMutex *m);
-u32 dmutex_unlock(DMutex *m);
+dThread dthread_create(void *proc, void *params);
+void dthread_wait_end(dThread *t, u32 millis);
+dMutex dmutex_create(void);
+u32 dmutex_lock(dMutex *m);
+u32 dmutex_unlock(dMutex *m);
 b32 threads_ok(void); //unit test to see if threading works fine
 
 #endif

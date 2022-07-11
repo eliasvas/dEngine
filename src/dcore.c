@@ -15,6 +15,9 @@ extern dConfig engine_config;
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
+    //Initialize the logger
+    dlog_init(NULL);
+
     //Initialize basic engine allocators 
     dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
     dmem_linear_init(&temp_alloc, dalloc(megabytes(2)), megabytes(2));
@@ -68,7 +71,6 @@ void dcore_init(void)
     */
     //Initialize the profiler
     dprofiler_init(NULL);
-
     dg_frame_begin(&dd);
 }
 

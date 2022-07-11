@@ -1,19 +1,65 @@
 #include "dcore.h"
 #include "dui_renderer.h"
+#include "dlog.h"
 
 extern mu_Context ctx;
 extern dgDevice dd;
+extern dLogger engine_log;
 //FEATURES TODO
+//Skyboxes!
+//Skeletal Animation
 //Thread Pool + job graph!
-//Render Targets should have customizable widths/height AND formats for each texture in the RT
-//make the engine self compile (no external dependencies) to a single executable (pack shaders in a .inl basically)
 //shader/texture CACHING!!!!!
-//Multithreading!!!!
-//-Engine logging
-//-Profiling
-//-Basic Sound (+ Audio compression/decompression)
-//Textures and RTs should have different formats and pipelines should know about it! (also look at pipe barriers and synchronization!)
+//Engine logging
+//Basic Sound (+ Audio compression/decompression)
+//Render Graph
 
+static  char logbuf[64000];
+static   int logbuf_updated = 0;
+static void write_log(const char *text) {
+  if (logbuf[0]) { strcat(logbuf, "\n"); }
+  strcat(logbuf, text);
+  logbuf_updated = 1;
+}
+
+static void log_window(mu_Context *ctx) {
+  if (mu_begin_window(ctx, "Log Window", mu_rect(350, 40, 300, 200))) {
+    /* output text panel */
+    mu_layout_row(ctx, 1, (int[]) { -1 }, -25);
+    mu_begin_panel(ctx, "Log Output");
+    mu_Container *panel = mu_get_current_container(ctx);
+    mu_layout_row(ctx, 1, (int[]) { -1 }, -1);
+    //mu_text(ctx, engine_log.logs[(i + engine_log.current_log) % MAX_LOGS].msg);
+    for (u32 i = 0; i < MAX_LOGS; ++i)
+    {
+        dLogMessage *m = &engine_log.logs[(i + engine_log.current_log) % MAX_LOGS];
+        write_log(m->msg);
+    }
+    mu_text(ctx, logbuf);
+    if (logbuf_updated) {
+      panel->scroll.y = panel->content_size.y;
+      logbuf_updated = 0;
+    }
+    mu_end_panel(ctx);
+
+    /* input textbox + submit button */
+    static char buf[128];
+    int submitted = 0;
+    mu_layout_row(ctx, 2, (int[]) { -70, -1 }, 0);
+    if (mu_textbox(ctx, buf, sizeof(buf)) & MU_RES_SUBMIT) {
+      mu_set_focus(ctx, ctx->last_id);
+      submitted = 1;
+    }
+    if (mu_button(ctx, "Submit")) { submitted = 1; }
+    if (submitted) {
+      //write_log(buf);
+      dlog(NULL, buf);
+      buf[0] = '\0';
+    }
+
+    mu_end_window(ctx);
+  }
+}
 
 
 static void test_window(mu_Context *ctx) {
@@ -53,6 +99,7 @@ b32 update(void)
 
    mu_begin(&ctx);
    test_window(&ctx);
+   //log_window(&ctx);
    mu_end(&ctx);
     
    return 1;
@@ -82,6 +129,7 @@ int main(void)
             }
         }
 
+        /*
         dProfilerTag *tag = &global_profiler.tags[hmget(global_profiler.name_hash, hash_str("UPDATE"))];
         f32 ms_max = 0.f;
         f32 ms_min = FLT_MAX;
@@ -97,6 +145,7 @@ int main(void)
             mu_Color col = {255,255*(1-factor),255*(1-factor),255};
             dui_draw_rect(rect,col);
         }
+        */
         dui_present();
     }
 

@@ -1,9 +1,9 @@
 
 #include "dthread.h"
 
-DThread dthread_create(void *proc, void *params)
+dThread dthread_create(void *proc, void *params)
 {
-    DThread t;
+    dThread t;
     memset(&t, 0, sizeof(t));
 #if  defined(BUILD_WIN)
     t.handle = CreateThread(0,0,proc, params, 0, &t.id);
@@ -13,7 +13,7 @@ DThread dthread_create(void *proc, void *params)
     return t;
 }
 
-void dthread_wait_end(DThread *t, u32 millis)
+void dthread_wait_end(dThread *t, u32 millis)
 {
 #if defined(BUILD_WIN)
     if (millis == INFINITE_MS)millis = INFINITE;
@@ -23,9 +23,9 @@ void dthread_wait_end(DThread *t, u32 millis)
 #endif
 }
 
-DMutex dmutex_create(void)
+dMutex dmutex_create(void)
 {
-    DMutex m;
+    dMutex m;
 #if defined(BUILD_WIN)
     m.handle = CreateMutexA(NULL, FALSE, NULL);
 #else
@@ -34,7 +34,7 @@ DMutex dmutex_create(void)
     return m;
 }
 
-u32 dmutex_lock(DMutex *m)
+u32 dmutex_lock(dMutex *m)
 {
 
 #if defined(BUILD_WIN) 
@@ -46,7 +46,7 @@ u32 dmutex_lock(DMutex *m)
     return FALSE;
 }
 
-u32 dmutex_unlock(DMutex *m)
+u32 dmutex_unlock(dMutex *m)
 {
 #if defined(BUILD_WIN)
     ReleaseMutex(m->handle);
@@ -58,7 +58,7 @@ u32 dmutex_unlock(DMutex *m)
     return FALSE;
 }
 
-static DMutex foo_mutex;
+static dMutex foo_mutex;
 void dthread_inc(void *i) //simply increments a value
 {
     dmutex_lock(&foo_mutex);
@@ -69,8 +69,8 @@ b32 dthreads_ok(void)
 {
     u32 i = 4;
     foo_mutex= dmutex_create();
-    DThread t1 = dthread_create(dthread_inc, &i);
-    DThread t2 = dthread_create(dthread_inc, &i);
+    dThread t1 = dthread_create(dthread_inc, &i);
+    dThread t2 = dthread_create(dthread_inc, &i);
 
     //printf("i before thread increment: %i\n", i);
     dthread_wait_end(&t1, INFINITE_MS);

@@ -11,6 +11,7 @@
 #include "dwin.h"
 #include "dgfx.h"
 #include "dprofiler.h"
+#include "dlog.h"
 #include "stb/stb_ds.h"
 //#include "dfiber.h"
 

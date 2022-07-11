@@ -4,9 +4,10 @@
 #include "dui_renderer.h"
 #include "../ext/microui/atlas.inl"
 #include "dgfx.h"
+#include "dlog.h"
 #include "dcore.h"
 
-#define BUFFER_SIZE 16384
+#define BUFFER_SIZE 16384 * 2
 
 
 // pos/norm/tex --> pos/col/tex
@@ -25,7 +26,7 @@ dgTexture font_atlas;
 mu_Rect mr;
 
 void dui_init(void) {
-  printf("dui init\n");
+  dlog(NULL, "dui init\n");
 
   font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
 

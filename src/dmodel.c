@@ -2,6 +2,7 @@
 #define CGLTF_IMPLEMENTATION
 #define CGLTF_WRITE_IMPLEMENTATION
 #include "cgltf/cgltf.h"
+#include "dlog.h"
 
 extern dgDevice dd;
 
@@ -9,7 +10,7 @@ dModel dmodel_load_gltf(const char *filename)
 {
     char filepath[256];
     sprintf(filepath,"../assets/%s/%s.gltf",filename,filename);
-    printf("gltf FILEPATH: %s\n", filepath);
+    dlog(NULL, "gltf FILEPATH: %s\n", filepath);
     dModel model = {0};
 
     cgltf_options options = {0};
@@ -19,7 +20,7 @@ dModel dmodel_load_gltf(const char *filename)
     if (cgltf_load_buffers(&options, data, filepath) != cgltf_result_success)
     {
         model.finished_loading = 0;
-        printf("couldnt load gltf data\n");
+        dlog(NULL, "couldnt load gltf data\n");
         return model;
     }
     if (result != cgltf_result_success)
@@ -34,7 +35,7 @@ dModel dmodel_load_gltf(const char *filename)
     for (u32 i = 0; i< data->textures_count;++i)
     {
         sprintf(filepath, "../assets/%s/%s", filename,data->textures[i].image->uri);
-        printf("image FILEPATH: %s\n", filepath);
+        dlog(NULL, "image FILEPATH: %s\n", filepath);
         //FIX: VERY important for normal mapping, all non opaque/diffuse textures should be linear!
         model.textures[i] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
     } 
@@ -67,10 +68,13 @@ dModel dmodel_load_gltf(const char *filename)
         &mesh.tang_buf,primitive.attributes[2].data->buffer_view->size,(char*)primitive.attributes[2].data->buffer_view->buffer->data + primitive.attributes[2].data->buffer_view->offset);
  
         
-        //create index buffer
-        dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
+        if (primitive.indices)
+        {
+            //create index buffer
+            dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
+        }
 
         model.meshes[model.meshes_count++] = mesh;
 

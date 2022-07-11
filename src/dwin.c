@@ -1,4 +1,5 @@
 #include "dwin.h"
+#include "dlog.h"
 
 typedef struct Vertex
 {
@@ -22,7 +23,7 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
     //if (opt & DWINDOW_OPT_VULKAN)printf("Vulkan Baby!!\n");
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
-        printf("SDL could not initialize: %s!!\n", SDL_GetError());
+        dlog(NULL, "SDL could not initialize: %s!!\n", SDL_GetError());
         return DFAIL;
     }
     else
@@ -32,7 +33,7 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
         SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, w, h, SDL_WINDOW_RESIZABLE | SDL_WINDOW_SHOWN | SDL_WINDOW_VULKAN);
         if (dw->window == NULL)
         {
-            printf("Window %s could not be created!!\n", t);
+            dlog(NULL, "Window %s could not be created!!\n", t);
             return DFAIL;
         }
         else
