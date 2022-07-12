@@ -1936,6 +1936,8 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	);
     
     dg_end_single_time_commands(ddev, cmd);
+    tex.width = tex_w;
+    tex.height = tex_w;
 
 	dg_buf_destroy(&idb);
 	
@@ -2344,7 +2346,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
-    //draw_model_def(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
+    draw_model_def(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(0.1,0.1,0.1))));
 
 
 
@@ -2519,10 +2521,7 @@ b32 dgfx_init(void)
     dg_rt_init(&dd, &shadow_rt, 1, TRUE, 512,512);
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
-    t2 = dg_create_texture_image(&dd, "../assets/box.png", VK_FORMAT_R8G8B8A8_SRGB);
-    t1 = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
-
     water_bottle = dmodel_load_gltf("WaterBottle");
-    //fox = dmodel_load_gltf("MetalRoughSpheres");
+    fox = dmodel_load_gltf("MetalRoughSpheres");
 	return 1;
 }

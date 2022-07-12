@@ -12,8 +12,13 @@ typedef struct dMesh
     dgBuffer tex_buf;
     dgBuffer tang_buf;
     dgBuffer index_buf;
+    dgBuffer bone_buf;
 }dMesh;
 
+#define DMODEL_BASE_COLOR_INDEX 0
+#define DMODEL_ORM_INDEX 1
+#define DMODEL_NORMAL_INDEX 2
+#define DMODEL_EMISSIVE_INDEX 3
 typedef struct dModel
 {
     //dgBuffer vertex_buffer;
