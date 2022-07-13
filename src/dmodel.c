@@ -16,6 +16,10 @@ dModel dmodel_load_gltf(const char *filename)
     cgltf_options options = {0};
     cgltf_data *data = NULL;
     cgltf_result result = cgltf_parse_file(&options, filepath, &data);
+
+
+    
+
     //sprintf(filepath,"../assets/%s/%s.bin",filename,filename);
     if (cgltf_load_buffers(&options, data, filepath) != cgltf_result_success)
     {
@@ -60,6 +64,7 @@ dModel dmodel_load_gltf(const char *filename)
         dMesh mesh = {0};
         //FIX: we only support one primitive (e.g) triangle per mesh
         cgltf_primitive primitive = data->meshes[i].primitives[0];
+        cgltf_float *weights = data->meshes[i].weights;
 
         s32 norm_index = -1;
         s32 pos_index = -1;
@@ -83,28 +88,65 @@ dModel dmodel_load_gltf(const char *filename)
                 weight_index = i;
         }
 
+/*
+        //process bones and make a vertex -> bone relation
+        if (data->skins_count) {
+            u32 vertex_count = primitive.attributes[pos_index].data->count; //1728
+            //cgltf_attribute p = primitive.attributes[joint_index];
+            cgltf_attribute p = primitive.attributes[weight_index];
+            //cgltf_attribute p2 = primitive.accessors[weight_index];
+            cgltf_type t =  p.data->component_type;
+            for (u32 i = 0; i < vertex_count; ++i){
+                printf("Vertex: %i %s\n", i, p.data[i].buffer_view->name);
+            }
+            cgltf_skin skin = data->skins[0];
+        }
+        */
+
         //create pos buffer 
-        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.pos_buf,primitive.attributes[pos_index].data->buffer_view->size,(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
- 
+        if (pos_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.pos_buf,primitive.attributes[pos_index].data->buffer_view->size,(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
+    
         //create tex buffer 
-        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.tex_buf,primitive.attributes[tex_index].data->buffer_view->size,(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
+        if (tex_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.tex_buf,primitive.attributes[tex_index].data->buffer_view->size,(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
 
         //create norm buffer 
-        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.norm_buf,primitive.attributes[norm_index].data->buffer_view->size,(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
+        if (norm_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.norm_buf,primitive.attributes[norm_index].data->buffer_view->size,(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
  
-        /*
         //create tangent buffer 
-        dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-        (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-        &mesh.tang_buf,primitive.attributes[2].data->buffer_view->size,(char*)primitive.attributes[2].data->buffer_view->buffer->data + primitive.attributes[2].data->buffer_view->offset);
-        */
+        if (tangent_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.tang_buf,primitive.attributes[tangent_index].data->buffer_view->size,(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset);
+
+        //create joint buffer 
+        if (joint_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.joint_buf,primitive.attributes[joint_index].data->buffer_view->size,(char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset);
  
+        
+        //create weight buffer 
+        if (weight_index != -1)
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.weight_buf,primitive.attributes[weight_index].data->buffer_view->size,(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset);
+ 
+
+        if (joint_index != -1) {
+            cgltf_attribute joint_attrib = primitive.attributes[joint_index];
+            cgltf_attribute weight_attrib = primitive.attributes[weight_index];
+            printf("ok!\n");
+
+        }
         
         if (primitive.indices)
         {
@@ -113,11 +155,12 @@ dModel dmodel_load_gltf(const char *filename)
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
             &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
         }
-
+        
         model.meshes[model.meshes_count++] = mesh;
 
     }
 
+    
 
     cgltf_free(data);
     return model;
@@ -130,16 +173,18 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].pos_buf};
-    u64 offsets[] = {0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
-    dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+    dg_bind_pipeline(ddev, &ddev->anim_pipe);
+    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].pos_buf,m->meshes[0].joint_buf,m->meshes[0].weight_buf};
+    u64 offsets[] = {0,0,0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+    if (m->meshes[0].index_buf.active)
+        dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+
 
     mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
-    dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->base_pipe, &m->textures[0], 4, 2);
-    dg_draw(ddev, 24,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
+    dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
+    dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }
@@ -156,14 +201,15 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].pos_buf};
     u64 offsets[] = {0,0,0,0};
     dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
-    dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+    if (m->meshes[0].index_buf.active)
+        dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
 
 
 
     mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
     dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
-    dg_draw(ddev, 24,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
 
 
     dg_rendering_end(ddev);

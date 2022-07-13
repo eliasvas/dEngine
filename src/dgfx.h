@@ -148,6 +148,7 @@ typedef struct dgDevice
     dgPipeline composition_pipe;
     dgPipeline dui_pipe;
     dgPipeline shadow_pipe;
+    dgPipeline anim_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;

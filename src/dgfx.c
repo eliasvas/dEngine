@@ -2346,7 +2346,6 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
-    draw_model_def(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(0.1,0.1,0.1))));
 
 
 
@@ -2391,6 +2390,7 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
+    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(0.01,0.01,0.01))));
 
     //draw the grid ???
     if (ddev->grid_active){
@@ -2473,6 +2473,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", FALSE));
+    assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,DUI_VERT, DUI_FRAG, DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND | DG_PIPE_OPTION_READY_SHADERS));
     assert(dg_create_command_buffers(&dd));
@@ -2522,6 +2523,6 @@ b32 dgfx_init(void)
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
-    fox = dmodel_load_gltf("MetalRoughSpheres");
+    fox = dmodel_load_gltf("Fox");
 	return 1;
 }

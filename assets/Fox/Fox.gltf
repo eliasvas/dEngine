@@ -1297,7 +1297,7 @@
     ],
     "images": [
         {
-            "uri": "Texture.png",
+            "uri": "Base_color.png",
             "mimeType": "image/png"
         }
     ],
