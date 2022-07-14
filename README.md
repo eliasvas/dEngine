@@ -3,7 +3,7 @@
 [![Build Status](https://travis-ci.org/joemccann/dillinger.svg?branch=master)](https://travis-ci.org/joemccann/dillinger)
 
 dEngine is a cross-platform game engine made the old-school way.
-A game might be made with the engine down the road, that's the plan at least!
+A game might be made with the engine down the road, maybe.
 
 ## Features
 - Multithreaded Vulkan Rendering Backend
@@ -13,7 +13,7 @@ A game might be made with the engine down the road, that's the plan at least!
 - Cascaded Shadow Maps
 ## Building
 Building is very easy since pretty much every dependency except Vulkan is statically linked.
-There are different build scripts for Linux and Windows, but pretty much the process is as follows:
+There are different build scripts for Linux and Windows, but the process is as follows:
 ```sh
 cd engine
 ./build.sh

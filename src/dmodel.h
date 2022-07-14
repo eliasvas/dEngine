@@ -2,8 +2,24 @@
 #define __DMODEL__
 #include "dgfx.h"
 #include "dmaterial.h"
+#include "stb/stb_ds.h"
 #define DMODEL_MAX_TEXTURES 8
 #define DMODEL_MAX_MESHES_PER_MODEL 8
+
+typedef struct dJointInfo dJointInfo;
+struct dJointInfo{
+    u32 id;
+    dJointInfo *parent;
+    dJointInfo *children[8];
+    u32 children_count;
+};
+#define MAX_JOINT_COUNT 32
+typedef struct dSkeletonInfo
+{
+    struct {u64 key; u32 value}*name_hash;//name -> ID
+    dJointInfo joint_hierarchy[32];
+    u32 joint_count;
+}dSkeletonInfo;
 
 typedef struct dMesh {
     dgBuffer pos_buf;
@@ -13,6 +29,8 @@ typedef struct dMesh {
     dgBuffer joint_buf;
     dgBuffer weight_buf;
 
+    dSkeletonInfo skeleton_info;
+
     dgBuffer index_buf;
 }dMesh;
 
@@ -21,6 +39,8 @@ typedef struct dVertexBoneData {
     u32 boneIDs[MAX_BONES_PER_VERTEX];
     u32 weights[MAX_BONES_PER_VERTEX];
 }dVertexBoneData;
+
+
 
 #define DMODEL_BASE_COLOR_INDEX 0
 #define DMODEL_ORM_INDEX 1

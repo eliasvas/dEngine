@@ -13,7 +13,7 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	mat4 model;
-	vec3 color[2];
+	mat4 joint_mat[25];
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
@@ -26,8 +26,11 @@ layout(location = 1) out vec3 f_normal;
 layout(location = 2) out vec2 f_tex_coord;
 
 void main() {
-	mat4 joint_matrix = mat4(1.0);
-    gl_Position = GlobalData.proj * GlobalData.view * ObjectData.model * vec4(vertex_pos, 1.0);
+	mat4 joint_matrix = weight.x * ObjectData.joint_mat[int(joint.x)]+
+						weight.y * ObjectData.joint_mat[int(joint.y)]+ 
+						weight.z * ObjectData.joint_mat[int(joint.z)]+
+						weight.w * ObjectData.joint_mat[int(joint.w)];
+    gl_Position = GlobalData.proj * GlobalData.view * joint_matrix * ObjectData.model * vec4(vertex_pos, 1.0);
     f_frag_pos = (ObjectData.model * vec4(vertex_pos,1.0f)).xyz;
     f_tex_coord = tex_coord;
     

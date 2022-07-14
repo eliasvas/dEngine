@@ -4,7 +4,32 @@
 #include "cgltf/cgltf.h"
 #include "dlog.h"
 
+
 extern dgDevice dd;
+mat4 gjoint_matrices[25];
+
+//joint index is the last number in the joint's name
+u32 extract_joint_index(char *joint_name)
+{
+    u32 num = atoi(strrchr(joint_name, '_') + sizeof(char));
+    return num;
+}
+
+dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info)
+{
+    if (joint == NULL)return;
+    u32 joint_index = extract_joint_index(joint->name);
+    hmput(info->name_hash, hash_str(joint->name), joint_index);
+    info->joint_count++;
+    dJointInfo *j = &info->joint_hierarchy[joint_index];
+    j->parent = parent;
+    j->id = joint_index;
+    j->children_count = 0;
+    for (u32 i = 0; i < joint->children_count; ++i){
+        j->children[j->children_count++] = process_joint_info(joint->children[i],j, info);
+    }
+    return j;
+}
 
 dModel dmodel_load_gltf(const char *filename)
 {
@@ -102,6 +127,7 @@ dModel dmodel_load_gltf(const char *filename)
             cgltf_skin skin = data->skins[0];
         }
         */
+       
 
         //create pos buffer 
         if (pos_index != -1)
@@ -155,7 +181,28 @@ dModel dmodel_load_gltf(const char *filename)
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
             &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
         }
+
+
         
+        dSkeletonInfo info = {0};
+        if (data->animations_count){
+            cgltf_node *root_joint = data->skins[0].joints[0];
+            process_joint_info(root_joint->children[0],NULL, &info);
+
+            cgltf_animation anim = data->animations[2];
+            for (u32 i = 0; i < anim.channels_count; ++i)
+            {
+                cgltf_node *node = anim.channels[i].target_node;
+
+                cgltf_float *t = node->translation;
+                cgltf_float *r = node->rotation;
+                mat4 translation = mat4_translate(v3(t[0],t[1],t[2]));
+                mat4 rotation = quat_to_mat4((Quaternion){r[0],r[1],r[2],r[3]});
+                mat4 m = mat4_mul(translation, rotation);
+                gjoint_matrices[extract_joint_index(node->name)] = m;
+            }
+        }
+
         model.meshes[model.meshes_count++] = mesh;
 
     }
@@ -181,7 +228,10 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
         dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
 
 
-    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
+    mat4 object_data[26] = {model};
+    mat4 I = m4d(1.f);
+    memcpy(&object_data[1], &gjoint_matrices, sizeof(I)*25);
+    object_data[1] = I;
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
     dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));

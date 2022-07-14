@@ -14,7 +14,7 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
 	mat4 model;
-	vec3 color[2];
+	mat4 joint_mat[25];
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
@@ -37,5 +37,5 @@ void main() {
 
 	vec3 light_color = vec3(0.9,0.9,0.9);	
 
-	out_color = vec4(base_color,1.0) * vec4(ObjectData.color[1],1.0);
+	out_color = vec4(base_color,1.0);
 }
