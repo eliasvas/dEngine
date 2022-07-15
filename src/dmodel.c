@@ -6,20 +6,30 @@
 
 
 extern dgDevice dd;
-mat4 gjoint_matrices[25];
-
+mat4 gjoint_matrices[MAX_JOINT_COUNT];
+mat4 ljoint_matrices[MAX_JOINT_COUNT];
 //joint index is the last number in the joint's name
 u32 extract_joint_index(char *joint_name)
 {
     u32 num = atoi(strrchr(joint_name, '_') + sizeof(char));
-    return num;
+    return num+1;
+}
+
+void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,mat4* local_joint_transforms, mat4*joint_transforms){
+    if (j == NULL)return;
+    u32 joint_index = j->id;
+
+    joint_transforms[joint_index] = mat4_mul(local_joint_transforms[joint_index], parent_transform);
+    for (u32 i = 0; i< j->children_count; ++i)
+    {
+        calc_global_joint_transforms(j->children[i], joint_transforms[joint_index],local_joint_transforms, joint_transforms);
+    }
 }
 
 dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info)
 {
-    if (joint == NULL)return;
-    u32 joint_index = extract_joint_index(joint->name);
-    hmput(info->name_hash, hash_str(joint->name), joint_index);
+    if (joint == NULL)return NULL;
+    u32 joint_index = hmget(info->name_hash, hash_str(joint->name));
     info->joint_count++;
     dJointInfo *j = &info->joint_hierarchy[joint_index];
     j->parent = parent;
@@ -107,7 +117,7 @@ dModel dmodel_load_gltf(const char *filename)
                 pos_index = i;
             else if (strncasecmp("TAN", primitive.attributes[i].name,3) == 0)
                 tangent_index = i;
-            else if (strncasecmp("JOI", primitive.attributes[i].name,3) == 0)
+            else if (strncasecmp("JOINT", primitive.attributes[i].name,5) == 0)
                 joint_index = i;
             else if (strncasecmp("WEI", primitive.attributes[i].name,3) == 0)
                 weight_index = i;
@@ -133,47 +143,67 @@ dModel dmodel_load_gltf(const char *filename)
         if (pos_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.pos_buf,primitive.attributes[pos_index].data->buffer_view->size,(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
-    
+            &mesh.pos_buf,primitive.attributes[pos_index].data->count * sizeof(vec3),(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
+
         //create tex buffer 
         if (tex_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tex_buf,primitive.attributes[tex_index].data->buffer_view->size,(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
+            &mesh.tex_buf,primitive.attributes[tex_index].data->count * sizeof(vec2),(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
 
         //create norm buffer 
         if (norm_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.norm_buf,primitive.attributes[norm_index].data->buffer_view->size,(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
+            &mesh.norm_buf,primitive.attributes[norm_index].data->count * sizeof(vec3),(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
  
         //create tangent buffer 
         if (tangent_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tang_buf,primitive.attributes[tangent_index].data->buffer_view->size,(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset);
+            &mesh.tang_buf,primitive.attributes[tangent_index].data->count * sizeof(vec3),(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset);
 
+
+/*
         //create joint buffer 
         if (joint_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.joint_buf,primitive.attributes[joint_index].data->buffer_view->size,(char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset);
- 
+            &mesh.joint_buf,primitive.attributes[joint_index].data->count * sizeof(vec4),(char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset);
+*/
         
         //create weight buffer 
         if (weight_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.weight_buf,primitive.attributes[weight_index].data->buffer_view->size,(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset);
- 
-
-        if (joint_index != -1) {
-            cgltf_attribute joint_attrib = primitive.attributes[joint_index];
-            cgltf_attribute weight_attrib = primitive.attributes[weight_index];
-            printf("ok!\n");
-
-        }
+            &mesh.weight_buf,primitive.attributes[weight_index].data->count * sizeof(vec4),(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset);
         
+        
+        f32 * ww;
+        if (weight_index != -1)
+            ww = (char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset;
+        
+
+        unsigned short * jw;
+        u32 *jjw;
+        //TODO: SUUUUUUUUUUUUUPER UGLY FIX ASAP, ALSO MEMLEAKS HERE :)))))))))))
+        if (joint_index != -1)
+        {
+            jw = (char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
+        
+            jjw = malloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
+            for (u32 i = 0; i < primitive.attributes[joint_index].data->count*4;++i)
+            {
+                jjw[i] = jw[i];
+            }
+            ///*
+            //create joint buffer 
+            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+            &mesh.joint_buf,primitive.attributes[joint_index].data->count * sizeof(vec4),jjw);
+            //*/
+        }
+
         if (primitive.indices)
         {
             //create index buffer
@@ -183,23 +213,83 @@ dModel dmodel_load_gltf(const char *filename)
         }
 
 
-        
+        mat4 * ibm;
         dSkeletonInfo info = {0};
         if (data->animations_count){
+            ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset;
             cgltf_node *root_joint = data->skins[0].joints[0];
-            process_joint_info(root_joint->children[0],NULL, &info);
+            
+            //first we fill the name hash so we know what bone has what index
+            for (u32 i = 0; i < data->skins[0].joints_count;++i)
+            {
+                cgltf_node *joint = data->skins[0].joints[i];
+                u32 joint_index = i;
+                hmput(info.name_hash, hash_str(joint->name), joint_index);
+                
+            }
+            
+            process_joint_info(root_joint,NULL, &info);
 
-            cgltf_animation anim = data->animations[2];
+            cgltf_animation anim = data->animations[0];
+            for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
+                gjoint_matrices[i] = m4d(1.0f);
+                ljoint_matrices[i] = m4d(1.0f);
+            }
             for (u32 i = 0; i < anim.channels_count; ++i)
             {
                 cgltf_node *node = anim.channels[i].target_node;
 
+                cgltf_animation_path_type type = anim.channels[i].target_path;
+                float *time_offsets = anim.channels[i].sampler->input->offset + anim.channels[i].sampler->input->buffer_view->buffer->data + anim.channels[i].sampler->input->buffer_view->offset;
+                
+                vec4 *quat_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
+                //vec4 *quat_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data;
+                vec3 *trans_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
+
+                u32 anim_keyframe_count = anim.channels[i].sampler->input->count;
+                
                 cgltf_float *t = node->translation;
                 cgltf_float *r = node->rotation;
-                mat4 translation = mat4_translate(v3(t[0],t[1],t[2]));
-                mat4 rotation = quat_to_mat4((Quaternion){r[0],r[1],r[2],r[3]});
-                mat4 m = mat4_mul(translation, rotation);
-                gjoint_matrices[extract_joint_index(node->name)] = m;
+                cgltf_float *s = node->scale;
+                mat4 m;
+                mat4 rotation = quat_to_mat4(quat(r[0],r[1],r[2],r[3]));
+                 mat4 translation = mat4_translate(v3(t[0],t[1],t[2]));
+                mat4 scale = m4d(1.0f);
+                if (node->has_scale)
+                    scale = mat4_scale(v3(s[0],s[1],s[2]));
+                ///*
+                u32 anim_offset = 30;
+                /*
+                if (type == cgltf_animation_path_type_rotation){
+                    vec4 rot= vec4_add(quat_offsets[anim_offset], v4(r[0],r[1],r[2],r[3]));
+                    rotation = quat_to_mat4((Quaternion){rot.x, rot.y, rot.z, rot.w});
+                }
+                else if (type == cgltf_animation_path_type_translation){
+                    vec3 trans = vec3_add(trans_offsets[anim_offset], v3(t[0],t[1],t[2]));
+                    translation = mat4_translate(v3(trans.x, trans.y, trans.z));
+                }
+                else if (type == cgltf_animation_path_type_scale){
+                    vec3 sc = vec3_add(trans_offsets[anim_offset], v3(s[0],s[1],s[2]));
+                    scale = mat4_scale(v3(sc.x, sc.y, sc.z));
+                }
+                else{printf("WTF DAWWWG!!\n");}
+                */
+                //*/
+                m = mat4_mul(translation, mat4_mul(rotation, scale));
+
+                
+                //printf("mat: %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", m.raw[0],m.raw[1],m.raw[2],m.raw[3],m.raw[4],m.raw[5],m.raw[6],m.raw[7],m.raw[8],m.raw[9],m.raw[10],m.raw[11],m.raw[12],m.raw[13],m.raw[14],m.raw[15]);
+                //we put local animations in here, then postmultiply chan of transforms!
+                
+                u32 joint_index = hmget(info.name_hash, hash_str(node->name));
+                ljoint_matrices[joint_index] = m;
+            }
+            calc_global_joint_transforms(&info.joint_hierarchy[0], m4d(1.0f), ljoint_matrices, gjoint_matrices);
+            for (u32 i = 0; i < 25; ++i){
+                dJointInfo *j = &info.joint_hierarchy[i];
+                u32 joint_index = j->id;
+                gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
+                gjoint_matrices[j->id] = m4d(1.0f);
             }
         }
 
@@ -231,10 +321,11 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     mat4 object_data[26] = {model};
     mat4 I = m4d(1.f);
     memcpy(&object_data[1], &gjoint_matrices, sizeof(I)*25);
-    object_data[1] = I;
+    //object_data[1] = I;
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
-    dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
+    //dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_draw(ddev, 1727,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }
