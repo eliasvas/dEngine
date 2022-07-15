@@ -143,13 +143,13 @@ dModel dmodel_load_gltf(const char *filename)
         if (pos_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.pos_buf,primitive.attributes[pos_index].data->count * sizeof(vec3),(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
+            &mesh.pos_buf,primitive.attributes[pos_index].data->count * sizeof(vec3),(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->offset + primitive.attributes[pos_index].data->buffer_view->offset);
 
         //create tex buffer 
         if (tex_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tex_buf,primitive.attributes[tex_index].data->count * sizeof(vec2),(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
+            &mesh.tex_buf,primitive.attributes[tex_index].data->count * sizeof(vec2),(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset + primitive.attributes[tex_index].data->offset);
 
         //create norm buffer 
         if (norm_index != -1)
@@ -257,23 +257,30 @@ dModel dmodel_load_gltf(const char *filename)
                 mat4 scale = m4d(1.0f);
                 if (node->has_scale)
                     scale = mat4_scale(v3(s[0],s[1],s[2]));
+
+                //rotation = m4d(1.f);
+                //translation = m4d(1.f);
+                //scale = m4d(1.f);
                 ///*
-                u32 anim_offset = 30;
-                /*
+                u32 anim_offset = 0;
+                ///*
                 if (type == cgltf_animation_path_type_rotation){
                     vec4 rot= vec4_add(quat_offsets[anim_offset], v4(r[0],r[1],r[2],r[3]));
+                    //vec4 rot= quat_offsets[anim_offset];
                     rotation = quat_to_mat4((Quaternion){rot.x, rot.y, rot.z, rot.w});
                 }
                 else if (type == cgltf_animation_path_type_translation){
                     vec3 trans = vec3_add(trans_offsets[anim_offset], v3(t[0],t[1],t[2]));
+                    //vec3 trans = trans_offsets[anim_offset];
                     translation = mat4_translate(v3(trans.x, trans.y, trans.z));
                 }
                 else if (type == cgltf_animation_path_type_scale){
                     vec3 sc = vec3_add(trans_offsets[anim_offset], v3(s[0],s[1],s[2]));
+                    //vec3 sc = trans_offsets[anim_offset];
                     scale = mat4_scale(v3(sc.x, sc.y, sc.z));
                 }
                 else{printf("WTF DAWWWG!!\n");}
-                */
+                //*/
                 //*/
                 m = mat4_mul(translation, mat4_mul(rotation, scale));
 
