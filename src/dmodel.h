@@ -12,6 +12,7 @@ struct dJointInfo{
     dJointInfo *parent;
     dJointInfo *children[8];
     u32 children_count;
+    mat4 ibm;
 };
 #define MAX_JOINT_COUNT 32
 typedef struct dSkeletonInfo

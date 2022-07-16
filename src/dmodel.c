@@ -11,7 +11,7 @@ mat4 ljoint_matrices[MAX_JOINT_COUNT];
 dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
 
 
-mat4 calc_joint_transform(dJointTransform t)
+mat4 calc_joint_matrix(dJointTransform t)
 {
     mat4 rotation = m4d(1.0f);
     mat4 translation = m4d(1.0f);
@@ -31,7 +31,7 @@ void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTra
     u32 joint_index = j->id;
 
     dJointTransform t = local_joint_transforms[j->id];
-    mat4 local_joint_transform = calc_joint_transform(t);
+    mat4 local_joint_transform = calc_joint_matrix(t);
 
     joint_transforms[joint_index] = mat4_mul(local_joint_transform, parent_transform);
     for (u32 i = 0; i< j->children_count; ++i)
@@ -49,6 +49,22 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
     j->parent = parent;
     j->id = joint_index;
     j->children_count = 0;
+    //calculate inverse bind matrix for the joint
+    dJointTransform jt = {0};
+    if (joint->has_rotation){
+        jt.quaternion = quat(joint->rotation[0],joint->rotation[1],joint->rotation[2],joint->rotation[3]);
+        jt.flags |= DJOINT_FLAG_QUAT;
+    }
+    if (joint->has_scale){
+        jt.scale = v3(joint->scale[0], joint->scale[1], joint->scale[2]);
+        jt.flags |= DJOINT_FLAG_SCALE;
+    }
+    if (joint->has_translation){
+        jt.translation = v3(joint->translation[0], joint->translation[1], joint->translation[2]);
+        jt.flags |= DJOINT_FLAG_TRANS;
+    }
+    j->ibm = mat4_inv(calc_joint_matrix(jt));
+
     for (u32 i = 0; i < joint->children_count; ++i){
         j->children[j->children_count++] = process_joint_info(joint->children[i],j, info);
     }
@@ -137,22 +153,14 @@ dModel dmodel_load_gltf(const char *filename)
                 weight_index = i;
         }
 
-/*
-        //process bones and make a vertex -> bone relation
-        if (data->skins_count) {
-            u32 vertex_count = primitive.attributes[pos_index].data->count; //1728
-            //cgltf_attribute p = primitive.attributes[joint_index];
-            cgltf_attribute p = primitive.attributes[weight_index];
-            //cgltf_attribute p2 = primitive.accessors[weight_index];
-            cgltf_type t =  p.data->component_type;
-            for (u32 i = 0; i < vertex_count; ++i){
-                printf("Vertex: %i %s\n", i, p.data[i].buffer_view->name);
+        /*
+        if (pos_index!=-1)
+            for (u32 i = 0; i < primitive.attributes[pos_index].data->count;++i)
+            {
+                vec3 *pos = &(primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->offset + primitive.attributes[pos_index].data->buffer_view->offset)[i];
+                pos->x = -pos->x;
             }
-            cgltf_skin skin = data->skins[0];
-        }
         */
-       
-
         //create pos buffer 
         if (pos_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
@@ -244,6 +252,7 @@ dModel dmodel_load_gltf(const char *filename)
             process_joint_info(root_joint,NULL, &info);
 
             cgltf_animation anim = data->animations[0];
+            memset(local_joint_transforms, 0, sizeof(local_joint_transforms));
             for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
                 gjoint_matrices[i] = m4d(1.0f);
                 ljoint_matrices[i] = m4d(1.0f);
@@ -251,6 +260,7 @@ dModel dmodel_load_gltf(const char *filename)
             for (u32 i = 0; i < anim.channels_count; ++i)
             {
                 cgltf_node *node = anim.channels[i].target_node;
+                u32 joint_index = hmget(info.name_hash, hash_str(node->name));
 
                 cgltf_animation_path_type type = anim.channels[i].target_path;
                 float *time_offsets = anim.channels[i].sampler->input->offset + anim.channels[i].sampler->input->buffer_view->buffer->data + anim.channels[i].sampler->input->buffer_view->offset;
@@ -261,7 +271,7 @@ dModel dmodel_load_gltf(const char *filename)
 
                 u32 anim_keyframe_count = anim.channels[i].sampler->input->count;
                 
-                //these are the node's (joint's) transforms, do we need them?
+                //these are the node's (joint's) transforms, do we need them? (NO?)
                 cgltf_float *t = node->translation;
                 cgltf_float *r = node->rotation;
                 cgltf_float *s = node->scale;
@@ -269,36 +279,30 @@ dModel dmodel_load_gltf(const char *filename)
 
 
                 u32 anim_offset = 0;
-                dJointTransform ljt = {0};
+                dJointTransform *ljt = &local_joint_transforms[joint_index];
                 if (type == cgltf_animation_path_type_rotation){
-                    ljt.quaternion = quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w); 
-                    ljt.flags |= DJOINT_FLAG_QUAT;
+                    ljt->quaternion = quat_add(ljt->quaternion, quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w)); 
+                    ljt->flags |= DJOINT_FLAG_QUAT;
                 }
                 else if (type == cgltf_animation_path_type_translation){
-                    ljt.translation = v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z);
-                    ljt.flags |= DJOINT_FLAG_TRANS;
+                    ljt->translation = vec3_add(ljt->translation,v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z));
+                    ljt->flags |= DJOINT_FLAG_TRANS;
                 }
                 else if (type == cgltf_animation_path_type_scale){
-                    ljt.scale = v3(scale_offsets[anim_offset].x,scale_offsets[anim_offset].y,scale_offsets[anim_offset].z);
-                    ljt.flags |= DJOINT_FLAG_SCALE;
+                    ljt->scale = vec3_add(ljt->scale,v3(scale_offsets[anim_offset].x,scale_offsets[anim_offset].y,scale_offsets[anim_offset].z));
+                    ljt->flags |= DJOINT_FLAG_SCALE;
                 }
-                else{printf("WTF DAWWWG!!\n");}
 
-                
-                //printf("mat: %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", m.raw[0],m.raw[1],m.raw[2],m.raw[3],m.raw[4],m.raw[5],m.raw[6],m.raw[7],m.raw[8],m.raw[9],m.raw[10],m.raw[11],m.raw[12],m.raw[13],m.raw[14],m.raw[15]);
-                //we put local animations in here, then postmultiply chan of transforms!
-                
-
-
-                u32 joint_index = hmget(info.name_hash, hash_str(node->name));
-                local_joint_transforms[joint_index] = ljt;
+                u32 a;
             }
             calc_global_joint_transforms(&info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
-            for (u32 i = 0; i < 25; ++i){
+            for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
                 dJointInfo *j = &info.joint_hierarchy[i];
                 u32 joint_index = j->id;
-                gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
-                gjoint_matrices[j->id] = m4d(1.0f);//ibm[j->id];
+                mat4 bind_shape_matrix = mat4_mul(mat4_inv(j->ibm), ibm[j->id]);
+                mat4 m1 = mat4_mul(j->ibm,mat4_mul(mat4_inv(j->ibm), ibm[j->id]));
+                mat4 m2 = ibm[j->id];
+                gjoint_matrices[j->id] = m4d(1.f);
             }
         }
 
