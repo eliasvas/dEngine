@@ -8,18 +8,32 @@
 extern dgDevice dd;
 mat4 gjoint_matrices[MAX_JOINT_COUNT];
 mat4 ljoint_matrices[MAX_JOINT_COUNT];
-//joint index is the last number in the joint's name
-u32 extract_joint_index(char *joint_name)
+dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
+
+
+mat4 calc_joint_transform(dJointTransform t)
 {
-    u32 num = atoi(strrchr(joint_name, '_') + sizeof(char));
-    return num+1;
+    mat4 rotation = m4d(1.0f);
+    mat4 translation = m4d(1.0f);
+    mat4 scale = m4d(1.0f);
+    if (t.flags & DJOINT_FLAG_QUAT)
+        rotation = quat_to_mat4(t.quaternion);
+    if (t.flags & DJOINT_FLAG_TRANS)
+        translation = mat4_translate(t.translation);
+    if (t.flags & DJOINT_FLAG_SCALE)
+        scale = mat4_scale(t.scale);
+    
+    return mat4_mul(translation, mat4_mul(rotation, scale));
 }
 
-void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,mat4* local_joint_transforms, mat4*joint_transforms){
+void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTransform* local_joint_transforms, mat4*joint_transforms){
     if (j == NULL)return;
     u32 joint_index = j->id;
 
-    joint_transforms[joint_index] = mat4_mul(local_joint_transforms[joint_index], parent_transform);
+    dJointTransform t = local_joint_transforms[j->id];
+    mat4 local_joint_transform = calc_joint_transform(t);
+
+    joint_transforms[joint_index] = mat4_mul(local_joint_transform, parent_transform);
     for (u32 i = 0; i< j->children_count; ++i)
     {
         calc_global_joint_transforms(j->children[i], joint_transforms[joint_index],local_joint_transforms, joint_transforms);
@@ -77,7 +91,7 @@ dModel dmodel_load_gltf(const char *filename)
         dlog(NULL, "image FILEPATH: %s\n", filepath);
 
         //FIX: VERY important for normal mapping, all non opaque/diffuse textures should be linear!
-        if (strstr(data->textures[i].image->uri, "ase") != NULL)
+        if (strstr(data->textures[i].image->uri, "ase") != NULL || strstr(data->textures[i].image->uri, "Cesium") != NULL)
             model.textures[DMODEL_BASE_COLOR_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
         else if (strstr(data->textures[i].image->uri, "etallic") != NULL)
             model.textures[DMODEL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
@@ -155,13 +169,13 @@ dModel dmodel_load_gltf(const char *filename)
         if (norm_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.norm_buf,primitive.attributes[norm_index].data->count * sizeof(vec3),(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
+            &mesh.norm_buf,primitive.attributes[norm_index].data->count * sizeof(vec3),(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset + primitive.attributes[norm_index].data->offset);
  
         //create tangent buffer 
         if (tangent_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tang_buf,primitive.attributes[tangent_index].data->count * sizeof(vec3),(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset);
+            &mesh.tang_buf,primitive.attributes[tangent_index].data->count * sizeof(vec3),(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset + primitive.attributes[tangent_index].data->offset);
 
 
 /*
@@ -176,15 +190,15 @@ dModel dmodel_load_gltf(const char *filename)
         if (weight_index != -1)
             dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.weight_buf,primitive.attributes[weight_index].data->count * sizeof(vec4),(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset);
+            &mesh.weight_buf,primitive.attributes[weight_index].data->count * sizeof(vec4),(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset + primitive.attributes[weight_index].data->offset);
         
         
         f32 * ww;
         if (weight_index != -1)
-            ww = (char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset;
+            ww = (char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset + primitive.attributes[weight_index].data->offset;
         
 
-        unsigned short * jw;
+        u8* jw;//unsigned short *jw;
         u32 *jjw;
         //TODO: SUUUUUUUUUUUUUPER UGLY FIX ASAP, ALSO MEMLEAKS HERE :)))))))))))
         if (joint_index != -1)
@@ -209,7 +223,7 @@ dModel dmodel_load_gltf(const char *filename)
             //create index buffer
             dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
             (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
+            &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset + primitive.indices->offset);
         }
 
 
@@ -225,7 +239,6 @@ dModel dmodel_load_gltf(const char *filename)
                 cgltf_node *joint = data->skins[0].joints[i];
                 u32 joint_index = i;
                 hmput(info.name_hash, hash_str(joint->name), joint_index);
-                
             }
             
             process_joint_info(root_joint,NULL, &info);
@@ -243,60 +256,49 @@ dModel dmodel_load_gltf(const char *filename)
                 float *time_offsets = anim.channels[i].sampler->input->offset + anim.channels[i].sampler->input->buffer_view->buffer->data + anim.channels[i].sampler->input->buffer_view->offset;
                 
                 vec4 *quat_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
-                //vec4 *quat_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data;
                 vec3 *trans_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
+                vec3 *scale_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
 
                 u32 anim_keyframe_count = anim.channels[i].sampler->input->count;
                 
+                //these are the node's (joint's) transforms, do we need them?
                 cgltf_float *t = node->translation;
                 cgltf_float *r = node->rotation;
                 cgltf_float *s = node->scale;
-                mat4 m;
-                mat4 rotation = quat_to_mat4(quat(r[0],r[1],r[2],r[3]));
-                 mat4 translation = mat4_translate(v3(t[0],t[1],t[2]));
-                mat4 scale = m4d(1.0f);
-                if (node->has_scale)
-                    scale = mat4_scale(v3(s[0],s[1],s[2]));
 
-                //rotation = m4d(1.f);
-                //translation = m4d(1.f);
-                //scale = m4d(1.f);
-                ///*
+
+
                 u32 anim_offset = 0;
-                ///*
+                dJointTransform ljt = {0};
                 if (type == cgltf_animation_path_type_rotation){
-                    vec4 rot= vec4_add(quat_offsets[anim_offset], v4(r[0],r[1],r[2],r[3]));
-                    //vec4 rot= quat_offsets[anim_offset];
-                    rotation = quat_to_mat4((Quaternion){rot.x, rot.y, rot.z, rot.w});
+                    ljt.quaternion = quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w); 
+                    ljt.flags |= DJOINT_FLAG_QUAT;
                 }
                 else if (type == cgltf_animation_path_type_translation){
-                    vec3 trans = vec3_add(trans_offsets[anim_offset], v3(t[0],t[1],t[2]));
-                    //vec3 trans = trans_offsets[anim_offset];
-                    translation = mat4_translate(v3(trans.x, trans.y, trans.z));
+                    ljt.translation = v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z);
+                    ljt.flags |= DJOINT_FLAG_TRANS;
                 }
                 else if (type == cgltf_animation_path_type_scale){
-                    vec3 sc = vec3_add(trans_offsets[anim_offset], v3(s[0],s[1],s[2]));
-                    //vec3 sc = trans_offsets[anim_offset];
-                    scale = mat4_scale(v3(sc.x, sc.y, sc.z));
+                    ljt.scale = v3(scale_offsets[anim_offset].x,scale_offsets[anim_offset].y,scale_offsets[anim_offset].z);
+                    ljt.flags |= DJOINT_FLAG_SCALE;
                 }
                 else{printf("WTF DAWWWG!!\n");}
-                //*/
-                //*/
-                m = mat4_mul(translation, mat4_mul(rotation, scale));
 
                 
                 //printf("mat: %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f %f\n", m.raw[0],m.raw[1],m.raw[2],m.raw[3],m.raw[4],m.raw[5],m.raw[6],m.raw[7],m.raw[8],m.raw[9],m.raw[10],m.raw[11],m.raw[12],m.raw[13],m.raw[14],m.raw[15]);
                 //we put local animations in here, then postmultiply chan of transforms!
                 
+
+
                 u32 joint_index = hmget(info.name_hash, hash_str(node->name));
-                ljoint_matrices[joint_index] = m;
+                local_joint_transforms[joint_index] = ljt;
             }
-            calc_global_joint_transforms(&info.joint_hierarchy[0], m4d(1.0f), ljoint_matrices, gjoint_matrices);
+            calc_global_joint_transforms(&info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
             for (u32 i = 0; i < 25; ++i){
                 dJointInfo *j = &info.joint_hierarchy[i];
                 u32 joint_index = j->id;
                 gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
-                gjoint_matrices[j->id] = m4d(1.0f);
+                gjoint_matrices[j->id] = m4d(1.0f);//ibm[j->id];
             }
         }
 
@@ -332,7 +334,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
     //dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-    dg_draw(ddev, 1727,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_draw(ddev, 767,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }

@@ -21,6 +21,18 @@ typedef struct dSkeletonInfo
     u32 joint_count;
 }dSkeletonInfo;
 
+typedef enum dJointFlagsS{
+    DJOINT_FLAG_QUAT = 0x1,
+    DJOINT_FLAG_TRANS = 0x2,
+    DJOINT_FLAG_SCALE = 0x4,
+}dJointFlags;
+typedef struct dJointTransform{
+    Quaternion quaternion;
+    vec3 translation;
+    vec3 scale;
+    dJointFlags flags;
+}dJointTransform;
+
 typedef struct dMesh {
     dgBuffer pos_buf;
     dgBuffer norm_buf;
