@@ -2391,7 +2391,8 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(5,5,5))));
-
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(0.05,0.05,0.05))));
+    
     //draw the grid ???
     if (ddev->grid_active){
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);

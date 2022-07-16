@@ -9,67 +9,11 @@ extern dgDevice dd;
 mat4 gjoint_matrices[MAX_JOINT_COUNT];
 mat4 ljoint_matrices[MAX_JOINT_COUNT];
 dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
+mat4 * ibm;
+
+dAnimation animation;
 
 
-mat4 calc_joint_matrix(dJointTransform t)
-{
-    mat4 rotation = m4d(1.0f);
-    mat4 translation = m4d(1.0f);
-    mat4 scale = m4d(1.0f);
-    if (t.flags & DJOINT_FLAG_QUAT)
-        rotation = quat_to_mat4(t.quaternion);
-    if (t.flags & DJOINT_FLAG_TRANS)
-        translation = mat4_translate(t.translation);
-    if (t.flags & DJOINT_FLAG_SCALE)
-        scale = mat4_scale(t.scale);
-    
-    return mat4_mul(translation, mat4_mul(rotation, scale));
-}
-
-void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTransform* local_joint_transforms, mat4*joint_transforms){
-    if (j == NULL)return;
-    u32 joint_index = j->id;
-
-    dJointTransform t = local_joint_transforms[j->id];
-    mat4 local_joint_transform = calc_joint_matrix(t);
-
-    joint_transforms[joint_index] = mat4_mul(local_joint_transform, parent_transform);
-    for (u32 i = 0; i< j->children_count; ++i)
-    {
-        calc_global_joint_transforms(j->children[i], joint_transforms[joint_index],local_joint_transforms, joint_transforms);
-    }
-}
-
-dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info)
-{
-    if (joint == NULL)return NULL;
-    u32 joint_index = hmget(info->name_hash, hash_str(joint->name));
-    info->joint_count++;
-    dJointInfo *j = &info->joint_hierarchy[joint_index];
-    j->parent = parent;
-    j->id = joint_index;
-    j->children_count = 0;
-    //calculate inverse bind matrix for the joint
-    dJointTransform jt = {0};
-    if (joint->has_rotation){
-        jt.quaternion = quat(joint->rotation[0],joint->rotation[1],joint->rotation[2],joint->rotation[3]);
-        jt.flags |= DJOINT_FLAG_QUAT;
-    }
-    if (joint->has_scale){
-        jt.scale = v3(joint->scale[0], joint->scale[1], joint->scale[2]);
-        jt.flags |= DJOINT_FLAG_SCALE;
-    }
-    if (joint->has_translation){
-        jt.translation = v3(joint->translation[0], joint->translation[1], joint->translation[2]);
-        jt.flags |= DJOINT_FLAG_TRANS;
-    }
-    j->ibm = mat4_inv(calc_joint_matrix(jt));
-
-    for (u32 i = 0; i < joint->children_count; ++i){
-        j->children[j->children_count++] = process_joint_info(joint->children[i],j, info);
-    }
-    return j;
-}
 
 dModel dmodel_load_gltf(const char *filename)
 {
@@ -235,10 +179,10 @@ dModel dmodel_load_gltf(const char *filename)
         }
 
 
-        mat4 * ibm;
+        
         dSkeletonInfo info = {0};
         if (data->animations_count){
-            ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset;
+            ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
             cgltf_node *root_joint = data->skins[0].joints[0];
             
             //first we fill the name hash so we know what bone has what index
@@ -252,11 +196,18 @@ dModel dmodel_load_gltf(const char *filename)
             process_joint_info(root_joint,NULL, &info);
 
             cgltf_animation anim = data->animations[0];
+            //animation = danim_create(info, anim.channels[0].sampler->input->count);
             memset(local_joint_transforms, 0, sizeof(local_joint_transforms));
             for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
                 gjoint_matrices[i] = m4d(1.0f);
                 ljoint_matrices[i] = m4d(1.0f);
             }
+
+
+            animation = danim_load(&anim, info);
+                                                                                                                         
+
+            /*
             for (u32 i = 0; i < anim.channels_count; ++i)
             {
                 cgltf_node *node = anim.channels[i].target_node;
@@ -295,15 +246,9 @@ dModel dmodel_load_gltf(const char *filename)
 
                 u32 a;
             }
-            calc_global_joint_transforms(&info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
-            for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
-                dJointInfo *j = &info.joint_hierarchy[i];
-                u32 joint_index = j->id;
-                mat4 bind_shape_matrix = mat4_mul(mat4_inv(j->ibm), ibm[j->id]);
-                mat4 m1 = mat4_mul(j->ibm,mat4_mul(mat4_inv(j->ibm), ibm[j->id]));
-                mat4 m2 = ibm[j->id];
-                gjoint_matrices[j->id] = m4d(1.f);
-            }
+            */
+            ///*
+            
         }
 
         model.meshes[model.meshes_count++] = mesh;
@@ -320,6 +265,23 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
+    u32 kf = ((u32)dtime_sec(dtime_now())*8 % animation.keyframe_count);
+    for (u32 i = 0; i < animation.skeleton_info.joint_count;++i)
+    {
+        u32 joint_index = animation.skeleton_info.joint_hierarchy[i].id;
+        local_joint_transforms[joint_index] = animation.keyframes[joint_index][kf];
+    }
+    //*/
+    calc_global_joint_transforms(&animation.skeleton_info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
+    for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
+        dJointInfo *j = &animation.skeleton_info.joint_hierarchy[i];
+        u32 joint_index = j->id;
+        gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
+    }
+
+
+
+
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
@@ -338,7 +300,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
     //dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-    dg_draw(ddev, 767,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_draw(ddev, 1767,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }
