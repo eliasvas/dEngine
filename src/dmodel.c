@@ -272,13 +272,14 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
         local_joint_transforms[joint_index] = animation.keyframes[joint_index][kf];
     }
     //*/
+    
     calc_global_joint_transforms(&animation.skeleton_info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
     for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
         dJointInfo *j = &animation.skeleton_info.joint_hierarchy[i];
         u32 joint_index = j->id;
         gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
     }
-
+    gjoint_matrices[0] = m4d(0.0); //this kindof works, but why?????
 
 
 
@@ -293,7 +294,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
         dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
 
 
-    mat4 object_data[26] = {model};
+    mat4 object_data[MAX_JOINT_COUNT] = {model};
     mat4 I = m4d(1.f);
     memcpy(&object_data[1], &gjoint_matrices, sizeof(I)*25);
     //object_data[1] = I;
