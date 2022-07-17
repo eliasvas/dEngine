@@ -13,6 +13,7 @@
 #include "dprofiler.h"
 #include "dlog.h"
 #include "stb/stb_ds.h"
+#include "dentity.h"
 //#include "dfiber.h"
 
 

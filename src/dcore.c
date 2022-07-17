@@ -4,7 +4,6 @@
 #define STBDS_UNIT_TESTS
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
-
 extern dgDevice dd;
 
 mu_Context ctx;
@@ -17,6 +16,9 @@ void dcore_init(void)
 {
     //Initialize the logger
     dlog_init(NULL);
+
+    //Initialize ECS system
+    dentity_manager_init(NULL);
 
     //Initialize basic engine allocators 
     dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
@@ -72,6 +74,32 @@ void dcore_init(void)
     //Initialize the profiler
     dprofiler_init(NULL);
     dg_frame_begin(&dd);
+
+
+
+
+    for (u32 i = 0; i < 1024; ++i){
+        dEntity e = dentity_create();
+        
+        dlog(NULL, "entity id: %u \n", e.id);
+    }
+    for (u32 i = 0; i < 700; ++i)
+    {
+        dentity_destroy((dEntity){i});
+    }
+    for (u32 i = 0; i < 3; ++i){
+        dEntity e = dentity_create();
+        dlog(NULL, "entity id: %u \n", e.id);
+    }
+
+
+
+
+
+
+
+
+
 }
 
 void dcore_update(void)

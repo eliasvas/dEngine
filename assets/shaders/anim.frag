@@ -13,7 +13,8 @@ layout(set = 0, binding = 0) uniform  GlobalBuffer{
 } GlobalData;
 
 layout(set = 1, binding = 0) uniform  ObjectBuffer{
-	mat4 joint_mat[32];
+	mat4 model;
+	mat4 joint_mat[31];
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
