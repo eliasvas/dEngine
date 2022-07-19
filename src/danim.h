@@ -34,6 +34,12 @@ typedef struct dJointTransform{
 }dJointTransform;
 
 
+typedef enum DANIM_INTERP_TYPE{
+    DANIM_INTERP_TYPE_STEP = 0x1,
+    DANIM_INTERP_TYPE_LINEAR = 0x2,
+    DANIM_INTERP_TYPE_CUBIC = 0x4,
+}DANIM_INTERP_TYPE;
+
 //   __keyframes__
 //│joint  ┌─► keyframe
 //▼index  └─► count

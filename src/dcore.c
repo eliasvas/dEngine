@@ -8,6 +8,7 @@ extern dgDevice dd;
 
 mu_Context ctx;
 dWindow main_window;
+dTransformComponentManager transform_manager;
 
 extern dConfig engine_config;
 
@@ -93,12 +94,8 @@ void dcore_init(void)
     }
 
 
-
-
-
-
-
-
+    //Initialize transform manager
+    dtransform_component_manager_init(&transform_manager);
 
 }
 
