@@ -846,7 +846,7 @@ static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(
 {
 	VkPipelineColorBlendAttachmentState color_blend_attachment = {0};
 	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
-		VK_COLOR_COMPONENT_B_BIT;
+		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
 	color_blend_attachment.blendEnable = (blend_enabled > 0) ? VK_TRUE : VK_FALSE;	
 
@@ -854,7 +854,7 @@ static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(
     color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     color_blend_attachment.colorBlendOp = VK_BLEND_OP_ADD;
     color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
-    color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     color_blend_attachment.alphaBlendOp= VK_BLEND_OP_ADD;
 	return color_blend_attachment;
 }

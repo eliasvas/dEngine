@@ -143,36 +143,43 @@ void main()
     float NdotL = max(dot(N,L), 0.0);
     Lo += (kD * albedo / PI + specular) * radiance * NdotL;
 
-    vec3 ambient = vec3(0.03) * albedo;
-    vec3 color = ambient + Lo;
-
-    //color = color / (color + vec3(1.0));
-    //color = pow(color, vec3(1.0/2.2));
-    
-    /*
-    float spec = pow(max(dot(view_dir, halfway_dir), 0.0), 32);
-    vec3 specular = spec_str * spec * dir_light_color;
-    float diff = max(dot(norm, ObjectData.light_dir.xyz), 0.0);
-    vec3 diffuse = diff * dir_light_color;
-    vec3 ambient = vec3(0.1,0.1,0.1);
-    vec3 result= (ambient) * albedo + (diffuse+specular) * albedo * (1-shadow); 
-    */
     
 
-    /*
+
+    
     vec3 lighting = vec3(0.0);
     //calc point light's contrib
+    for (int i = 0; i < 1; ++i) //for each light
     {
-        vec3 light_dir  = normalize(point_light_pos - frag_pos);
-        float diff = max(dot(light_dir, norm), 0.0);
-        vec3 diffuse = point_light_color * diff * albedo;
-        float distance = length(frag_pos - point_light_pos);
-        vec3 res = diffuse;
-        res *= 1.0 / (distance * distance);
-        lighting+=res;
+        radiance = vec3(3);
+        V  = normalize(ObjectData.view_pos.xyz - frag_pos);
+        vec3 ld = normalize(point_light_pos - frag_pos);
+        H = normalize(ld + V);
+        R = reflect(-ld, N);
+        L = ld;
+
+
+
+        vec3 F0 = vec3(0.04);
+        F0 = mix(F0, albedo, metallic);
+        vec3 F = fresnel_schlick(max(dot(H, V),0.0), F0);
+        float NDF = distribution_ggx(N, H, roughness);
+        float G = geometry_smith(N,V,L,roughness);
+        vec3 numerator = NDF * F * G;
+        float denom = 4.0 * max(dot(N,V), 0.0) * max(dot(N,L), 0.0) + 0.0001;
+        vec3 specular = numerator/denom;
+
+        vec3 kS = F;
+        vec3 kD = vec3(1.0) - kS;
+        kD *= 1.0 - metallic;
+        float NdotL = max(dot(N,L), 0.0);
+        lighting += (kD * albedo / PI + specular) * radiance * NdotL;
     }
-    result +=lighting;
-    */
+    Lo += lighting;
+
+
+    vec3 ambient = vec3(0.03) * albedo;
+    vec3 color = ambient + Lo;
 
     //apply tone mapping
     const float exposure = 0.8;

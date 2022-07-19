@@ -44,6 +44,6 @@ void main() {
 	float metallic = orm.z;
 
 	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, occlusion);
-	g_normal = vec4(f_normal.xyz,roughness);
+	g_normal = vec4(f_normal.x, f_normal.y, f_normal.z,0.5);
 	g_pos = vec4(f_frag_pos.xyz,metallic);
 }

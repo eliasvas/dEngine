@@ -32,6 +32,6 @@ void main() {
 	vec4 color = (is_even) ? ObjectData.col[0] : ObjectData.col[1];
 	g_albedo_spec = color;
 	g_albedo_spec.a = 0.0;
-	g_normal = vec4(f_normal.xyz,0.0);
+	g_normal = vec4(f_normal.xyz,0.5);
 	g_pos = vec4(f_frag_pos.xyz,0.0);
 }
