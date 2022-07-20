@@ -35,18 +35,31 @@ void dentity_destroy(dEntity e);
 dEntity dentity_create(void);
 
 
+typedef struct dTransform{
+    vec3 trans;
+    Quaternion rot;
+    vec3 scale;
+}dTransform;
 
 
-typedef struct dTransformComponentManager{
+dTransform dtransform_default(void);
+mat4 dtransform_to_mat4(dTransform t);
+dTransform mat4_to_dtransform(mat4 m);
+
+typedef struct dTransformCM{
     struct InstanceData{
         u32 n; //no. of instances
         u32 allocated; //bytes allocated
         void *buffer; //where data is
 
         dEntity *entity;
-        vec3 *translation;
-        vec4 *rotation;
-        vec3 *scale;
+        dTransform *local;
+        dTransform *world;
+
+        u32 *parent;
+        u32 *first_child;
+        u32 *next_sibling;
+        u32 *prev_sibling;
     };
     struct InstanceData data;
     u32 next_index;
@@ -54,21 +67,22 @@ typedef struct dTransformComponentManager{
     struct {u32 key; u32 value}*entity_hash;//entity ID -> array index
     dLinearAllocator data_allocator;
     dMutex m;
-}dTransformComponentManager;
+}dTransformCM;
 
-void dtransform_component_manager_allocate(dTransformComponentManager *manager, u32 size);
+void dtransform_cm_allocate(dTransformCM *manager, u32 size);
 
-void dtransform_component_manager_init(dTransformComponentManager *manager);
+void dtransform_cm_init(dTransformCM *manager);
 
-u32 dtransform_component_manager_add(dTransformComponentManager *manager, dEntity e);
+u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p);
 
 //Return value of 0xFFFF means entity not found
-u32 dtransform_component_manager_lookup(dTransformComponentManager *manager, dEntity e);
+u32 dtransform_cm_lookup(dTransformCM *manager, dEntity e);
 
-vec3 *dtransform_component_manager_translation(dTransformComponentManager *manager, u32 index);
+dTransform *dtransform_cm_local(dTransformCM *manager,u32 index);
+dTransform *dtransform_cm_world(dTransformCM *manager,u32 index);
 
-u32 dtransform_component_manager_simulate(dTransformComponentManager *manager);
+u32 dtransform_cm_simulate(dTransformCM *manager);
 
 
-void dtransform_component_manager_del(dTransformComponentManager *manager, u32 index);
+void dtransform_cm_del(dTransformCM *manager, u32 index);
 #endif
