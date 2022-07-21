@@ -7,7 +7,7 @@ const unsigned DENTITY_INDEX_MASK = (1 << DENTITY_INDEX_BITS) - 1;
 const unsigned DENTITY_GENERATION_BITS = 8;
 const unsigned DENTITY_GENERATION_MASK = (1 << DENTITY_GENERATION_BITS) - 1;
 
-#define DENTITY_NOT_FOUND 0xFFFFFFFF
+//#define DENTITY_NOT_FOUND 0xFFFFFFFF
 
 u32 dentity_index(dEntity e) {return e.id & DENTITY_INDEX_MASK;}
 u32 dentity_generation(dEntity e) {return (e.id >> DENTITY_INDEX_BITS) & DENTITY_GENERATION_MASK;}
@@ -54,9 +54,10 @@ dEntity dentity_create(void){
 dTransform dtransform_default(void)
 {
     dTransform t;
-    t.rot = quat(1,0,0,0);
-    t.trans = v3(1.0f,1.0f,1.0f);
+    t.rot = quat(0,0,0,1);
+    t.trans = v3(0.0f,0.0f,0.0f);
     t.scale = v3(1.0f,1.0f,1.0f);
+    return t;
 }
 
 mat4 dtransform_to_mat4(dTransform t)
@@ -139,11 +140,16 @@ u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
     if (parent_index != DENTITY_NOT_FOUND){
         //we find the first child of parent
         u32 child_index = manager->data.first_child[parent_index];
-        //and search for the last sibling
-        while(child_index != DENTITY_NOT_FOUND)
-            child_index = manager->data.next_sibling[child_index];
-        //when we find it we insert our component index as the sibling (which makes it a registered child of parent!)
-        manager->data.next_sibling[child_index] = component_index;
+        if (child_index == DENTITY_NOT_FOUND){
+            manager->data.first_child[parent_index] = component_index;
+        }else{
+            //and search for the last sibling
+            while(child_index != DENTITY_NOT_FOUND)
+                child_index = manager->data.next_sibling[child_index];
+            //when we find it we insert our component index as the sibling (which makes it a registered child of parent!)
+            manager->data.next_sibling[child_index] = component_index;
+        }
+       
     }
 
 
@@ -186,7 +192,9 @@ void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransf
 {
     manager->data.local[component_index] = t;
     u32 parent_index = manager->data.parent[component_index];
-    dTransform parent_trans = (parent_index != DENTITY_NOT_FOUND) ? manager->data.world[ parent_index ] : dtransform_default();
+    dTransform parent_trans = dtransform_default();
+    if (parent_index != DENTITY_NOT_FOUND)
+        parent_trans = manager->data.world[parent_index];
     dtransform_cm_transform(manager,parent_trans, component_index);
 }
 

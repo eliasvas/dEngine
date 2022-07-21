@@ -12,6 +12,10 @@ dTransformCM transform_manager;
 
 extern dConfig engine_config;
 
+dEntity parent;
+dEntity child;
+
+
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -20,6 +24,34 @@ void dcore_init(void)
 
     //Initialize ECS system
     dentity_manager_init(NULL);
+
+        //Initialize transform manager
+    dtransform_cm_init(&transform_manager);
+
+    parent = dentity_create();
+    child = dentity_create();
+
+    u32 component_index = dtransform_cm_add(&transform_manager, parent, (dEntity){DENTITY_NOT_FOUND});
+    dTransform parent_t = dtransform_default();
+    parent_t.trans = v3(1,10,0);
+    dtransform_cm_set_local(&transform_manager, component_index, parent_t);
+    component_index = dtransform_cm_lookup(&transform_manager, parent);
+    dTransform lp = transform_manager.data.local[component_index];
+    assert(equalf(lp.trans.y, 10, 0.01));
+
+
+    component_index = dtransform_cm_add(&transform_manager, child, parent);
+    dTransform child_t = dtransform_default();
+    child_t.trans = v3(2,0,0);
+    dtransform_cm_set_local(&transform_manager, component_index, child_t);
+    component_index = dtransform_cm_lookup(&transform_manager, child);
+    dTransform wp = transform_manager.data.world[component_index];
+    assert(equalf(wp.trans.x, 3, 0.01));
+    assert(equalf(wp.trans.y, 10, 0.01));
+
+
+
+
 
     //Initialize basic engine allocators 
     dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
@@ -94,8 +126,7 @@ void dcore_init(void)
     }
 
 
-    //Initialize transform manager
-    dtransform_cm_init(&transform_manager);
+
 
 }
 
@@ -104,7 +135,7 @@ void dcore_update(void)
     DPROFILER_START("UPDATE");
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
-
+    
     dg_frame_begin(&dd);
     DPROFILER_END();
 }

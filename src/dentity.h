@@ -42,6 +42,8 @@ typedef struct dTransform{
 }dTransform;
 
 
+#define DENTITY_NOT_FOUND 0xFFFFFFFF
+
 dTransform dtransform_default(void);
 mat4 dtransform_to_mat4(dTransform t);
 dTransform mat4_to_dtransform(mat4 m);
@@ -83,6 +85,7 @@ dTransform *dtransform_cm_world(dTransformCM *manager,u32 index);
 
 u32 dtransform_cm_simulate(dTransformCM *manager);
 
+void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransform t);
 
 void dtransform_cm_del(dTransformCM *manager, u32 index);
 #endif

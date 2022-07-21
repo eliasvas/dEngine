@@ -14,6 +14,7 @@
 #include "dcamera.h"
 #include "dmem.h"
 #include "dmodel.h"
+#include "dentity.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
@@ -2268,20 +2269,22 @@ static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, f32 *frustum_d
     }
 }
 
+extern dEntity child, parent;
+extern dTransformCM transform_manager;
 void draw_cube(dgDevice *ddev, mat4 model)
 {
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
-    dgBuffer buffers[] = {base_tex,base_norm,base_norm,base_pos};
+    dgBuffer buffers[] = {base_vbo};
     u64 offsets[] = {0,0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
 
     //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
     //mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
-    mat4 object_data[2] = {model, {1.0,1.0,1.0,0.0,0.0,1.0}};
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.1,0.0,1.0}};
     dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
 
@@ -2390,8 +2393,7 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(0.05,0.05,0.05))));
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
     
     //draw the grid ???
     if (ddev->grid_active){
@@ -2406,13 +2408,23 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
-
+    
+    dTransform * pt = dtransform_cm_world(&transform_manager, parent.id);
+    draw_cube(ddev, dtransform_to_mat4(*pt));
+    dTransform * ct = dtransform_cm_world(&transform_manager, child.id);
+    draw_cube(ddev, dtransform_to_mat4(*ct));
+    if (dkey_down(DK_1)){
+        u32 component_index = dtransform_cm_lookup(&transform_manager, parent);
+        dTransform nt = *pt;
+        nt.trans.y +=1.0;
+        dtransform_cm_set_local(&transform_manager, component_index, nt);
+    }
 }
 
 void dg_frame_end(dgDevice *ddev)
 {
+    draw_cube(ddev, mat4_translate(v3(2,10,0)));
 
-    
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
     VkSubmitInfo si = {0};
@@ -2473,7 +2485,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
-    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", FALSE));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,DUI_VERT, DUI_FRAG, DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND | DG_PIPE_OPTION_READY_SHADERS));

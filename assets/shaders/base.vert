@@ -1,11 +1,9 @@
 #version 450
 
-layout(location = 0) in vec2 tex_coord;
+
+layout(location = 0) in vec3 vertex_pos;
 layout(location = 1) in vec3 vertex_normal;
-layout(location = 2) in vec4 vertex_tangent;
-layout(location = 3) in vec3 vertex_pos;
-
-
+layout(location = 2) in vec2 tex_coord;
 
 layout(set = 0, binding = 0) uniform  GlobalBuffer{
 	mat4 view;
@@ -19,9 +17,6 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
-layout(set = 2, binding = 1) uniform sampler2D orm_tex;
-layout(set = 2, binding = 2) uniform sampler2D normal_tex;
-layout(set = 2, binding = 3) uniform sampler2D emissive_tex;
 
 layout(location = 0) out vec3 f_frag_pos;
 layout(location = 1) out vec3 f_normal;

@@ -18,24 +18,15 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 } ObjectData;
 
 layout(set = 2, binding = 0) uniform sampler2D base_color_tex;
-layout(set = 2, binding = 1) uniform sampler2D orm_tex;
-layout(set = 2, binding = 2) uniform sampler2D normal_tex;
-layout(set = 2, binding = 3) uniform sampler2D emissive_tex;
 
 vec3 dir_light = vec3(-1,1,0.2);
 
 void main() {
-	vec3 normal = texture(normal_tex, f_tex_coord).xyz;
-	vec3 base_color = texture(base_color_tex, f_tex_coord).xyz;
-	vec3 emissive = texture(emissive_tex, f_tex_coord).xyz;
-	vec3 orm = texture(orm_tex, f_tex_coord).xyz;
-	float occlusion = orm.x;
-	float roughness = orm.y;
-	float metallic = orm.z;
-
-
-
-	vec3 light_color = vec3(0.9,0.9,0.9);	
-
-	out_color = vec4(base_color,1.0) * vec4(ObjectData.color[1],1.0);
+	//g_albedo_spec = texture(tex_sampler1, f_tex_coord.xy);
+	vec2 size = vec2(4,4);
+	float total = floor(f_tex_coord.x*float(size.x)) +
+                  floor(f_tex_coord.y*float(size.y));
+    bool is_even = mod(total,2.0)==0.0;
+	vec4 color = (is_even) ? vec4(ObjectData.color[0],1.0) : vec4(ObjectData.color[1],1.0);
+	out_color = color;
 }
