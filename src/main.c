@@ -1,5 +1,6 @@
 #include "dcore.h"
 #include "dui_renderer.h"
+#include "dentity.h"
 #include "dlog.h"
 
 extern mu_Context ctx;
@@ -87,19 +88,54 @@ static void test_window(mu_Context *ctx) {
   }
 }
 
+static void component_window(mu_Context *ctx, dTransformCM *manager, dEntity e) {
+  /* do window */
+  u32 component_index = dtransform_cm_lookup(manager, e);
+  dComponentDesc d = manager->component_desc;
+  dTransform *t = &manager->data.world[component_index];
+
+  if (mu_begin_window(ctx, "Component View", mu_rect(40, 140, 150, 150))) {
+    mu_Container *win = mu_get_current_container(ctx);
+    win->rect.w = mu_max(win->rect.w, 240);
+    win->rect.h = mu_max(win->rect.h, 200);
+
+/*
+    if (1) {
+      mu_Container *win = mu_get_current_container(ctx);
+      char buf[64];
+      mu_layout_row(ctx, 2, (int[]) { 54, -1 }, 0);
+      mu_label(ctx,"Position:");
+      sprintf(buf, "%d, %d", win->rect.x, win->rect.y); mu_label(ctx, buf);
+      mu_label(ctx, "Shad:");
+      mu_checkbox(ctx, "On/Off", &dd.shadow_pass_active);
+      mu_label(ctx, "Grid:");
+      mu_checkbox(ctx, "On/Off", &dd.grid_active);
+    }
+    */
+    for (u32 i = 0; i < d.field_count; ++i){
+      dComponentField *f = &d.fields_buf[i];
+      mu_label(ctx, f->name);
+      mu_slider_ex(ctx, ((void*)(t) + f->offset), -20.0f, 20.0f, 0, "%.0f", MU_OPT_ALIGNCENTER);
+    }
+
+    mu_end_window(ctx);
+  }
+}
+
 
 void init(void)
 {
     dcore_init();
 }
 
+extern dTransformCM transform_manager;
 b32 update(void)
 {
     dinput_update();
 
    mu_begin(&ctx);
    test_window(&ctx);
-   //log_window(&ctx);
+   component_window(&ctx, &transform_manager, (dEntity){0});
    mu_end(&ctx);
     
    return 1;

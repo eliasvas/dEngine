@@ -33,6 +33,29 @@ dEntity dentity_make(u32 index, u8 generation);
 b32 dentity_alive(dEntity e);
 void dentity_destroy(dEntity e);
 dEntity dentity_create(void);
+#define DENTITY_NOT_FOUND 0xFFFFFFFF
+
+//these define a component's editable properties, which are used by the UI system!
+typedef enum dComponentFieldType{
+    DCOMPONENT_FIELD_TYPE_NONE = 0x0,
+    DCOMPONENT_FIELD_TYPE_F32 = 0x1,
+    DCOMPONENT_FIELD_TYPE_VEC2 = 0x2,
+    DCOMPONENT_FIELD_TYPE_VEC3 = 0x4,
+    DCOMPONENT_FIELD_TYPE_VEC4 = 0x8,
+    DCOMPONENT_FIELD_TYPE_MAT4 = 0x10,
+}dComponentFieldType;
+
+typedef struct dComponentField{
+    char name[32];
+    u32 offset; //offset in struct of Component (so we can modify it)
+    dComponentFieldType type;
+}dComponentField;
+
+//NOTE: dComponentDesc must be zero initialized instead of init'ed, its the same process
+typedef struct dComponentDesc{
+    u32 field_count;
+    dComponentField *fields_buf;
+}dComponentDesc;
 
 
 typedef struct dTransform{
@@ -40,9 +63,6 @@ typedef struct dTransform{
     Quaternion rot;
     vec3 scale;
 }dTransform;
-
-
-#define DENTITY_NOT_FOUND 0xFFFFFFFF
 
 dTransform dtransform_default(void);
 mat4 dtransform_to_mat4(dTransform t);
@@ -64,7 +84,7 @@ typedef struct dTransformCM{
         u32 *prev_sibling;
     };
     struct InstanceData data;
-    u32 next_index;
+    dComponentDesc component_desc;
 
     struct {u32 key; u32 value}*entity_hash;//entity ID -> array index
     dLinearAllocator data_allocator;

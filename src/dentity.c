@@ -50,6 +50,23 @@ dEntity dentity_create(void){
     return dentity_make(idx, entity_manager.generation[idx]);
 }
 
+dComponentField dcomponent_field_make(char *name, u32 offset, dComponentFieldType type){
+    dComponentField f = {0};
+    sprintf(f.name, name);
+    f.type = type;
+    f.offset = offset;
+    return f;
+}
+
+void dcomponent_desc_insert(dComponentDesc *d, dComponentField f)
+{
+    dbf_push(d->fields_buf, f);
+    d->field_count++; //this isn't really neaded :P
+}
+
+
+
+
 
 dTransform dtransform_default(void)
 {
@@ -77,7 +94,7 @@ dTransform mat4_to_dtransform(mat4 m){
     return t;
 }
 
-
+//TODO: this allocate should happen after every insert if there is not enough size for new element
 void dtransform_cm_allocate(dTransformCM *manager, u32 size)
 {
     assert(size > manager->data.n);
@@ -121,6 +138,14 @@ void dtransform_cm_init(dTransformCM *manager){
     dtransform_cm_allocate(manager, 100);
     hmdefault(manager->entity_hash, 0xFFFFFFFF);
 
+    //make the component description
+    dComponentField f1 = dcomponent_field_make("Translation", offsetof(dTransform, trans), DCOMPONENT_FIELD_TYPE_VEC3);
+    dComponentField f2 = dcomponent_field_make("Rotation", offsetof(dTransform, rot), DCOMPONENT_FIELD_TYPE_VEC4);
+    dComponentField f3 = dcomponent_field_make("Scale", offsetof(dTransform, scale), DCOMPONENT_FIELD_TYPE_VEC3);
+    memset(&manager->component_desc, 0, sizeof(manager->component_desc));
+    dcomponent_desc_insert(&manager->component_desc, f1);
+    dcomponent_desc_insert(&manager->component_desc, f2);
+    dcomponent_desc_insert(&manager->component_desc, f3);
 }
 
 u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
