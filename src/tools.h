@@ -29,8 +29,8 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include <math.h>
-#include <string.h>
+#include "math.h"
+#include "string.h"
 #include <stddef.h> //this though?? @check
 
 typedef uint8_t   u8;
@@ -1299,7 +1299,8 @@ INLINE Quaternion quat_mulf(Quaternion l, f32 val)
 
 INLINE Quaternion quat_divf(Quaternion l, f32 val)
 {
-    assert(val);
+    if(val == 0)val += 0.05;
+
     Quaternion res;
     
     res.x = l.x / val;
@@ -1376,7 +1377,7 @@ INLINE Quaternion quat_normalize(Quaternion l)
 {
     Quaternion res;
 
-    f32 len = sqrtf(quat_dot(l,l));
+    f32 len = sqrt(quat_dot(l,l));
     res = quat_divf(l,len);
 
     return res;

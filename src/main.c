@@ -92,30 +92,39 @@ static void component_window(mu_Context *ctx, dTransformCM *manager, dEntity e) 
   /* do window */
   u32 component_index = dtransform_cm_lookup(manager, e);
   dComponentDesc d = manager->component_desc;
-  dTransform *t = &manager->data.world[component_index];
+  dTransform t = manager->data.world[component_index];
 
-  if (mu_begin_window(ctx, "Component View", mu_rect(40, 140, 150, 150))) {
+  if (mu_begin_window(ctx, "Component View", mu_rect(50,350, 200,200))) {
     mu_Container *win = mu_get_current_container(ctx);
-    win->rect.w = mu_max(win->rect.w, 240);
-    win->rect.h = mu_max(win->rect.h, 200);
 
-/*
-    if (1) {
-      mu_Container *win = mu_get_current_container(ctx);
-      char buf[64];
-      mu_layout_row(ctx, 2, (int[]) { 54, -1 }, 0);
-      mu_label(ctx,"Position:");
-      sprintf(buf, "%d, %d", win->rect.x, win->rect.y); mu_label(ctx, buf);
-      mu_label(ctx, "Shad:");
-      mu_checkbox(ctx, "On/Off", &dd.shadow_pass_active);
-      mu_label(ctx, "Grid:");
-      mu_checkbox(ctx, "On/Off", &dd.grid_active);
-    }
-    */
+
     for (u32 i = 0; i < d.field_count; ++i){
       dComponentField *f = &d.fields_buf[i];
-      mu_label(ctx, f->name);
-      mu_slider_ex(ctx, ((void*)(t) + f->offset), -20.0f, 20.0f, 0, "%.0f", MU_OPT_ALIGNCENTER);
+      u32 cnt=0;
+      s32 layout_offsets[] = {0,20,40,60,80};
+      if (mu_header(ctx, f->name))
+      {
+        mu_Container *win = mu_get_current_container(ctx);
+        u32 items_num = 0;
+        if (f->type == DCOMPONENT_FIELD_TYPE_F32)
+          items_num = 1;
+        else if (f->type == DCOMPONENT_FIELD_TYPE_VEC2)
+          items_num = 2;
+        else if (f->type == DCOMPONENT_FIELD_TYPE_VEC3)
+          items_num = 3;
+        else if (f->type == DCOMPONENT_FIELD_TYPE_VEC4)
+          items_num = 4;
+          
+        
+        mu_layout_row(ctx, items_num, layout_offsets, 0);
+        for (u32 i = 0; i < items_num; ++i){
+          void * addr =(void*)(&t) + f->offset + i * sizeof(f32);
+          f32 *val = (f32*)addr;
+          cnt+=mu_slider_ex(ctx, addr, -20.0f, 20.0f, 0, "%.0f", MU_OPT_ALIGNRIGHT);
+        }
+      }
+      if (cnt)
+          dtransform_cm_set_local(manager, component_index, t);
     }
 
     mu_end_window(ctx);
@@ -153,7 +162,6 @@ int main(void)
     while(update())
     {
         dcore_update();//update the state of the engine for each step
-
         dui_clear(mu_color(0, 0, 0, 255));
         mu_Command *cmd = NULL;
         while (mu_next_command(&ctx, &cmd)) {

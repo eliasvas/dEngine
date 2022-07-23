@@ -6,7 +6,7 @@
         {
             "label": "Build Engine",
             "type": "shell",
-            "command": "./build.sh",
+            "command": "make",
             "group": "build"
         }
     ]

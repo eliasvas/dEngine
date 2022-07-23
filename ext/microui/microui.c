@@ -158,7 +158,7 @@ void mu_end(mu_Context *ctx) {
   /* check stacks */
   expect(ctx->container_stack.idx == 0);
   expect(ctx->clip_stack.idx      == 0);
-  expect(ctx->id_stack.idx        == 0);
+   expect(ctx->id_stack.idx        == 0);
   expect(ctx->layout_stack.idx    == 0);
 
   /* handle scroll input */

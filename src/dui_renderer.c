@@ -7,7 +7,7 @@
 #include "dlog.h"
 #include "dcore.h"
 
-#define BUFFER_SIZE 16384 * 2
+#define BUFFER_SIZE 16384 * 46
 
 
 // pos/norm/tex --> pos/col/tex
@@ -53,6 +53,7 @@ static void flush(void) {
 
 
 static void push_quad(mu_Rect dst, mu_Rect src, mu_Color color) {
+  //assert(buf_idx < BUFFER_SIZE);
   if (buf_idx == BUFFER_SIZE) { flush(); }
 
   u32   index_idx = buf_idx *  6; //6 elements for each vertex
@@ -138,6 +139,7 @@ int dui_get_text_height(void) {
 
 
 void dui_set_clip_rect(mu_Rect rect) {
+  return;
   flush();
   //glScissor(rect.x, height - (rect.y + rect.h), rect.w, rect.h);
   mr = rect;
@@ -171,7 +173,7 @@ void dui_present(void) {
   dg_buf_unmap(&ibo);
 
 
-  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE, TRUE);
+  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE, FALSE);
   //dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
   //dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
 

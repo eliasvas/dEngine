@@ -1,4 +1,5 @@
 #include "dcamera.h"
+#include "tools.h"
 f32 cDT = 1.0f/60.0f;
 
 //FIX: can't turn while moving?????
