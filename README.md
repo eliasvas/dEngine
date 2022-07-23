@@ -22,6 +22,9 @@ cd build
 ```
 (Optional): If you want faster shader compilation you can precompile all shaders from glsl to SPIR-V at build time, so you don't need to do it at runtime. All you have to do is execute the *compile_shaders.sh* script.
 ```sh
+cd build
+mkdir shaders
+cd ..
 ./compile_shaders.sh
 ```
 After that there should be a directory called */shaders* inside */build* that contains all shaders in SPIR-V format.
