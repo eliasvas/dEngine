@@ -2393,7 +2393,8 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
+    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(0, v3(1,0,0))),mat4_scale(v3(0.1,0.1,0.1)))));
     
     //draw the grid ???
     if (ddev->grid_active){
@@ -2536,6 +2537,6 @@ b32 dgfx_init(void)
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
-    fox = dmodel_load_gltf("CesiumMan");
+    fox = dmodel_load_gltf("Fox");
 	return 1;
 }

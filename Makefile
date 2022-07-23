@@ -32,12 +32,12 @@ $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
 # Build step for C source
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
-	$(CC) $(CPPFLAGS) $(CFLAGS) -w $(shell find -name *.a) -c $<  -o $@
+	$(CC) -g $(CPPFLAGS) $(CFLAGS) -w -c $<  -o $@
 
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -w $(shell find -name *.a) -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -w -c $< -o $@
 
 
 .PHONY: clean

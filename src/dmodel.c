@@ -12,7 +12,7 @@ dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
 mat4 * ibm;
 
 dAnimation animation;
-
+dAnimator animator;
 
 
 dModel dmodel_load_gltf(const char *filename)
@@ -197,57 +197,17 @@ dModel dmodel_load_gltf(const char *filename)
 
             cgltf_animation anim = data->animations[0];
             //animation = danim_create(info, anim.channels[0].sampler->input->count);
-            memset(local_joint_transforms, 0, sizeof(local_joint_transforms));
+            //memset(local_joint_transforms, 0, sizeof(local_joint_transforms));
             for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
                 gjoint_matrices[i] = m4d(1.0f);
                 ljoint_matrices[i] = m4d(1.0f);
+                local_joint_transforms[i] = djt_default();
             }
 
 
             animation = danim_load(&anim, info);
-                                                                                                                         
-
-            /*
-            for (u32 i = 0; i < anim.channels_count; ++i)
-            {
-                cgltf_node *node = anim.channels[i].target_node;
-                u32 joint_index = hmget(info.name_hash, hash_str(node->name));
-
-                cgltf_animation_path_type type = anim.channels[i].target_path;
-                float *time_offsets = anim.channels[i].sampler->input->offset + anim.channels[i].sampler->input->buffer_view->buffer->data + anim.channels[i].sampler->input->buffer_view->offset;
-                
-                vec4 *quat_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
-                vec3 *trans_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
-                vec3 *scale_offsets = anim.channels[i].sampler->output->offset + anim.channels[i].sampler->output->buffer_view->buffer->data + anim.channels[i].sampler->output->buffer_view->offset;
-
-                u32 anim_keyframe_count = anim.channels[i].sampler->input->count;
-                
-                //these are the node's (joint's) transforms, do we need them? (NO?)
-                cgltf_float *t = node->translation;
-                cgltf_float *r = node->rotation;
-                cgltf_float *s = node->scale;
-
-
-
-                u32 anim_offset = 0;
-                dJointTransform *ljt = &local_joint_transforms[joint_index];
-                if (type == cgltf_animation_path_type_rotation){
-                    ljt->quaternion = quat_add(ljt->quaternion, quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w)); 
-                    ljt->flags |= DJOINT_FLAG_QUAT;
-                }
-                else if (type == cgltf_animation_path_type_translation){
-                    ljt->translation = vec3_add(ljt->translation,v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z));
-                    ljt->flags |= DJOINT_FLAG_TRANS;
-                }
-                else if (type == cgltf_animation_path_type_scale){
-                    ljt->scale = vec3_add(ljt->scale,v3(scale_offsets[anim_offset].x,scale_offsets[anim_offset].y,scale_offsets[anim_offset].z));
-                    ljt->flags |= DJOINT_FLAG_SCALE;
-                }
-
-                u32 a;
-            }
-            */
-            ///*
+            animator = danimator_init(&animator, &animation, ibm, 1);
+                                                                                               
             
         }
 
@@ -255,7 +215,6 @@ dModel dmodel_load_gltf(const char *filename)
 
     }
 
-    
 
     cgltf_free(data);
     return model;
@@ -265,22 +224,7 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
-    u32 kf = ((u32)dtime_sec(dtime_now())*8 % animation.keyframe_count);
-    for (u32 i = 0; i < animation.skeleton_info.joint_count;++i)
-    {
-        u32 joint_index = animation.skeleton_info.joint_hierarchy[i].id;
-        local_joint_transforms[joint_index] = animation.keyframes[joint_index][kf];
-    }
-    //*/
-    
-    calc_global_joint_transforms(&animation.skeleton_info.joint_hierarchy[0], m4d(1.0f), local_joint_transforms, gjoint_matrices);
-    for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
-        dJointInfo *j = &animation.skeleton_info.joint_hierarchy[i];
-        u32 joint_index = j->id;
-        gjoint_matrices[j->id] = mat4_mul(gjoint_matrices[j->id], ibm[j->id]);
-    }
-    gjoint_matrices[0] = m4d(0.0); //this kindof works, but why?????
-
+    danimator_animate(&animator);
 
 
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
@@ -296,7 +240,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
     mat4 object_data[MAX_JOINT_COUNT] = {model};
     mat4 I = m4d(1.f);
-    memcpy(&object_data[1], &gjoint_matrices, sizeof(I)*25);
+    memcpy(&object_data[1], animator.gjm, sizeof(I)*25);
     //object_data[1] = I;
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);

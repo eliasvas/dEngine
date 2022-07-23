@@ -21,18 +21,12 @@ typedef struct dSkeletonInfo
     u32 joint_count;
 }dSkeletonInfo;
 
-typedef enum dJointFlagsS{
-    DJOINT_FLAG_QUAT = 0x1,
-    DJOINT_FLAG_TRANS = 0x2,
-    DJOINT_FLAG_SCALE = 0x4,
-}dJointFlags;
+
 typedef struct dJointTransform{
     Quaternion quaternion;
     vec3 translation;
     vec3 scale;
-    dJointFlags flags;
 }dJointTransform;
-
 
 typedef enum DANIM_INTERP_TYPE{
     DANIM_INTERP_TYPE_STEP = 0x1,
@@ -53,6 +47,7 @@ typedef struct dAnimation{
     //dAllocator alloc;
 }dAnimation;
 
+dJointTransform djt_default(void);
 
 
 //Takes a Joint Transform and calculates the equivalent Transform Matrix
@@ -66,5 +61,28 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
 
 
 dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info);
+
+
+typedef struct dModel dModel;
+typedef struct dAnimator{
+    dModel *model;
+    dAnimation *anim;
+
+    f32 start_time; //when the animator started playing
+    f32 current_time;
+
+    f32 animation_speed;
+
+    dJointTransform *ljt;
+    mat4 *gjm;
+    mat4 *ibm;
+
+    //dAllocator alloc;
+}dAnimator;
+
+dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length);
+void danimator_animate(dAnimator *animator);
+
+
 
 #endif
