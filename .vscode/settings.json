@@ -8,6 +8,7 @@
         "dwin.h": "c",
         "typeinfo": "c",
         "assert.h": "c",
-        "dlog.h": "c"
+        "dlog.h": "c",
+        "dentity.h": "c"
     }
 }

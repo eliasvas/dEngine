@@ -1,22 +1,22 @@
 #include "danim.h"
-
+//TODO: add a Qlerp, Nlerp not so good :P
 
 
 dJointTransform djt_default(void)
 {
     dJointTransform t;
-    t.quaternion = quat(0,0,0,1);
-    t.translation = v3(0.0f,0.0f,0.0f);
+    t.rot = quat(0,0,0,1);
+    t.trans = v3(0.0f,0.0f,0.0f);
     t.scale = v3(1.0f,1.0f,1.0f);
     return t;
 }
 mat4 calc_joint_matrix(dJointTransform t)
 {
-    mat4 rotation = quat_to_mat4(t.quaternion);
-    mat4 translation = mat4_translate(t.translation);
+    mat4 rotation = quat_to_mat4(t.rot);
+    mat4 trans = mat4_translate(t.trans);
     mat4 scale = mat4_scale(t.scale);
     
-    return mat4_mul(translation, mat4_mul(rotation, scale));
+    return mat4_mul(trans, mat4_mul(rotation, scale));
 }
 
 void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTransform* local_joint_transforms, mat4*joint_transforms){
@@ -46,13 +46,13 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
     //calculate inverse bind matrix for the joint
     dJointTransform jt = {0};
     if (joint->has_rotation)
-        jt.quaternion = quat(joint->rotation[0],joint->rotation[1],joint->rotation[2],joint->rotation[3]);
+        jt.rot = quat(joint->rotation[0],joint->rotation[1],joint->rotation[2],joint->rotation[3]);
     
     if (joint->has_scale)
         jt.scale = v3(joint->scale[0], joint->scale[1], joint->scale[2]);
     
     if (joint->has_translation)
-        jt.translation = v3(joint->translation[0], joint->translation[1], joint->translation[2]);
+        jt.trans = v3(joint->translation[0], joint->translation[1], joint->translation[2]);
     
     j->ibm = mat4_inv(calc_joint_matrix(jt));
 
@@ -110,10 +110,10 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
             //we put the keyframe in the correct joint transform in our keyframes array
             dJointTransform *ljt = &animation.keyframes[joint_index][i];
             if (type == cgltf_animation_path_type_rotation){
-                ljt->quaternion = quat_add(ljt->quaternion, quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w)); 
+                ljt->rot = quat_add(ljt->rot, quat(quat_offsets[anim_offset].x,quat_offsets[anim_offset].y,quat_offsets[anim_offset].z,quat_offsets[anim_offset].w)); 
             }
             else if (type == cgltf_animation_path_type_translation){
-                ljt->translation = vec3_add(ljt->translation,v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z));
+                ljt->trans = vec3_add(ljt->trans,v3(trans_offsets[anim_offset].x,trans_offsets[anim_offset].y,trans_offsets[anim_offset].z));
             }
             else if (type == cgltf_animation_path_type_scale){
                 ljt->scale = vec3_add(ljt->scale,v3(scale_offsets[anim_offset].x,scale_offsets[anim_offset].y,scale_offsets[anim_offset].z));
@@ -149,13 +149,30 @@ dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length){
 
 void danimator_animate(dAnimator *animator)
 {
-    animator->current_time = (u32)(animator->animation_speed * (dtime_sec(dtime_now()) - animator->start_time)) % animator->anim->keyframe_count;
+    animator->current_time = (animator->animation_speed * (dtime_sec(dtime_now()) - animator->start_time));
+    
+    f32 a = fmod(animator->current_time, animator->anim->keyframe_count);
+    //we extract the fractional part
+    a = a-(long)a;
 
-    u32 kf = animator->current_time;
+    u32 kf0 = (u32)animator->current_time % animator->anim->keyframe_count;
+    u32 kf1 = (kf0+1)  % animator->anim->keyframe_count;
     for (u32 i = 0; i < animator->anim->skeleton_info.joint_count;++i)
     {
         u32 joint_index = animator->anim->skeleton_info.joint_hierarchy[i].id;
-        animator->ljt[joint_index] = animator->anim->keyframes[joint_index][kf];
+        dJointTransform tkf0 = animator->anim->keyframes[joint_index][kf0];
+        dJointTransform tkf1 = animator->anim->keyframes[joint_index][kf1];
+        tkf0.rot = quat_normalize(tkf0.rot);
+        tkf1.rot = quat_normalize(tkf1.rot);
+        dJointTransform interp;
+        interp.trans = vec3_lerp(tkf0.trans, tkf1.trans, a);
+        interp.scale = vec3_lerp(tkf0.scale, tkf1.scale, a);
+        interp.rot = nlerp(tkf0.rot, tkf1.rot, a);
+        //https://stackoverflow.com/questions/42428136/rot-is-flipping-sign-for-very-similar-rotations
+        if (quat_mul(tkf0.rot, quat_conj(tkf1.rot)).w < 0)
+            interp.rot = nlerp(tkf0.rot, tkf1.rot, -a);
+        //printf("a: %f\n", a);
+        animator->ljt[joint_index] = interp;
     }
     //*/
     

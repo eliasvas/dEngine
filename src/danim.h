@@ -4,6 +4,9 @@
 #include "cgltf/cgltf.h"
 #include "dtime.h"
 #include "stb/stb_ds.h"
+#include "dentity.h" //mainly for dTransform
+
+typedef dTransform dJointTransform;
 
 typedef struct dJointInfo dJointInfo;
 struct dJointInfo{
@@ -20,13 +23,6 @@ typedef struct dSkeletonInfo
     dJointInfo joint_hierarchy[32];
     u32 joint_count;
 }dSkeletonInfo;
-
-
-typedef struct dJointTransform{
-    Quaternion quaternion;
-    vec3 translation;
-    vec3 scale;
-}dJointTransform;
 
 typedef enum DANIM_INTERP_TYPE{
     DANIM_INTERP_TYPE_STEP = 0x1,

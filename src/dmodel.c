@@ -232,7 +232,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
     dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].pos_buf,m->meshes[0].joint_buf,m->meshes[0].weight_buf};
-    u64 offsets[] = {0,0,0,0,0};
+    u64 offsets[] = {0,0,0,0};
     dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
     if (m->meshes[0].index_buf.active)
         dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
