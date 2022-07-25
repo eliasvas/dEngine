@@ -1,8 +1,6 @@
 #ifndef  __DTIME__
 #define __DTIME__
 
-// TODO(iv): look int __declspec(dllexport)
-
 #include "tools.h"
 
 #ifdef __cplusplus

@@ -497,9 +497,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     vkGetSwapchainImagesKHR(ddev->device, ddev->swap.swapchain, &image_count, ddev->swap.images);
     ddev->swap.image_format = surface_format.format;
     ddev->swap.extent = extent;
-    ddev->swap.image_count = image_count;//TODO(ilias): check
-    //printf("New swapchain image_count: %i\n", image_count);
-    //printf("New swapchain image_dims: %i %i\n", ddev->swap.extent.width, ddev->swap.extent.height);
+    ddev->swap.image_count = image_count;
 	ddev->swap.depth_attachment = dg_create_depth_attachment(ddev, ddev->swap.extent.width, ddev->swap.extent.height,1);
 	
     return DSUCCESS;
@@ -2348,7 +2346,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_scale(v3(10,10,10))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(90 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(10,10,10)))));
 
 
 

@@ -5,7 +5,7 @@
 #include "stb/stb_ds.h"
 #include "danim.h"
 #define DMODEL_MAX_TEXTURES 8
-#define DMODEL_MAX_MESHES_PER_MODEL 8
+#define DMODEL_MAX_MESHES_PER_MODEL 10
 
 
 

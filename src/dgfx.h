@@ -89,7 +89,7 @@ typedef struct dgPipeline
     VkPipelineLayout pipeline_layout;
 
     // do we really need the descriptor pool? (maybe have them in a cache??)
-    VkDescriptorPool descriptor_pools[16]; //pools need to be reallocated with every swapchain recreation! @TODO
+    VkDescriptorPool descriptor_pools[16]; //TODO: pools need to be reallocated with every swapchain recreation!
     VkDescriptorSet* descriptor_sets;
     dgBuffer* uniform_buffers;
 

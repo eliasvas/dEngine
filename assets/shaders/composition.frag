@@ -114,7 +114,6 @@ void main()
     float shadow = shadow_calc(frag_pos_light_space, layer);
     
     
-    float spec_str = 0.4;
     vec3 dir_light_color = vec3(9,9,9);
     vec3 V = normalize(ObjectData.view_pos.xyz - frag_pos);
     vec3 H = normalize(ObjectData.light_dir.xyz + V);

@@ -1,5 +1,6 @@
 #include "dconfig.h"
 #include "stdio.h"
+#include "dlog.h"
 
 dConfig engine_config;
 
@@ -47,7 +48,9 @@ void dconfig_save(void)
 {
     FILE* config = fopen("../dconf", "w");
     //TODO(ilias): log into console that action couldn't be completed!
-    if (config == NULL)return; 
+    if (config == NULL){
+        dlog(NULL, "Couldn't find config file, starting engine with default settings!\n");
+    }
     fprintf(config, "set dgAPI DG_VULKAN\n");
     fprintf(config, "set spirv_path %s\n", engine_config.spirv_path);
     fprintf(config, "set shader_path %s\n", engine_config.shader_path);

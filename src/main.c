@@ -8,12 +8,11 @@ extern dgDevice dd;
 extern dLogger engine_log;
 //FEATURES TODO
 //Skyboxes!
-//Skeletal Animation
 //Thread Pool + job graph!
 //shader/texture CACHING!!!!!
-//Engine logging
 //Basic Sound (+ Audio compression/decompression)
 //Render Graph
+//Verlet Physics 
 
 static  char logbuf[64000];
 static   int logbuf_updated = 0;

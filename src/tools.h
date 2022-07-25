@@ -780,7 +780,7 @@ INLINE mat4 mat4_mul(mat4 l, mat4 r)
 }
 
 
-INLINE mat4 mat4_translate(vec3 t) //TODO(ilias): check handedness
+INLINE mat4 mat4_translate(vec3 t)
 {
     mat4 res = m4d(1.0f);
     res.elements[3][0] = t.x;
@@ -1271,7 +1271,7 @@ INLINE Quaternion quat_sub(Quaternion l, Quaternion r)
     return res;
 }
 
-//TODO(ilias): check the scalars..
+//TODO: check the scalars..
 INLINE Quaternion quat_mul(Quaternion l, Quaternion r)
 {
     Quaternion res;

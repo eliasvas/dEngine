@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 f_frag_pos;
 layout(location = 1) in vec3 f_normal;
 layout(location = 2) in vec2 f_tex_coord;
+layout(location = 3) in mat3 tbn;
 
 layout(location = 0) out vec4 g_pos;
 layout(location = 1) out vec4 g_normal;
@@ -44,6 +45,8 @@ void main() {
 	float metallic = orm.z;
 
 	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, occlusion);
-	g_normal = vec4(f_normal.x, f_normal.y, f_normal.z,0.5);
+	vec3 normal = tbn * normalize( texture( normal_tex, f_tex_coord.xy ).xyz * 2.0 - 1.0 );
+	normal = normalize(normal);
+	g_normal = vec4(f_normal.x, f_normal.y, f_normal.z,roughness);
 	g_pos = vec4(f_frag_pos.xyz,metallic);
 }

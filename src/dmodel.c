@@ -54,11 +54,11 @@ dModel dmodel_load_gltf(const char *filename)
         if (strstr(data->textures[i].image->uri, "ase") != NULL || strstr(data->textures[i].image->uri, "Cesium") != NULL)
             model.textures[DMODEL_BASE_COLOR_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
         else if (strstr(data->textures[i].image->uri, "etallic") != NULL)
-            model.textures[DMODEL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
+            model.textures[DMODEL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
         else if (strstr(data->textures[i].image->uri, "ormal") != NULL)
-            model.textures[DMODEL_NORMAL_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
+            model.textures[DMODEL_NORMAL_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
         else if (strstr(data->textures[i].image->uri, "missive") != NULL)
-            model.textures[DMODEL_EMISSIVE_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
+            model.textures[DMODEL_EMISSIVE_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
     } 
     //fill the rest of the textures that couldnt be loaded with NULL
     for (u32 i = 0; i < 4; ++i)
@@ -67,13 +67,14 @@ dModel dmodel_load_gltf(const char *filename)
         if (model.textures[i].width == 0)
             model.textures[i] = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
     }
-
-    for (u32 i = 0; i< data->meshes_count; ++i)
+    u32 meshes_count = data->meshes[0].primitives_count;
+    for (u32 i = 0; i< meshes_count && i < DMODEL_MAX_MESHES_PER_MODEL; ++i)
     {
         dMesh mesh = {0};
         //FIX: we only support one primitive (e.g) triangle per mesh
-        cgltf_primitive primitive = data->meshes[i].primitives[0];
-        cgltf_float *weights = data->meshes[i].weights;
+        cgltf_float *weights = data->meshes[0].weights;
+        cgltf_primitive primitive = data->meshes[0].primitives[i];
+        
 
         s32 norm_index = -1;
         s32 pos_index = -1;
@@ -81,20 +82,20 @@ dModel dmodel_load_gltf(const char *filename)
         s32 joint_index = -1;
         s32 weight_index = -1;
         s32 tangent_index = -1;
-        for (u32 i = 0; i < primitive.attributes_count; ++i)
+        for (u32 j = 0; j < primitive.attributes_count; ++j)
         {
-            if (strncasecmp("TEX", primitive.attributes[i].name,3) == 0)
-                tex_index = i;
-            else if (strncasecmp("NORM", primitive.attributes[i].name,4) == 0)
-                norm_index = i;
-            else if (strncasecmp("POS", primitive.attributes[i].name,3) == 0)
-                pos_index = i;
-            else if (strncasecmp("TAN", primitive.attributes[i].name,3) == 0)
-                tangent_index = i;
-            else if (strncasecmp("JOINT", primitive.attributes[i].name,5) == 0)
-                joint_index = i;
-            else if (strncasecmp("WEI", primitive.attributes[i].name,3) == 0)
-                weight_index = i;
+            if (strncasecmp("TEX", primitive.attributes[j].name,3) == 0)
+                tex_index = j;
+            else if (strncasecmp("NORM", primitive.attributes[j].name,4) == 0)
+                norm_index = j;
+            else if (strncasecmp("POS", primitive.attributes[j].name,3) == 0)
+                pos_index = j;
+            else if (strncasecmp("TAN", primitive.attributes[j].name,3) == 0)
+                tangent_index = j;
+            else if (strncasecmp("JOINT", primitive.attributes[j].name,5) == 0)
+                joint_index = j;
+            else if (strncasecmp("WEI", primitive.attributes[j].name,3) == 0)
+                weight_index = j;
         }
 
         /*
@@ -245,7 +246,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
     //dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-    dg_draw(ddev, 1767,m->meshes[0].index_buf.size/sizeof(u16));
+    dg_draw(ddev,m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
 
     dg_rendering_end(ddev);
 }
@@ -259,19 +260,21 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->pbr_def_pipe);
     //dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].tang_buf,m->meshes[0].pos_buf};
-    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].pos_buf};
-    u64 offsets[] = {0,0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
-    if (m->meshes[0].index_buf.active)
-        dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+    for (u32 i = 0; i< m->meshes_count;++i)
+    {
+        dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].norm_buf,m->meshes[i].pos_buf, m->meshes[i].tang_buf};
+        u64 offsets[] = {0,0,0,0,0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+        if (m->meshes[0].index_buf.active)
+            dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, 0);
 
 
 
-    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
-    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
-    dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-
+        mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
+        dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
+        dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
+        dg_draw(ddev, m->meshes[i].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
+    }
 
     dg_rendering_end(ddev);
 

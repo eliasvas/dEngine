@@ -1,5 +1,5 @@
 #include "danim.h"
-//TODO: add a Qlerp, Nlerp not so good :P
+//TODO: add Qlerp quaternion interpolation for local joint transforms
 
 
 dJointTransform djt_default(void)
