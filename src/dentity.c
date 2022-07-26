@@ -1,6 +1,8 @@
 #include "dentity.h"
 #include "stb/stb_ds.h"
 
+dEntityManager entity_manager;
+
 const unsigned DENTITY_INDEX_BITS = 22;
 const unsigned DENTITY_INDEX_MASK = (1 << DENTITY_INDEX_BITS) - 1;
 

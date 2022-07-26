@@ -26,7 +26,6 @@ typedef struct dEntityManager{
     u32 free_indices[MAX_FREE_INDICES];
     u32 indices_start_index, indices_end_index;
 }dEntityManager;
-dEntityManager entity_manager;
 
 void dentity_manager_init(dEntityManager *manager);
 dEntity dentity_make(u32 index, u8 generation);
