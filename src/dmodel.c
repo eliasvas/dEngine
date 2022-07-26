@@ -11,8 +11,8 @@ mat4 ljoint_matrices[MAX_JOINT_COUNT];
 dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
 mat4 * ibm;
 
-dAnimation animation;
-dAnimator animator;
+static dAnimation animation;
+static dAnimator animator;
 
 
 dModel dmodel_load_gltf(const char *filename)
@@ -207,7 +207,7 @@ dModel dmodel_load_gltf(const char *filename)
 
 
             animation = danim_load(&anim, info);
-            animator = danimator_init(&animator, &animation, ibm, 1);
+            animator = danimator_init(NULL, &animation, ibm, 1);
                                                                                                
             
         }
@@ -226,7 +226,7 @@ extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
     danimator_animate(&animator);
-
+    
 
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
@@ -241,7 +241,8 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
     mat4 object_data[MAX_JOINT_COUNT] = {model};
     mat4 I = m4d(1.f);
-    memcpy(&object_data[1], animator.gjm, sizeof(I)*25);
+    memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
+    //dg_wait_idle(ddev);
     //object_data[1] = I;
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
     dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
@@ -254,7 +255,6 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
-
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);

@@ -86,11 +86,17 @@ mat4 dtransform_to_mat4(dTransform t)
     return mat4_mul(translation, mat4_mul(rotation, scale));
 }
 
+//https://answers.unity.com/questions/402280/how-to-decompose-a-trs-matrix.html
 dTransform mat4_to_dtransform(mat4 m){
     dTransform t;
-    t.rot = mat4_to_quat(m);
+    
+    vec3 angle = quat_to_angle(t.rot);
     t.trans = v3(m.raw[12], m.raw[13], m.raw[14]);
-    t.scale = v3(m.elements[0][0], m.elements[1][1], m.elements[2][2]);
+    //t.scale = v3(m.elements[0][0], m.elements[1][1], m.elements[2][2]);
+    t.scale = v3(vec3_length(v3(m.elements[0][0], m.elements[0][1], m.elements[0][2])), 
+                 vec3_length(v3(m.elements[1][0], m.elements[1][1], m.elements[1][2])), 
+                 vec3_length(v3(m.elements[2][0], m.elements[2][1], m.elements[2][2])));
+    t.rot = mat4_to_quat(m);
     return t;
 }
 
@@ -225,7 +231,7 @@ void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransf
 
 void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 component_index)
 {
-    mat4 world = mat4_mul(dtransform_to_mat4(manager->data.local[component_index]), dtransform_to_mat4(parent));
+    mat4 world = mat4_mul(dtransform_to_mat4(parent), dtransform_to_mat4(manager->data.local[component_index]));
     manager->data.world[component_index] = mat4_to_dtransform(world);
 
     u32 child_index = manager->data.first_child[component_index];

@@ -20,7 +20,7 @@ struct dJointInfo{
 typedef struct dSkeletonInfo
 {
     struct {u64 key; u32 value}*name_hash;//name -> ID
-    dJointInfo joint_hierarchy[32];
+    dJointInfo joint_hierarchy[MAX_JOINT_COUNT];
     u32 joint_count;
 }dSkeletonInfo;
 

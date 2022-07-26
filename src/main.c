@@ -7,12 +7,13 @@ extern mu_Context ctx;
 extern dgDevice dd;
 extern dLogger engine_log;
 //FEATURES TODO
-//Skyboxes!
-//Thread Pool + job graph!
+//Skyboxes
 //shader/texture CACHING!!!!!
-//Basic Sound (+ Audio compression/decompression)
+//Basic Sound (+ Audio compression/decompression/multithreaded play)
 //Render Graph
+//Architecture overview (how ECS leads to gameplay/multithreading job system/engine components etc..)
 //Verlet Physics 
+//SSGI
 
 static  char logbuf[64000];
 static   int logbuf_updated = 0;
@@ -91,8 +92,13 @@ static void component_window(mu_Context *ctx, dTransformCM *manager, dEntity e) 
   /* do window */
   u32 component_index = dtransform_cm_lookup(manager, e);
   dComponentDesc d = manager->component_desc;
-  dTransform t = manager->data.world[component_index];
-
+  dTransform t = manager->data.local[component_index];
+  //t.rot = quat_from_angle(v3(0,1,0), sin(dtime_sec(dtime_now())) );
+  //dtransform_cm_set_local(manager, component_index, t);
+  //return;
+  u32 child_index = dtransform_cm_lookup(manager, (dEntity){1});
+  dTransform t1 = manager->data.local[child_index];
+  //printf("child: %f %f %f %f %f %f\n", t1.rot.x, t1.rot.y, t1.rot.z, t1.scale.x, t1.scale.y, t1.scale.z);
   if (mu_begin_window(ctx, "Component View", mu_rect(50,350, 200,200))) {
     mu_Container *win = mu_get_current_container(ctx);
 

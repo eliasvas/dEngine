@@ -3154,9 +3154,9 @@
     ],
     "images" : [
         {
-            "mimeType" : "image/png",
+            "mimeType" : "image/jpeg",
             "name" : "Texture",
-            "uri" : "basecolor.png"
+            "uri" : "basecolor.jpg"
         }
     ],
     "skins" : [

@@ -27,7 +27,7 @@ CPPFLAGS := $(INC_FLAGS) -MMD -MP
 
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CC) $(OBJS) -w -lSDL2 -lshaderc_combined -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -fstack-protector  -w -L./ext/SDL2/lib/x64  -Wl,-Bstatic -lSDL200 -lshaderc_combined  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
 
 # Build step for C source
 $(BUILD_DIR)/%.c.o: %.c

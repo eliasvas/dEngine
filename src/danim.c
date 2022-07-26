@@ -20,14 +20,15 @@ mat4 calc_joint_matrix(dJointTransform t)
 }
 
 void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTransform* local_joint_transforms, mat4*joint_transforms){
-    if (j == NULL)return;
+    
+    if (j == NULL)
+        return;
     u32 joint_index = j->id;
 
-    dJointTransform t = local_joint_transforms[j->id];
+    dJointTransform t = local_joint_transforms[joint_index];
     mat4 local_joint_transform = calc_joint_matrix(t);
-
+    
     joint_transforms[joint_index] = mat4_mul(parent_transform,local_joint_transform);
-    //joint_transforms[joint_index] = mat4_mul(local_joint_transform, parent_transform);
     for (u32 i = 0; i< j->children_count; ++i)
     {
         calc_global_joint_transforms(j->children[i], joint_transforms[joint_index],local_joint_transforms, joint_transforms);
@@ -40,11 +41,12 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
     u32 joint_index = hmget(info->name_hash, hash_str(joint->name));
     info->joint_count++;
     dJointInfo *j = &info->joint_hierarchy[joint_index];
+    memset(j, 0, sizeof(dJointInfo));
     j->parent = parent;
     j->id = joint_index;
     j->children_count = 0;
     //calculate inverse bind matrix for the joint
-    dJointTransform jt = {0};
+    dJointTransform jt = djt_default();
     if (joint->has_rotation)
         jt.rot = quat(joint->rotation[0],joint->rotation[1],joint->rotation[2],joint->rotation[3]);
     
@@ -125,18 +127,18 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
 }
 
 
-#include "dmodel.h"
+//#include "dmodel.h"
 dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length){
     dAnimator anim = {0};
-    anim.model = m;
+    //anim.model = m;
     anim.anim = a;
     anim.current_time = 0;
     anim.start_time = dtime_sec(dtime_now());
     anim.animation_speed = 25.0f;
     u32 joint_count = a->joint_count;
-    anim.ljt = malloc(sizeof(dJointTransform) * joint_count);
-    anim.gjm = malloc(sizeof(mat4) * joint_count);
-    anim.ibm = malloc(sizeof(mat4) * joint_count);
+    anim.ljt = malloc(sizeof(dJointTransform) * joint_count*2);
+    anim.gjm = malloc(sizeof(mat4) * joint_count*2);
+    anim.ibm = malloc(sizeof(mat4) * joint_count*2);
 
     for (u32 i = 0; i < joint_count; ++i){
         anim.ljt[i] = djt_default();
@@ -154,7 +156,7 @@ void danimator_animate(dAnimator *animator)
     f32 a = fmod(animator->current_time, animator->anim->keyframe_count);
     //we extract the fractional part
     a = a-(long)a;
-
+    
     u32 kf0 = (u32)animator->current_time % animator->anim->keyframe_count;
     u32 kf1 = (kf0+1)  % animator->anim->keyframe_count;
     for (u32 i = 0; i < animator->anim->skeleton_info.joint_count;++i)
@@ -174,6 +176,7 @@ void danimator_animate(dAnimator *animator)
         //printf("a: %f\n", a);
         animator->ljt[joint_index] = interp;
     }
+    
     //*/
     
     calc_global_joint_transforms(&animator->anim->skeleton_info.joint_hierarchy[0], m4d(1.0f), animator->ljt, animator->gjm);
@@ -181,6 +184,7 @@ void danimator_animate(dAnimator *animator)
         dJointInfo *j = &animator->anim->skeleton_info.joint_hierarchy[i];
         u32 joint_index = j->id;
         animator->gjm[j->id] = mat4_mul(animator->gjm[j->id], animator->ibm[j->id]);
+        //animator->gjm[j->id] = m4d(1.0f);
     }
     animator->gjm[0] = m4d(0.0); //this kindof works, but why?????
 

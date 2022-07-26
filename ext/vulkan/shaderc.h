@@ -23,9 +23,9 @@ extern "C" {
 #include <stddef.h>
 #include <stdint.h>
 
-#include "shaderc/env.h"
-#include "shaderc/status.h"
-#include "shaderc/visibility.h"
+#include "vulkan/env.h"
+#include "vulkan/status.h"
+#include "vulkan/visibility.h"
 
 // Source language kind.
 typedef enum {

@@ -110,7 +110,7 @@ void dcore_init(void)
 
 
 
-
+    /*Entity test
     for (u32 i = 0; i < 1024; ++i){
         dEntity e = dentity_create();
         
@@ -124,6 +124,7 @@ void dcore_init(void)
         dEntity e = dentity_create();
         dlog(NULL, "entity id: %u \n", e.id);
     }
+    */
 
 
 

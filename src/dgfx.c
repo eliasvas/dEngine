@@ -325,7 +325,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 
 				VkPhysicalDeviceProperties p;
 				vkGetPhysicalDeviceProperties(ddev->physical_device, &p);
-				printf("physical device picked: %s\n", p.deviceName);
+				dlog(NULL, "VULKAN: physical device picked: %s\n", p.deviceName);
 				break;
 			}
 	
@@ -2353,7 +2353,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     mat4 lsm[DG_MAX_CASCADES];
     f32 fdist[DG_MAX_CASCADES];
-    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.6,0.4)), 1);
+    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.9,0.3)), 1);
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, view, lsm,fdist, cascade_count);
     //draw to shadow map

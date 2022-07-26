@@ -9,6 +9,8 @@
         "typeinfo": "c",
         "assert.h": "c",
         "dlog.h": "c",
-        "dentity.h": "c"
+        "dentity.h": "c",
+        "env.h": "c",
+        "visibility.h": "c"
     }
 }
