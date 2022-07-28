@@ -6,7 +6,7 @@
 #include "danim.h"
 #define DMODEL_MAX_TEXTURES 8
 #define DMODEL_MAX_MESHES_PER_MODEL 10
-#define DMODEL_MAX_MESH_PRIMITIVES_PER_MESH 10
+#define DMODEL_MAX_MESH_PRIMITIVES_PER_MESH 100
 
 typedef struct dMeshPrimitive{
     //offsets encode the [start, finish] within the 
@@ -32,6 +32,7 @@ typedef struct dMesh {
     dgBuffer col_buf; //GPU buffer storing vertex colors
     dgBuffer joint_buf; //GPU buffer storing per-vertex joint IDs
     dgBuffer weight_buf; //GPU buffer storing per-vertex joint weight
+    
 
     dMeshPrimitive primitives[DMODEL_MAX_MESH_PRIMITIVES_PER_MESH];
     u32 primitives_count;
@@ -48,6 +49,7 @@ typedef struct dMesh {
 #define DMODEL_EMISSIVE_INDEX 3
 typedef struct dModel {
     //dgBuffer vertex_buffer;
+    dgBuffer gpu_buf;
     dMesh meshes[DMODEL_MAX_MESHES_PER_MODEL];
     u32 meshes_count;
 

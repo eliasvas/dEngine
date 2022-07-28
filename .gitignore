@@ -1,4 +1,5 @@
 build/*
+assets/Sponza
 tcc/*
 *.pdb
 *.exp
