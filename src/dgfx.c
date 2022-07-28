@@ -315,7 +315,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
     vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because llvmpipe is 0 and we don't want that! no vulkan 1.3!!
 #ifdef BUILD_UNIX
-    for (u32 i = 1; i < device_count; ++i)
+    for (u32 i = 0; i < device_count; ++i)
 #else
     for (u32 i = 0; i < device_count; ++i)
 #endif
@@ -1868,7 +1868,6 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	tex.width = tex_w;
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
-	
 	return tex;
 }
 
@@ -1949,6 +1948,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
 	
+	sprintf(tex.name, filename);
 	return tex;
 }
 

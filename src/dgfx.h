@@ -37,6 +37,7 @@ typedef struct dgTexture{
     VkFormat format;
     u32 width, height;
     u32 mip_levels;
+    char name[64];
 } dgTexture;
 
 typedef struct dgSwapchain

@@ -6,7 +6,7 @@
 #include "danim.h"
 #define DMODEL_MAX_TEXTURES 8
 #define DMODEL_MAX_MESHES_PER_MODEL 10
-#define DMODEL_MAX_MESH_PRIMITIVES_PER_MESH 100
+#define DMODEL_MAX_MESH_PRIMITIVES_PER_MESH 104
 
 typedef struct dMeshPrimitive{
     //offsets encode the [start, finish] within the 
@@ -20,6 +20,8 @@ typedef struct dMeshPrimitive{
     ivec2 weight_offset;
 
     ivec2 index_offset;
+
+    dMaterial m;
 
     u32 primitive_type;
 }dMeshPrimitive;
@@ -42,11 +44,7 @@ typedef struct dMesh {
     dgBuffer index_buf;
 }dMesh;
 
-//indexes for textures, TODO tidy up the model texture system (and generally the texture manager :P)
-#define DMODEL_BASE_COLOR_INDEX 0
-#define DMODEL_ORM_INDEX 1
-#define DMODEL_NORMAL_INDEX 2
-#define DMODEL_EMISSIVE_INDEX 3
+
 typedef struct dModel {
     //dgBuffer vertex_buffer;
     dgBuffer gpu_buf;

@@ -48,28 +48,27 @@ dModel dmodel_load_gltf(const char *filename)
 
     //first load all the textures!
     model.textures_count= data->textures_count;
+    /*
     for (u32 i = 0; i< data->textures_count;++i)
     {
         sprintf(filepath, "../assets/%s/%s", filename,data->textures[i].image->uri);
+        VkFormat = (whatattatat) ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
+        dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB);
         dlog(NULL, "image FILEPATH: %s\n", filepath);
 
         //FIX: VERY important for normal mapping, all non opaque/diffuse textures should be linear!
         if (strstr(data->textures[i].image->uri, "ase") != NULL || strstr(data->textures[i].image->uri, "Cesium") != NULL)
-            model.textures[DMODEL_BASE_COLOR_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
+            model.textures[DMATERIAL_BASE_COLOR_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
         else if (strstr(data->textures[i].image->uri, "etallic") != NULL)
-            model.textures[DMODEL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
+            model.textures[DMATERIAL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
         else if (strstr(data->textures[i].image->uri, "ormal") != NULL)
-            model.textures[DMODEL_NORMAL_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
+            model.textures[DMATERIAL_NORMAL_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
         else if (strstr(data->textures[i].image->uri, "missive") != NULL)
-            model.textures[DMODEL_EMISSIVE_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
+            model.textures[DMATERIAL_EMISSIVE_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
     } 
-    //fill the rest of the textures that couldnt be loaded with NULL
-    for (u32 i = 0; i < 4; ++i)
-    {
-        //if there isn't a texture loaded, load black
-        if (model.textures[i].width == 0)
-            model.textures[i] = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
-    }
+    */
+
+    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
     u32 meshes_count = data->meshes_count;
     
     cgltf_primitive primitive = data->meshes[0].primitives[0];
@@ -111,6 +110,27 @@ dModel dmodel_load_gltf(const char *filename)
                     weight_index = j;
                 else if (strncasecmp("COL", primitive.attributes[j].name,3) == 0)
                     col_index = j;
+            }
+
+            for  (u32 i = 0; i < 4; ++i)
+                prim.m.textures[i] = empty_tex;
+            if (primitive.material->has_pbr_metallic_roughness )
+            {
+                prim.m.settings |= DMATERIAL_BASE_COLOR;
+                if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
+                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
+                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB));
+                }
+                if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
+                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
+                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
+                }
+            }
+            if (primitive.material->normal_texture.texture)
+            {
+                prim.m.settings |= DMATERIAL_NORMAL;
+                sprintf(filepath, "../assets/%s/%s", filename,primitive.material->normal_texture.texture->image->uri);
+                prim.m.textures[DMATERIAL_NORMAL_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
             }
 
 
@@ -232,14 +252,13 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     mat4 object_data[MAX_JOINT_COUNT] = {model};
     memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
     dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
-    
-    dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
     for (u32 i = 0; i< m->meshes_count;++i)
     {
         dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf};
         for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            dg_set_desc_set(ddev,&ddev->anim_pipe, &p->m.textures[0], 4, 2);
             u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->joint_offset.x,p->weight_offset.x};
             dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
             if (p->index_offset.y)
@@ -264,18 +283,19 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     dg_bind_pipeline(ddev, &ddev->pbr_def_pipe);
     mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
     dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
+    
     for (u32 i = 0; i< m->meshes_count;++i)
     {
         dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->gpu_buf};
         for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &p->m.textures[0], 4, 2);
             u64 offsets[] = {p->tex_offset.x,p->norm_offset.x,p->pos_offset.x,p->tang_offset.x};
             dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
             if (p->index_offset.y)
                 dg_bind_index_buffer(ddev, &m->gpu_buf, p->index_offset.x);
-                
+
             dg_draw(ddev, p->pos_offset.y/sizeof(vec3),p->index_offset.y/sizeof(u16));
         }
         

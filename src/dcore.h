@@ -14,6 +14,7 @@
 #include "dlog.h"
 #include "stb/stb_ds.h"
 #include "dentity.h"
+#include "dmaterial.h"
 //#include "dfiber.h"
 
 

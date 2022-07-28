@@ -80,6 +80,7 @@ void dcore_init(void)
     dinput_init();
 
     //Initialize the Graphics Driver
+    dtexture_manager_init(NULL);
     dgfx_init();
 
     //Basic static hashmap testing
