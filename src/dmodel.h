@@ -19,6 +19,8 @@ typedef struct dMeshPrimitive{
     ivec2 joint_offset;
     ivec2 weight_offset;
 
+    ivec2 index_offset;
+
     u32 primitive_type;
 }dMeshPrimitive;
 

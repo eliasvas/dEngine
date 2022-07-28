@@ -6,6 +6,7 @@
 //TODO: check if primitive.attributes[weight_index].data->buffer_view->size is too big (it contains everything?)
 //and if so, add all of its components sizes and make a new packed array as it should be for each attrib
 
+//TODO: texture handling in models is shit, fix ASAP
 
 extern dgDevice dd;
 mat4 gjoint_matrices[MAX_JOINT_COUNT];
@@ -85,6 +86,7 @@ dModel dmodel_load_gltf(const char *filename)
             s32 joint_index = -1;
             s32 weight_index = -1;
             s32 tangent_index = -1;
+            s32 col_index = -1;
             for (u32 j = 0; j < primitive.attributes_count; ++j)
             {
                 if (strncasecmp("TEX", primitive.attributes[j].name,3) == 0)
@@ -99,6 +101,8 @@ dModel dmodel_load_gltf(const char *filename)
                     joint_index = j;
                 else if (strncasecmp("WEI", primitive.attributes[j].name,3) == 0)
                     weight_index = j;
+                else if (strncasecmp("COL", primitive.attributes[j].name,3) == 0)
+                    col_index = j;
             }
 
             
@@ -187,12 +191,17 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.joint_offset = iv2(offset, size);
             }
 
-            if (primitive.indices)
+            if (primitive.indices!= -1 && !mesh.index_buf.active)
             {
                 //create index buffer
                 dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
                 (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-                &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset + primitive.indices->offset);
+                &mesh.index_buf, primitive.indices->buffer_view->size, (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset);
+            }
+            if (primitive.indices != -1){
+                u32 offset = primitive.indices->offset;
+                u32 size = primitive.indices->count *sizeof(u16);
+                prim.index_offset = iv2(offset, size);
             }
             mesh.primitives[mesh.primitives_count++] = prim;
         }
@@ -249,21 +258,30 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
     
-    
-    for (u32 i = 0; i < m->meshes_count; ++i){
-        dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].pos_buf,m->meshes[i].joint_buf,m->meshes[i].weight_buf};
-        u64 offsets[] = {0,0,0,0};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
-        if (m->meshes[i].index_buf.active)
-            dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, 0);
 
-        mat4 object_data[MAX_JOINT_COUNT] = {model};
-        memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
-        dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
+    mat4 object_data[MAX_JOINT_COUNT] = {model};
+    memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
+    dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
+    
+    dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
+    for (u32 i = 0; i< m->meshes_count;++i)
+    {
+        dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].pos_buf,m->meshes[i].joint_buf, m->meshes[i].weight_buf};
+        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        {
+            dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->joint_offset.x,p->weight_offset.x};
+            dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+            if (m->meshes[i].index_buf.active)
+                dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, p->index_offset.x);
+            
+            dg_draw(ddev, p->pos_offset.y/sizeof(vec3),p->index_offset.y/sizeof(u16));
+        }
         
-        dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
-        dg_draw(ddev,m->meshes[i].pos_buf.size,m->meshes[i].index_buf.size/sizeof(u16));
     }
+
+
+
     dg_rendering_end(ddev);
 }
 
@@ -274,21 +292,23 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->pbr_def_pipe);
-    //dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].norm_buf,m->meshes[0].tang_buf,m->meshes[0].pos_buf};
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
+    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
+    dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
     for (u32 i = 0; i< m->meshes_count;++i)
     {
         dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].norm_buf,m->meshes[i].pos_buf, m->meshes[i].tang_buf};
-        u64 offsets[] = {m->meshes[i].primitives[0].tex_offset.x,m->meshes[i].primitives[0].norm_offset.x,m->meshes[i].primitives[0].pos_offset.x,m->meshes[i].primitives[0].tang_offset.x};
-        dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
-        if (m->meshes[i].index_buf.active)
-            dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, 0);
-
-
-
-        mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
-        dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
-        dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
-        dg_draw(ddev, m->meshes[i].pos_buf.size,m->meshes[i].index_buf.size/sizeof(u16));
+        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        {
+            dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            u64 offsets[] = {p->tex_offset.x,p->norm_offset.x,p->pos_offset.x,p->tang_offset.x};
+            dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+            if (m->meshes[i].index_buf.active)
+                dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, p->index_offset.x);
+            
+            dg_draw(ddev, p->pos_offset.y/sizeof(vec3),p->index_offset.y/sizeof(u16));
+        }
+        
     }
 
     dg_rendering_end(ddev);
