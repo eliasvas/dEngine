@@ -3,6 +3,8 @@
 #define CGLTF_WRITE_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 #include "dlog.h"
+//TODO: check if primitive.attributes[weight_index].data->buffer_view->size is too big (it contains everything?)
+//and if so, add all of its components sizes and make a new packed array as it should be for each attrib
 
 
 extern dgDevice dd;
@@ -67,155 +69,169 @@ dModel dmodel_load_gltf(const char *filename)
         if (model.textures[i].width == 0)
             model.textures[i] = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
     }
-    u32 meshes_count = data->meshes[0].primitives_count;
+    u32 meshes_count = data->meshes_count;
     for (u32 i = 0; i< meshes_count && i < DMODEL_MAX_MESHES_PER_MODEL; ++i)
     {
         dMesh mesh = {0};
-        //FIX: we only support one primitive (e.g) triangle per mesh
-        cgltf_float *weights = data->meshes[0].weights;
-        cgltf_primitive primitive = data->meshes[0].primitives[i];
+        u32 mesh_index = i;
         
-
-        s32 norm_index = -1;
-        s32 pos_index = -1;
-        s32 tex_index = -1;
-        s32 joint_index = -1;
-        s32 weight_index = -1;
-        s32 tangent_index = -1;
-        for (u32 j = 0; j < primitive.attributes_count; ++j)
-        {
-            if (strncasecmp("TEX", primitive.attributes[j].name,3) == 0)
-                tex_index = j;
-            else if (strncasecmp("NORM", primitive.attributes[j].name,4) == 0)
-                norm_index = j;
-            else if (strncasecmp("POS", primitive.attributes[j].name,3) == 0)
-                pos_index = j;
-            else if (strncasecmp("TAN", primitive.attributes[j].name,3) == 0)
-                tangent_index = j;
-            else if (strncasecmp("JOINT", primitive.attributes[j].name,5) == 0)
-                joint_index = j;
-            else if (strncasecmp("WEI", primitive.attributes[j].name,3) == 0)
-                weight_index = j;
-        }
-
-        /*
-        if (pos_index!=-1)
-            for (u32 i = 0; i < primitive.attributes[pos_index].data->count;++i)
+        
+        for (u32 p= 0; p < data->meshes[mesh_index].primitives_count; ++p){
+            cgltf_primitive primitive = data->meshes[mesh_index].primitives[p];
+            dMeshPrimitive prim = {0};
+            s32 norm_index = -1;
+            s32 pos_index = -1;
+            s32 tex_index = -1;
+            s32 joint_index = -1;
+            s32 weight_index = -1;
+            s32 tangent_index = -1;
+            for (u32 j = 0; j < primitive.attributes_count; ++j)
             {
-                vec3 *pos = &(primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->offset + primitive.attributes[pos_index].data->buffer_view->offset)[i];
-                pos->x = -pos->x;
+                if (strncasecmp("TEX", primitive.attributes[j].name,3) == 0)
+                    tex_index = j;
+                else if (strncasecmp("NORM", primitive.attributes[j].name,4) == 0)
+                    norm_index = j;
+                else if (strncasecmp("POS", primitive.attributes[j].name,3) == 0)
+                    pos_index = j;
+                else if (strncasecmp("TAN", primitive.attributes[j].name,3) == 0)
+                    tangent_index = j;
+                else if (strncasecmp("JOINT", primitive.attributes[j].name,5) == 0)
+                    joint_index = j;
+                else if (strncasecmp("WEI", primitive.attributes[j].name,3) == 0)
+                    weight_index = j;
             }
-        */
-        //create pos buffer 
-        if (pos_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.pos_buf,primitive.attributes[pos_index].data->count * sizeof(vec3),(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->offset + primitive.attributes[pos_index].data->buffer_view->offset);
 
-        //create tex buffer 
-        if (tex_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tex_buf,primitive.attributes[tex_index].data->count * sizeof(vec2),(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset + primitive.attributes[tex_index].data->offset);
-
-        //create norm buffer 
-        if (norm_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.norm_buf,primitive.attributes[norm_index].data->count * sizeof(vec3),(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset + primitive.attributes[norm_index].data->offset);
- 
-        //create tangent buffer 
-        if (tangent_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.tang_buf,primitive.attributes[tangent_index].data->count * sizeof(vec3),(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset + primitive.attributes[tangent_index].data->offset);
-
-
-/*
-        //create joint buffer 
-        if (joint_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.joint_buf,primitive.attributes[joint_index].data->count * sizeof(vec4),(char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset);
-*/
-        
-        //create weight buffer 
-        if (weight_index != -1)
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.weight_buf,primitive.attributes[weight_index].data->count * sizeof(vec4),(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset + primitive.attributes[weight_index].data->offset);
-        
-        
-        f32 * ww;
-        if (weight_index != -1)
-            ww = (char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset + primitive.attributes[weight_index].data->offset;
-        
-
-        u8* jw;//unsigned short *jw;
-        u32 *jjw;
-        //TODO: SUUUUUUUUUUUUUPER UGLY FIX ASAP, ALSO MEMLEAKS HERE :)))))))))))
-        if (joint_index != -1)
-        {
-            jw = (char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
-        
-            jjw = malloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
-            for (u32 i = 0; i < primitive.attributes[joint_index].data->count*4;++i)
-            {
-                jjw[i] = jw[i];
-            }
-            ///*
-            //create joint buffer 
-            dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.joint_buf,primitive.attributes[joint_index].data->count * sizeof(vec4),jjw);
-            //*/
-        }
-
-        if (primitive.indices)
-        {
-            //create index buffer
-            dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
-            (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-            &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset + primitive.indices->offset);
-        }
-
-
-        
-        dSkeletonInfo info = {0};
-        if (data->animations_count){
-            ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
-            cgltf_node *root_joint = data->skins[0].joints[0];
             
-            //first we fill the name hash so we know what bone has what index
-            for (u32 i = 0; i < data->skins[0].joints_count;++i)
-            {
-                cgltf_node *joint = data->skins[0].joints[i];
-                u32 joint_index = i;
-                hmput(info.name_hash, hash_str(joint->name), joint_index);
+            //create pos buffer 
+            if (pos_index != -1 && !mesh.pos_buf.active){
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.pos_buf,primitive.attributes[pos_index].data->buffer_view->size,(char*)primitive.attributes[pos_index].data->buffer_view->buffer->data + primitive.attributes[pos_index].data->buffer_view->offset);
+            }
+            if (pos_index != -1){
+                u32 offset = primitive.attributes[pos_index].data->offset;
+                u32 size = primitive.attributes[pos_index].data->count * sizeof(vec3);
+                prim.pos_offset = iv2(offset, size);
             }
             
-            process_joint_info(root_joint,NULL, &info);
-
-            cgltf_animation anim = data->animations[0];
-            //animation = danim_create(info, anim.channels[0].sampler->input->count);
-            //memset(local_joint_transforms, 0, sizeof(local_joint_transforms));
-            for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
-                gjoint_matrices[i] = m4d(1.0f);
-                ljoint_matrices[i] = m4d(1.0f);
-                local_joint_transforms[i] = djt_default();
+            //create tex buffer 
+            if (tex_index != -1 && !mesh.tex_buf.active){
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.tex_buf,primitive.attributes[tex_index].data->buffer_view->size,(char*)primitive.attributes[tex_index].data->buffer_view->buffer->data + primitive.attributes[tex_index].data->buffer_view->offset);
+                
+            }
+            if (tex_index != -1){
+                u32 offset = primitive.attributes[tex_index].data->offset;
+                u32 size = primitive.attributes[tex_index].data->count * sizeof(vec2);
+                prim.tex_offset = iv2(offset, size);
             }
 
+            //create norm buffer 
+            if (norm_index != -1 && !mesh.norm_buf.active){
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.norm_buf,primitive.attributes[norm_index].data->buffer_view->size,(char*)primitive.attributes[norm_index].data->buffer_view->buffer->data + primitive.attributes[norm_index].data->buffer_view->offset);
+            }
+            if (norm_index != -1){
+                u32 offset = primitive.attributes[norm_index].data->offset;
+                u32 size = primitive.attributes[norm_index].data->count * sizeof(vec3);
+                prim.norm_offset = iv2(offset, size);
+            }
 
-            animation = danim_load(&anim, info);
-            animator = danimator_init(NULL, &animation, ibm, 1);
-                                                                                               
+            //create tangent buffer 
+            if (tangent_index != -1 && !mesh.tang_buf.active){
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.tang_buf,primitive.attributes[tangent_index].data->buffer_view->size,(char*)primitive.attributes[tangent_index].data->buffer_view->buffer->data + primitive.attributes[tangent_index].data->buffer_view->offset);
+            }
+            if (tangent_index != -1){
+                u32 offset = primitive.attributes[tangent_index].data->offset;
+                u32 size = primitive.attributes[tangent_index].data->count * sizeof(vec4);
+                prim.tang_offset = iv2(offset, size);
+            }
             
+            //create weight buffer 
+            if (weight_index != -1 && !mesh.weight_buf.active){
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.weight_buf,primitive.attributes[weight_index].data->buffer_view->size,(char*)primitive.attributes[weight_index].data->buffer_view->buffer->data + primitive.attributes[weight_index].data->buffer_view->offset);
+            }
+            if (weight_index != -1){
+                u32 offset = primitive.attributes[weight_index].data->offset;
+                u32 size = primitive.attributes[weight_index].data->count * sizeof(vec4);
+                prim.weight_offset = iv2(offset, size);
+            }
+            
+
+            u32 *j32 = NULL;
+            //TODO: SUUUUUUUUUUUUUPER UGLY FIX ASAP, ALSO MEMLEAKS HERE :)))))))))))
+            if (joint_index != -1 && !mesh.joint_buf.active)
+            {
+                u8 *j8 = (char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
+            
+                j32 = dalloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
+                for (u32 i = 0; i < primitive.attributes[joint_index].data->count*4;++i)
+                {
+                    j32[i] = j8[i];
+                }
+                //create joint buffer 
+                dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.joint_buf,primitive.attributes[joint_index].data->count * sizeof(vec4),j32);
+                dfree(j32);
+            }
+            if (joint_index != -1){
+                u32 offset = 0;//primitive.attributes[joint_index].data->offset;
+                u32 size = primitive.attributes[joint_index].data->count * sizeof(vec4);
+                prim.joint_offset = iv2(offset, size);
+            }
+
+            if (primitive.indices)
+            {
+                //create index buffer
+                dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+                (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+                &mesh.index_buf, primitive.indices->count *sizeof(u16), (char*)primitive.indices->buffer_view->buffer->data + primitive.indices->buffer_view->offset + primitive.indices->offset);
+            }
+            mesh.primitives[mesh.primitives_count++] = prim;
         }
+        
+
+        
+        
 
         model.meshes[model.meshes_count++] = mesh;
 
     }
+    dSkeletonInfo info = {0};
+    if (data->animations_count){
+        ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
+        cgltf_node *root_joint = data->skins[0].joints[0];
+        
+        //first we fill the name hash so we know what bone has what index
+        for (u32 i = 0; i < data->skins[0].joints_count;++i)
+        {
+            cgltf_node *joint = data->skins[0].joints[i];
+            u32 joint_index = i;
+            hmput(info.name_hash, hash_str(joint->name), joint_index);
+        }
+        
+        process_joint_info(root_joint,NULL, &info);
 
+        cgltf_animation anim = data->animations[0];
+        for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
+            gjoint_matrices[i] = m4d(1.0f);
+            ljoint_matrices[i] = m4d(1.0f);
+            local_joint_transforms[i] = djt_default();
+        }
+
+
+        animation = danim_load(&anim, info);
+        animator = danimator_init(NULL, &animation, ibm, 1);
+                                                                                        
+        
+    }
 
     cgltf_free(data);
     return model;
@@ -232,23 +248,22 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
-    dgBuffer buffers[] = {m->meshes[0].tex_buf,m->meshes[0].pos_buf,m->meshes[0].joint_buf,m->meshes[0].weight_buf};
-    u64 offsets[] = {0,0,0,0};
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
-    if (m->meshes[0].index_buf.active)
-        dg_bind_index_buffer(ddev, &m->meshes[0].index_buf, 0);
+    
+    
+    for (u32 i = 0; i < m->meshes_count; ++i){
+        dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].pos_buf,m->meshes[i].joint_buf,m->meshes[i].weight_buf};
+        u64 offsets[] = {0,0,0,0};
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+        if (m->meshes[i].index_buf.active)
+            dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, 0);
 
-
-    mat4 object_data[MAX_JOINT_COUNT] = {model};
-    mat4 I = m4d(1.f);
-    memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
-    //dg_wait_idle(ddev);
-    //object_data[1] = I;
-    dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
-    dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
-    //dg_draw(ddev, m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-    dg_draw(ddev,m->meshes[0].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
-
+        mat4 object_data[MAX_JOINT_COUNT] = {model};
+        memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
+        dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
+        
+        dg_set_desc_set(ddev,&ddev->anim_pipe, &m->textures[0], 4, 2);
+        dg_draw(ddev,m->meshes[i].pos_buf.size,m->meshes[i].index_buf.size/sizeof(u16));
+    }
     dg_rendering_end(ddev);
 }
 
@@ -263,9 +278,9 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     for (u32 i = 0; i< m->meshes_count;++i)
     {
         dgBuffer buffers[] = {m->meshes[i].tex_buf,m->meshes[i].norm_buf,m->meshes[i].pos_buf, m->meshes[i].tang_buf};
-        u64 offsets[] = {0,0,0,0,0};
+        u64 offsets[] = {m->meshes[i].primitives[0].tex_offset.x,m->meshes[i].primitives[0].norm_offset.x,m->meshes[i].primitives[0].pos_offset.x,m->meshes[i].primitives[0].tang_offset.x};
         dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
-        if (m->meshes[0].index_buf.active)
+        if (m->meshes[i].index_buf.active)
             dg_bind_index_buffer(ddev, &m->meshes[i].index_buf, 0);
 
 
@@ -273,7 +288,7 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
         mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
         dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
         dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &m->textures[0], 4, 2);
-        dg_draw(ddev, m->meshes[i].pos_buf.size,m->meshes[0].index_buf.size/sizeof(u16));
+        dg_draw(ddev, m->meshes[i].pos_buf.size,m->meshes[i].index_buf.size/sizeof(u16));
     }
 
     dg_rendering_end(ddev);

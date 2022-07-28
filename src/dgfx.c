@@ -2171,7 +2171,7 @@ typedef struct dgTexture{
 void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_index)
 {
     if (!ddev->shadow_pass_active)return;
-
+    
     dgTexture depth_tex_to_write = csm_rt.depth_attachment;
     depth_tex_to_write.view = csm_rt.cascade_views[cascade_index];
     dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, FALSE, FALSE);
@@ -2392,7 +2392,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
     //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(0, v3(1,0,0))),mat4_scale(v3(0.1,0.1,0.1)))));
+    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
     //draw the grid ???
     if (ddev->grid_active){
@@ -2495,7 +2495,7 @@ void dg_device_init(void)
         dg_descriptor_allocator_init(&dd, &dd.desc_alloc[i]);
 
 
-    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*100);
+    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*200);
     dd.shadow_pass_active = FALSE;
     dd.grid_active = FALSE;
 	dlog(NULL, "Vulkan initialized correctly!\n");
@@ -2535,6 +2535,6 @@ b32 dgfx_init(void)
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
-    fox = dmodel_load_gltf("Fox");
+    fox = dmodel_load_gltf("untitled");
 	return 1;
 }

@@ -186,7 +186,7 @@ void danimator_animate(dAnimator *animator)
         animator->gjm[j->id] = mat4_mul(animator->gjm[j->id], animator->ibm[j->id]);
         //animator->gjm[j->id] = m4d(1.0f);
     }
-    animator->gjm[0] = m4d(0.0); //this kindof works, but why?????
+    //animator->gjm[0] = m4d(0.0); //this kindof works, but why?????
 
 }
 

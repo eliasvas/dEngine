@@ -16,7 +16,7 @@ struct dJointInfo{
     u32 children_count;
     mat4 ibm;
 };
-#define MAX_JOINT_COUNT 32
+#define MAX_JOINT_COUNT 70
 typedef struct dSkeletonInfo
 {
     struct {u64 key; u32 value}*name_hash;//name -> ID

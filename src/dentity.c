@@ -233,7 +233,7 @@ void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransf
 
 void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 component_index)
 {
-    mat4 world = mat4_mul(dtransform_to_mat4(parent), dtransform_to_mat4(manager->data.local[component_index]));
+    mat4 world = mat4_mul(dtransform_to_mat4(manager->data.local[component_index]),dtransform_to_mat4(parent));
     manager->data.world[component_index] = mat4_to_dtransform(world);
 
     u32 child_index = manager->data.first_child[component_index];
