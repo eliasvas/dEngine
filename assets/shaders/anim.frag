@@ -3,6 +3,7 @@
 layout(location = 0) in vec3 f_frag_pos;
 layout(location = 1) in vec3 f_normal;
 layout(location = 2) in vec2 f_tex_coord;
+layout(location = 3) in vec4 f_color;
 
 layout(location = 0) out vec4 out_color;
 
@@ -22,7 +23,7 @@ layout(set = 2, binding = 1) uniform sampler2D orm_tex;
 layout(set = 2, binding = 2) uniform sampler2D normal_tex;
 layout(set = 2, binding = 3) uniform sampler2D emissive_tex;
 
-vec3 dir_light = vec3(-1,1,0.2);
+vec3 light_dir = vec3(0,0.9,0.3);
 
 void main() {
 	vec3 normal = texture(normal_tex, f_tex_coord).xyz;
@@ -37,5 +38,5 @@ void main() {
 
 	vec3 light_color = vec3(0.9,0.9,0.9);	
 
-	out_color = vec4(base_color,1.0);
+	out_color= f_color* max(dot(-normalize(light_dir), normalize(f_normal)),0.0)* 0.8 + f_color * 0.2;
 }

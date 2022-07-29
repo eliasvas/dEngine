@@ -71,9 +71,9 @@ dModel dmodel_load_gltf(const char *filename)
     dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
     u32 meshes_count = data->meshes_count;
     
-    cgltf_primitive primitive = data->meshes[0].primitives[0];
+    cgltf_primitive primitive = data->meshes[0].primitives[0];  
 
-    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
                 (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
                 &model.gpu_buf,primitive.attributes[0].data->buffer_view->buffer->size,(char*)primitive.attributes[0].data->buffer_view->buffer->data);
                 
@@ -116,6 +116,8 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.m.textures[i] = empty_tex;
             if (primitive.material->has_pbr_metallic_roughness )
             {
+                f32 *bcf = primitive.material->pbr_metallic_roughness.base_color_factor;
+                prim.m.base_color_factor = v4(bcf[0],bcf[1],bcf[2],bcf[3]);
                 prim.m.settings |= DMATERIAL_BASE_COLOR;
                 if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
@@ -249,18 +251,20 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
     
 
-    mat4 object_data[MAX_JOINT_COUNT] = {model};
-    memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
-    dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
+    
     for (u32 i = 0; i< m->meshes_count;++i)
     {
-        dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf};
+        dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf, m->gpu_buf};
         for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            mat4 object_data[MAX_JOINT_COUNT+1] = {model};
+            memcpy(&object_data[1], animator.gjm, sizeof(mat4)*(animator.anim->skeleton_info.joint_count));
+            memcpy(&object_data[MAX_JOINT_COUNT], &p->m.base_color_factor, sizeof(vec4));
+            dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
             dg_set_desc_set(ddev,&ddev->anim_pipe, &p->m.textures[0], 4, 2);
-            u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->joint_offset.x,p->weight_offset.x};
-            dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
+            u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->norm_offset.x,p->joint_offset.x,p->weight_offset.x};
+            dg_bind_vertex_buffers(ddev, buffers, offsets, 5);
             if (p->index_offset.y)
                 dg_bind_index_buffer(ddev, &m->gpu_buf, p->index_offset.x);
             
