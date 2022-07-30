@@ -315,7 +315,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
     vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because for llvmpipe
 #ifdef BUILD_UNIX
-    for (u32 i = 0; i < device_count; ++i)
+    for (u32 i = 1; i < device_count; ++i)
 #else
     for (u32 i = 0; i < device_count; ++i)
 #endif
@@ -536,7 +536,7 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageV
 	return image_view;
 }
 
-static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
+static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mip_levels)
 {
 	VkSamplerCreateInfo sampler_info = {0};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -560,13 +560,11 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	sampler_info.compareEnable = VK_FALSE;
 	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
 	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	//sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
-	sampler_info.maxLod = 4.0f;
+	sampler_info.maxLod = mip_levels-1;
 	VK_CHECK(vkCreateSampler(ddev->device, &sampler_info, NULL, sampler));
 }
-
 
 
 static b32 dg_create_swapchain_image_views(dgDevice *ddev)
@@ -1804,15 +1802,15 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
     );
     dg_end_single_time_commands(ddev, cmd);
 
-    dg_create_texture_sampler(ddev, &depth_attachment.sampler);
+    dg_create_texture_sampler(ddev, &depth_attachment.sampler,depth_attachment.mip_levels);
     
 	return depth_attachment;
 }
 
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
 {
-    dgTexture tex;
-	dgBuffer idb;
+    dgTexture tex = {0};
+	dgBuffer idb = {0};
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
 	dg_create_image(ddev, tex_w, tex_h, format, 1,1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
@@ -1865,9 +1863,8 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 
 	dg_buf_destroy(&idb);
 	
-	
-	dg_create_texture_sampler(ddev, &tex.sampler);
 	tex.mip_levels = 1;
+	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,tex.mip_levels,1,0);
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1961,15 +1958,15 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
 
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
-	dgTexture tex;
+	dgTexture tex = {0};
 	//[0]: we read an image and store all the pixels in a pointer
 	s32 tex_w, tex_h, tex_c;
 	stbi_uc *pixels = stbi_load(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
 	VkDeviceSize image_size = tex_w * tex_h * 4;
-	tex.mip_levels = 1;//(u32)(floor(log2(maximum(tex_w, tex_h)))) + 1;
+	tex.mip_levels = (u32)(floor(log2(maximum(tex_w, tex_h)))) + 1;
 	
 	//[2]: we create a buffer to hold the pixel information (we also fill it)
-	dgBuffer idb;
+	dgBuffer idb = {0};
 	if (!pixels)
 		printf("Error loading image %s!", filename);
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
@@ -1978,7 +1975,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	stbi_image_free(pixels);
 	//[4]: we create the VkImage that is undefined right now
 	dg_create_image(ddev, tex_w, tex_h, format, tex.mip_levels,1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
-		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT| VK_IMAGE_USAGE_TRANSFER_DST_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT| VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
@@ -1993,7 +1990,6 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
         (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
     );
-
     
 
 
@@ -2020,17 +2016,19 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 		1,
 		&region
 	);
-    
     dg_end_single_time_commands(ddev, cmd);
+    
+    dg_wait_idle(ddev);
+    
+    dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels);
     tex.width = tex_w;
     tex.height = tex_w;
 
 	dg_buf_destroy(&idb);
 
-	dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels);
 	
-	dg_create_texture_sampler(ddev, &tex.sampler);
-	tex.mip_levels = 1;
+	
+	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,tex.mip_levels, 1,0);
 	
 	tex.width = tex_w;
@@ -2429,14 +2427,13 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
      
     
-    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
+    draw_cube_def(ddev, mat4_mul(mat4_translate(v3(4 + 1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
         mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), v4(1,1,1,1), v4(1,0,1,1));
     draw_cube_def(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), v4(0.05,0.05,0.05,1), v4(0.9,0.2,0.2,1));
-    draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
-    draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,0,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.005,0.005,0.005)))));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(10,10,10)))));
+    draw_cube_def(ddev, mat4_translate(v3(12,0,0)), v4(1,1,0,1), v4(0,1,1,1));
+    draw_model_def(ddev, &water_bottle,m4d(1.f));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(10,10,10)))));
 
 
 
@@ -2449,12 +2446,11 @@ void dg_frame_begin(dgDevice *ddev)
     //draw to shadow map
     for (u32 i = 0;i < cascade_count;++i)
     {
-        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
+        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(4 + 1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
             mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm[i],i);
         draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm[i],i);
         draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm[i],i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(12,0,0)), lsm[i],i);
     }
 
 
@@ -2482,7 +2478,7 @@ void dg_frame_begin(dgDevice *ddev)
         dg_rendering_end(ddev);
     }
     //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
+    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(15,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
     //draw the grid ???
     if (ddev->grid_active){
@@ -2624,6 +2620,9 @@ b32 dgfx_init(void)
     dg_rt_init(&dd, &shadow_rt, 1, TRUE, 512,512);
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
+    
+    
+    
     water_bottle = dmodel_load_gltf("WaterBottle");
     fox = dmodel_load_gltf("untitled");
 	return 1;

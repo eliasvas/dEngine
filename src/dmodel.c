@@ -48,6 +48,8 @@ dModel dmodel_load_gltf(const char *filename)
 
     //first load all the textures!
     model.textures_count= data->textures_count;
+    vec3 s = v3(data->nodes[0].scale[0],data->nodes[0].scale[0],data->nodes[0].scale[0]);
+    model.transform = mat4_scale(s);
     /*
     for (u32 i = 0; i< data->textures_count;++i)
     {
@@ -119,13 +121,14 @@ dModel dmodel_load_gltf(const char *filename)
                 f32 *bcf = primitive.material->pbr_metallic_roughness.base_color_factor;
                 prim.m.base_color_factor = v4(bcf[0],bcf[1],bcf[2],bcf[3]);
                 prim.m.settings |= DMATERIAL_BASE_COLOR;
-                if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
-                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB));
-                }
+
                 if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
                     prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
+                }
+                if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
+                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
+                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB));
                 }
             }
             if (primitive.material->normal_texture.texture)
@@ -242,6 +245,8 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
+    model =mat4_mul(model, m->transform);
+
     danimator_animate(&animator);
     
 
@@ -281,6 +286,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
+    model =mat4_mul(model, m->transform);
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);

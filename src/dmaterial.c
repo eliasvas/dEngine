@@ -24,6 +24,7 @@ dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, VkFormat f)
     if (tm == NULL)tm = &texture_manager;
     u32 tex_index = hmget(tm->texture_hash, hash_str(name));
     if (tex_index == DTEXTURE_NOT_FOUND){
+        dlog(NULL, "TEX: loading texture: %s\n", name);
         dgTexture t = dg_create_texture_image(&dd, name, f);
         tex_index = tm->textures_count++;
         tm->ref_count[tex_index] =1;

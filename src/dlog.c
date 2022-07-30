@@ -10,7 +10,7 @@ b32 dlog_init(dLogger *logger)
     if (logger == NULL)logger = &engine_log;
     logger->current_log = 0;
     logger->log_mutex = dmutex_create();
-    logger->console_log = FALSE;
+    logger->console_log = TRUE;//FALSE;
     return TRUE;
 }
 
