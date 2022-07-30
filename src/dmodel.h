@@ -56,8 +56,6 @@ typedef struct dModel {
 
     b32 finished_loading; //maybe this should be a thing in the asset pipeline
     dMaterial material;
-
-    mat4 transform; //local transform (from .gltf file) to scale the model correctly 
 }dModel;
 dModel dmodel_load_gltf(const char *filename);
 

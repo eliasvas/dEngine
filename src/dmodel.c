@@ -9,10 +9,6 @@
 //TODO: texture handling in models is shit, fix ASAP
 
 extern dgDevice dd;
-mat4 gjoint_matrices[MAX_JOINT_COUNT];
-mat4 ljoint_matrices[MAX_JOINT_COUNT];
-dJointTransform local_joint_transforms[MAX_JOINT_COUNT];
-mat4 * ibm;
 
 static dAnimation animation;
 static dAnimator animator;
@@ -48,8 +44,6 @@ dModel dmodel_load_gltf(const char *filename)
 
     //first load all the textures!
     model.textures_count= data->textures_count;
-    vec3 s = v3(data->nodes[0].scale[0],data->nodes[0].scale[0],data->nodes[0].scale[0]);
-    model.transform = mat4_scale(s);
     /*
     for (u32 i = 0; i< data->textures_count;++i)
     {
@@ -73,7 +67,7 @@ dModel dmodel_load_gltf(const char *filename)
     dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
     u32 meshes_count = data->meshes_count;
     
-    cgltf_primitive primitive = data->meshes[0].primitives[0];  
+    cgltf_primitive primitive = data->meshes[0].primitives[0];
 
     dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
                 (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
@@ -118,18 +112,17 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.m.textures[i] = empty_tex;
             if (primitive.material->has_pbr_metallic_roughness )
             {
-                f32 *bcf = primitive.material->pbr_metallic_roughness.base_color_factor;
-                prim.m.base_color_factor = v4(bcf[0],bcf[1],bcf[2],bcf[3]);
-                prim.m.settings |= DMATERIAL_BASE_COLOR;
-
-                if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
-                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
-                }
+                prim.m.settings |= DMATERIAL_BASE_COLOR | DMATERIAL_ORM;
                 if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
                     prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB));
                 }
+                if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
+                    sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
+                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
+                }
+                f32 *c = &primitive.material->pbr_metallic_roughness.base_color_factor;
+                prim.m.col = v4(c[0],c[1],c[2],c[3]);
             }
             if (primitive.material->normal_texture.texture)
             {
@@ -210,7 +203,7 @@ dModel dmodel_load_gltf(const char *filename)
     }
     dSkeletonInfo info = {0};
     if (data->animations_count){
-        ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
+        mat4 *ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
         cgltf_node *root_joint = data->skins[0].joints[0];
         
         //first we fill the name hash so we know what bone has what index
@@ -224,11 +217,6 @@ dModel dmodel_load_gltf(const char *filename)
         process_joint_info(root_joint,NULL, &info);
 
         cgltf_animation anim = data->animations[0];
-        for (u32 i = 0; i < MAX_JOINT_COUNT; ++i){
-            gjoint_matrices[i] = m4d(1.0f);
-            ljoint_matrices[i] = m4d(1.0f);
-            local_joint_transforms[i] = djt_default();
-        }
 
 
         animation = danim_load(&anim, info);
@@ -245,8 +233,6 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
-    model =mat4_mul(model, m->transform);
-
     danimator_animate(&animator);
     
 
@@ -259,13 +245,14 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     
     for (u32 i = 0; i< m->meshes_count;++i)
     {
-        dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf, m->gpu_buf};
+        dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf};
         for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
             mat4 object_data[MAX_JOINT_COUNT+1] = {model};
-            memcpy(&object_data[1], animator.gjm, sizeof(mat4)*(animator.anim->skeleton_info.joint_count));
-            memcpy(&object_data[MAX_JOINT_COUNT], &p->m.base_color_factor, sizeof(vec4));
+            memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
+            memcpy(&object_data[MAX_JOINT_COUNT], &p->m.col, sizeof(vec4));
+
             dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
             dg_set_desc_set(ddev,&ddev->anim_pipe, &p->m.textures[0], 4, 2);
             u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->norm_offset.x,p->joint_offset.x,p->weight_offset.x};
@@ -286,7 +273,6 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
-    model =mat4_mul(model, m->transform);
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);

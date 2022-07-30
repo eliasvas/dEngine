@@ -110,6 +110,7 @@ void dcore_init(void)
     dg_frame_begin(&dd);
 
 
+
     /*Entity test
     for (u32 i = 0; i < 1024; ++i){
         dEntity e = dentity_create();

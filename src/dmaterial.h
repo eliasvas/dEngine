@@ -22,9 +22,7 @@ typedef enum dMaterialSettings
 typedef struct dMaterial
 {
     dgTexture textures[DMATERIAL_MAX_TEXTURES];
-
-    vec4 base_color_factor;
-
+    vec4 col;
     dMaterialSettings settings;
 }dMaterial;
 
