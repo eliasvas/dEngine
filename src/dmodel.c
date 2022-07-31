@@ -64,7 +64,7 @@ dModel dmodel_load_gltf(const char *filename)
     } 
     */
 
-    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB);
+    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB,1);
     u32 meshes_count = data->meshes_count;
     
     cgltf_primitive primitive = data->meshes[0].primitives[0];
@@ -236,7 +236,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     danimator_animate(&animator);
     
 
-    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
@@ -273,7 +273,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
-    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->pbr_def_pipe);

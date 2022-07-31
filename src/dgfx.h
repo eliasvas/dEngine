@@ -17,6 +17,13 @@
 #define DG_MAX_DESCRIPTOR_SET_BINDINGS 4 //overall
 #define DG_MAX_CASCADES 4
 
+typedef enum dgReseringSettigs
+{
+    DG_RENDERING_SETTINGS_NONE = 0x0,
+    DG_RENDERING_SETTINGS_CLEAR_COLOR = 0x1,
+    DG_RENDERING_SETTINGS_CLEAR_DEPTH = 0x2,
+    DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH = 0x4,
+}dgRenderingSettings;
 typedef struct dgShader 
 {
     VkShaderModule module;
@@ -37,6 +44,7 @@ typedef struct dgTexture{
     VkFormat format;
     u32 width, height;
     u32 mip_levels;
+    u32 layer_count;
     char name[64];
 } dgTexture;
 
@@ -184,6 +192,7 @@ typedef struct dgRT
     u32 color_attachment_count;
     b32 depth_active;
     b32 cascaded_depth;
+    u32 cascades_count;
 
     VkImageView cascade_views[5];
 }dgRT;
@@ -208,10 +217,10 @@ void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo
 void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset);
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
 void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
-    dgTexture *depth_tex, b32 clear_color, b32 clear_depth);
+                        dgTexture *depth_tex, dgRenderingSettings settings);
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format);
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format, u32 layer_count);
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format);
 
 void dg_buf_destroy(dgBuffer *buf);

@@ -28,7 +28,7 @@ mu_Rect mr;
 void dui_init(void) {
   dlog(NULL, "dui init\n");
 
-  font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT);
+  font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT,1);
 
   dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
@@ -173,7 +173,7 @@ void dui_present(void) {
   dg_buf_unmap(&ibo);
 
 
-  dg_rendering_begin(&dd, NULL, 1, NULL, FALSE, FALSE);
+  dg_rendering_begin(&dd, NULL, 1, NULL, DG_RENDERING_SETTINGS_NONE);
   //dg_set_viewport(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
   //dg_set_scissor(&dd, 0,0, dd.swap.extent.width, dd.swap.extent.height);
 

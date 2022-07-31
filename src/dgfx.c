@@ -232,6 +232,7 @@ static u32 dg_check_device_extension_support(VkPhysicalDevice device)
         if (ext_found == FALSE)
 		{
 			free(available_extensions);
+            printf("Extension not found: %s\n", device_extensions[i]);
 			return FALSE;
 		};
     }
@@ -315,7 +316,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
     vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because llvmpipe is 0 and we don't want that! no vulkan 1.3!!
 #ifdef BUILD_UNIX
-    for (u32 i = 0; i < device_count; ++i)
+    for (u32 i = 1; i < device_count; ++i)
 #else
     for (u32 i = 0; i < device_count; ++i)
 #endif
@@ -390,7 +391,12 @@ b32 dg_create_logical_device(dgDevice *ddev)
     extended_dynamic_state.pNext = &dynamic_rendering_state;
     extended_dynamic_state.extendedDynamicState = VK_TRUE;
 
-    create_info.pNext = &extended_dynamic_state;
+    VkPhysicalDeviceMultiviewFeaturesKHR multiview_features = {0};
+    multiview_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
+    multiview_features.multiview = VK_TRUE;
+    multiview_features.pNext = &extended_dynamic_state;
+
+    create_info.pNext = &multiview_features;
 
     VK_CHECK(vkCreateDevice(ddev->physical_device, &create_info, NULL, &ddev->device));
 
@@ -723,16 +729,19 @@ static u32 dg_get_vertex_desc(dgShader *shader, VkVertexInputAttributeDescriptio
     u32 attribute_count = shader->info.input_variable_count;
     memset(attr_desc, 0, sizeof(VkVertexInputAttributeDescription) * DG_VERTEX_INPUT_ATTRIB_MAX);
 
+    for (u32 j = 0; j <shader->info.input_variable_count; ++j)
+    {
+        u32 attr_index = (u32)shader->info.input_variables[j]->location;
+        if (shader->info.input_variables[j]->built_in != -1)
+            --attribute_count;
+    }  
     for (u32 i = 0; i < shader->info.input_variable_count; ++i)
     {
         for (u32 j = 0; j <shader->info.input_variable_count; ++j)
         {
             u32 attr_index = (u32)shader->info.input_variables[j]->location;
-            if (shader->info.input_variables[j]->built_in != -1)
-            {
-                --attribute_count;
-                break;
-            }
+            if (shader->info.input_variables[j]->built_in != -1 || shader->info.input_variables[j]->location > 1000)
+                continue;
             if (attr_index == i )//Note(inv): we want to write the inputs in order to get the global offset
             {
                 SpvReflectInterfaceVariable *input_var = shader->info.input_variables[j];
@@ -754,6 +763,7 @@ static u32 dg_get_vertex_desc(dgShader *shader, VkVertexInputAttributeDescriptio
         for (u32 i = 0; i < attribute_count;++i)
         {
             u32 attr_index = (u32)shader->info.input_variables[i]->location;
+            if (attr_index > 10000)continue;
             bind_desc[attr_index].inputRate= VK_VERTEX_INPUT_RATE_VERTEX;
             if (pack_attribs)
             {
@@ -1161,6 +1171,9 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
     pipe_renderingCI.colorAttachmentCount = output_var_count;
     pipe_renderingCI.pColorAttachmentFormats = color_formats;
+    //TODO: fix view mask generation for each pipeline :P, this is a HUGE hack pls pls pls fix before too late
+    if (strstr(vert_name, "sm.vert") != NULL)
+        pipe_renderingCI.viewMask = 0b00001111;
     pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
     pipe_renderingCI.stencilAttachmentFormat = ddev->swap.depth_attachment.format;
     // Chain into the pipeline create info
@@ -1494,9 +1507,10 @@ static void dg_descriptor_allocator_reset_pools(dgDescriptorAllocator *da)
     da->current_pool = VK_NULL_HANDLE;
 }
 
-
-void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, b32 clear_color, b32 clear_depth)
+void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dgTexture *depth_tex, dgRenderingSettings settings)
 {
+    b32 clear_color = settings & DG_RENDERING_SETTINGS_CLEAR_COLOR; 
+    b32 clear_depth = settings & DG_RENDERING_SETTINGS_CLEAR_DEPTH; 
     VkRenderingAttachmentInfoKHR color_attachments[DG_MAX_COLOR_ATTACHMENTS];
     VkAttachmentLoadOp cload_op = (clear_color > 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
     memset(color_attachments, 0, sizeof(VkRenderingAttachmentInfoKHR) * DG_MAX_COLOR_ATTACHMENTS);
@@ -1549,6 +1563,11 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.colorAttachmentCount = (tex == NULL) ? 1 : attachment_count;
     rendering_info.pColorAttachments = color_attachments;
     rendering_info.pDepthAttachment = &depth_attachment;
+    
+    if (settings & DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH){
+        rendering_info.viewMask = 0b00001111;//DG_MAX_CASCADES-1;
+        rendering_info.layerCount = 4;
+    }
     //rendering_info.pStencilAttachment = &depth_attachment;
     rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
 
@@ -1804,13 +1823,13 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format)
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format, u32 layer_count)
 {
     dgTexture tex;
 	dgBuffer idb;
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
-	dg_create_image(ddev, tex_w, tex_h, format, 1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, format, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1862,8 +1881,13 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	
 	
 	dg_create_texture_sampler(ddev, &tex.sampler);
-	
-	tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
+
+    if (layer_count > 1) //TODO change this is ugly just ?() : ()
+        tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0);
+    else
+        tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
+
+
 	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -1963,6 +1987,7 @@ static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width
         rt->cascade_views[i] = dg_create_image_view(rt->depth_attachment.image, rt->depth_attachment.format, 
         VK_IMAGE_VIEW_TYPE_2D_ARRAY,VK_IMAGE_ASPECT_DEPTH_BIT,1,i);
     }
+    rt->cascades_count = cascade_count;
 }
 
 static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32 width, u32 height)
@@ -1973,7 +1998,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
-        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,VK_FORMAT_R16G16B16A16_SFLOAT);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,VK_FORMAT_R16G16B16A16_SFLOAT, 1);
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
@@ -2138,7 +2163,7 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
 void draw_cube_def(dgDevice *ddev, mat4 model,vec4 col0, vec4 col1)
 {
 
-    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->def_pipe);
@@ -2168,13 +2193,14 @@ typedef struct dgTexture{
 } dgTexture;
 */
 
-void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_index)
+void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 *lsms, u32 cascade_index)
 {
     if (!ddev->shadow_pass_active)return;
     
+
     dgTexture depth_tex_to_write = csm_rt.depth_attachment;
-    depth_tex_to_write.view = csm_rt.cascade_views[cascade_index];
-    dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, FALSE, FALSE);
+    depth_tex_to_write.view = csm_rt.cascade_views[0];
+    dg_rendering_begin(ddev, &depth_tex_to_write, 0, &depth_tex_to_write, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
     dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2183,7 +2209,9 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 lsm, u32 cascade_inde
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
 
-    mat4 object_data[2] = {model, lsm};
+    mat4 object_data[5] = {model};
+    memcpy(&object_data[1],lsms,sizeof(mat4)*4);
+    //object_data[1]= lsms[cascade_index];
     dg_set_desc_set(ddev,&ddev->shadow_pipe, object_data, sizeof(object_data), 1);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
@@ -2271,7 +2299,7 @@ extern dEntity child, parent;
 extern dTransformCM transform_manager;
 void draw_cube(dgDevice *ddev, mat4 model)
 {
-    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
@@ -2314,14 +2342,14 @@ void dg_frame_begin(dgDevice *ddev)
     //CLEAR ALL FBO's before drawing
     
     //clear deferred FBO
-    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, TRUE, TRUE);
+    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear the shadowmap
     dgTexture depth_tex_to_write = csm_rt.depth_attachment;
     for (u32 i = 0; i < DG_MAX_CASCADES; ++i)
     {
         depth_tex_to_write.view = csm_rt.cascade_views[i];
-        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, TRUE, TRUE);
+        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
         dg_rendering_end(ddev);
     }
     //clear swapchain?
@@ -2353,19 +2381,20 @@ void dg_frame_begin(dgDevice *ddev)
 
 
     mat4 lsm[DG_MAX_CASCADES];
+    //TODO fdist should be passed on the shader (the composition shader too??? is it hardcoded???)
     f32 fdist[DG_MAX_CASCADES];
     vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.9,0.3)), 1);
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, view, lsm,fdist, cascade_count);
     //draw to shadow map
-    for (u32 i = 0;i < cascade_count;++i)
+    for (u32 i = 0;i < 1;++i)
     {
         draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
-            mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm[i],i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm[i],i);
+            mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm,i);
+        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm,i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm,i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,i);
+        draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,i);
     }
 
 
@@ -2373,7 +2402,7 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_wait_idle(ddev);
     {
-        dg_rendering_begin(ddev, NULL, 1, NULL, FALSE, FALSE);
+        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_NONE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
@@ -2397,7 +2426,7 @@ void dg_frame_begin(dgDevice *ddev)
     
     //draw the grid ???
     if (ddev->grid_active){
-        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, FALSE, FALSE);
+        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_bind_pipeline(ddev, &ddev->grid_pipe);
