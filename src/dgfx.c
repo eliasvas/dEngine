@@ -36,7 +36,6 @@ dgBuffer base_ibo;
 dgTexture t1;
 dgTexture t2;
 dgRT def_rt;
-dgRT shadow_rt;
 dgRT csm_rt;
 dCamera cam;
 
@@ -1978,10 +1977,11 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 
 static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width, u32 height)
 {
-    rt->color_attachment_count = cascade_count;
+    rt->color_attachment_count = 1;
     rt->depth_active = TRUE;
     rt->cascaded_depth = TRUE;
     rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
+    rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, VK_FORMAT_R8G8B8A8_SRGB, cascade_count);
     for (u32 i =0; i < cascade_count; ++i)
     {
         rt->cascade_views[i] = dg_create_image_view(rt->depth_attachment.image, rt->depth_attachment.format, 
@@ -2197,12 +2197,9 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 *lsms, u32 cascade_in
 {
     if (!ddev->shadow_pass_active)return;
     
-
-    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
-    depth_tex_to_write.view = csm_rt.cascade_views[0];
-    dg_rendering_begin(ddev, &depth_tex_to_write, 0, &depth_tex_to_write, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-    dg_set_viewport(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
-    dg_set_scissor(ddev, 0,0,shadow_rt.color_attachments[0].width, shadow_rt.color_attachments[0].height);
+    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 1, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_set_viewport(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
     dgBuffer buffers[] = {base_vbo};
     u64 offsets[] = {0};
@@ -2344,14 +2341,9 @@ void dg_frame_begin(dgDevice *ddev)
     //clear deferred FBO
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
-    //clear the shadowmap
-    dgTexture depth_tex_to_write = csm_rt.depth_attachment;
-    for (u32 i = 0; i < DG_MAX_CASCADES; ++i)
-    {
-        depth_tex_to_write.view = csm_rt.cascade_views[i];
-        dg_rendering_begin(ddev, shadow_rt.color_attachments, 0, &depth_tex_to_write, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-        dg_rendering_end(ddev);
-    }
+    //clear the CSM shadowmap
+    dg_rendering_begin(ddev, csm_rt.color_attachments, 1, &csm_rt.depth_attachment,DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_rendering_end(ddev);
     //clear swapchain?
     //dg_rendering_begin(ddev, NULL, 1, NULL, TRUE, TRUE);
 
@@ -2387,15 +2379,12 @@ void dg_frame_begin(dgDevice *ddev)
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, view, lsm,fdist, cascade_count);
     //draw to shadow map
-    for (u32 i = 0;i < 1;++i)
-    {
-        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
-            mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm,i);
-        draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm,i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm,i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,i);
-        draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,i);
-    }
+    draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(1 * fabs(sin(5 * dtime_sec(dtime_now()))),0,0)), 
+        mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7))), lsm,0);
+    draw_cube_def_shadow(ddev, mat4_mul(mat4_translate(v3(0,-3,0)),mat4_scale(v3(100,1,100))), lsm,0);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm,0);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,0);
+    draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
 
 
 
@@ -2561,7 +2550,6 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
-    dg_rt_init(&dd, &shadow_rt, 1, TRUE, 512,512);
     dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
 
     water_bottle = dmodel_load_gltf("WaterBottle");

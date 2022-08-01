@@ -190,5 +190,5 @@ void main()
     */
     
     frag_color = vec4(color, 1.0);
-    frag_color[layer] += 0.05;
+    //frag_color[layer] += 0.05;
 }  
