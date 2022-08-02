@@ -2470,7 +2470,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.05,0.05,0.05)))));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(10,10,10)))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
 
 
 
@@ -2488,6 +2488,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
+    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
 
 
 
@@ -2540,6 +2541,8 @@ void dg_frame_begin(dgDevice *ddev)
         nt.trans.y +=1.0;
         dtransform_cm_set_local(&transform_manager, component_index, nt);
     }
+
+    //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
 }
 
 void dg_frame_end(dgDevice *ddev)
@@ -2604,6 +2607,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,"pbr_def.vert", "pbr_def.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.pbr_shadow_pipe,"sm.vert", "sm.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
@@ -2617,7 +2621,7 @@ void dg_device_init(void)
         dg_descriptor_allocator_init(&dd, &dd.desc_alloc[i]);
 
 
-    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*200);
+    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*300);
     dd.shadow_pass_active = FALSE;
     dd.grid_active = FALSE;
 	dlog(NULL, "Vulkan initialized correctly!\n");

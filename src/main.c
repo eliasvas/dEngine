@@ -145,7 +145,7 @@ void init(void)
 extern dTransformCM transform_manager;
 b32 update(void)
 {
-    dinput_update();
+  dinput_update();
 
    mu_begin(&ctx);
    test_window(&ctx);
@@ -167,6 +167,7 @@ int main(void)
     while(update())
     {
         dcore_update();//update the state of the engine for each step
+        dui_present();
         dui_clear(mu_color(0, 0, 0, 255));
         mu_Command *cmd = NULL;
         while (mu_next_command(&ctx, &cmd)) {
@@ -177,7 +178,7 @@ int main(void)
                 case MU_COMMAND_CLIP: dui_set_clip_rect(cmd->clip.rect); break;
             }
         }
-
+        //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
         /*
         dProfilerTag *tag = &global_profiler.tags[hmget(global_profiler.name_hash, hash_str("UPDATE"))];
         f32 ms_max = 0.f;
@@ -195,7 +196,7 @@ int main(void)
             dui_draw_rect(rect,col);
         }
         */
-        dui_present();
+        
     }
 
 

@@ -270,6 +270,39 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_rendering_end(ddev);
 }
 
+extern dgRT csm_rt;//TODO: fix all these externs
+void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
+{
+    if (!ddev->shadow_pass_active)return;
+    
+    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_set_viewport(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
+    dg_bind_pipeline(ddev, &ddev->pbr_shadow_pipe);
+
+    for (u32 i = 0; i< m->meshes_count;++i)
+    {
+        dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf};
+        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        {
+            dMeshPrimitive *p = &m->meshes[i].primitives[j];
+            u64 offsets[] = {p->pos_offset.x,p->norm_offset.x,p->tex_offset.x};
+            dg_bind_vertex_buffers(ddev, buffers, offsets, 3);
+            if (p->index_offset.y)
+                dg_bind_index_buffer(ddev, &m->gpu_buf, p->index_offset.x);
+            
+            mat4 object_data[5] = {model};
+            memcpy(&object_data[1],lsms,sizeof(mat4)*4);
+            //object_data[1]= lsms[cascade_index];
+            dg_set_desc_set(ddev,&ddev->pbr_shadow_pipe, object_data, sizeof(object_data), 1);
+            dg_draw(ddev, p->pos_offset.y/sizeof(vec3),p->index_offset.y/sizeof(u16));
+        }
+
+
+        
+    }
+    dg_rendering_end(ddev);
+}
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
