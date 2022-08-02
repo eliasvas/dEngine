@@ -523,8 +523,9 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
     vkDestroySampler(ddev->device, tex->sampler, NULL);
 }
 
-static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageViewType view_type,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer)
+static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer, u32 mip_levels)
 {
+    VkImageViewType view_type = (layer_count > 1) ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
 	VkImageView image_view;
 	
 	VkImageViewCreateInfo view_info = {0};
@@ -534,14 +535,14 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format, VkImageV
 	view_info.format = format;
 	view_info.subresourceRange.aspectMask = aspect_flags;
 	view_info.subresourceRange.baseMipLevel = 0;
-	view_info.subresourceRange.levelCount = 1;
+	view_info.subresourceRange.levelCount = mip_levels;
 	view_info.subresourceRange.baseArrayLayer = base_layer;
 	view_info.subresourceRange.layerCount = layer_count;
 	VK_CHECK(vkCreateImageView(dd.device, &view_info, NULL, &image_view));
 	return image_view;
 }
 
-static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
+static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mip_levels)
 {
 	VkSamplerCreateInfo sampler_info = {0};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
@@ -561,11 +562,11 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler)
 	sampler_info.unnormalizedCoordinates = VK_FALSE;
 	sampler_info.compareEnable = VK_FALSE;
 	sampler_info.compareOp = VK_COMPARE_OP_ALWAYS;
-	//sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
-	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
+	sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+	//sampler_info.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
 	sampler_info.mipLodBias = 0.0f;
 	sampler_info.minLod = 0.0f;
-	sampler_info.maxLod = 0.0f;
+	sampler_info.maxLod = (f32)(maximum(mip_levels-1,0));
 	VK_CHECK(vkCreateSampler(ddev->device, &sampler_info, NULL, sampler));
 }
 
@@ -573,7 +574,7 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
     ddev->swap.image_views = (VkImageView*)dalloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
-		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_VIEW_TYPE_2D,VK_IMAGE_ASPECT_COLOR_BIT,1,0);
+		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_ASPECT_COLOR_BIT,1,0,1);
     return DSUCCESS;
 }
 
@@ -1565,7 +1566,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     
     if (settings & DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH){
         rendering_info.viewMask = 0b00001111;//DG_MAX_CASCADES-1;
-        rendering_info.layerCount = 4;
+        rendering_info.layerCount = 3;
     }
     //rendering_info.pStencilAttachment = &depth_attachment;
     rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
@@ -1720,7 +1721,7 @@ static VkFormat dg_find_depth_format(dgDevice *ddev)
     
 }
 
-static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format,u32 layers, VkImageTiling tiling, 
+static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format,u32 mip_levels, u32 layers, VkImageTiling tiling, 
 VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *image_memory)
 {
 	VkImageCreateInfo image_info = {0};
@@ -1729,7 +1730,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 	image_info.extent.width = width;
 	image_info.extent.height = height;
 	image_info.extent.depth = 1;
-	image_info.mipLevels = 1;
+	image_info.mipLevels = mip_levels;
 	image_info.arrayLayers = layers;
 	image_info.format = format;
 	image_info.tiling = tiling;
@@ -1791,16 +1792,17 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	depth_attachment.format = dg_find_depth_format(ddev);
 	
 	dg_create_image(ddev,width, height, 
-		depth_attachment.format, layer_count,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
+		depth_attachment.format,1, layer_count,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT | VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT,
 		VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &depth_attachment.image, &depth_attachment.mem);
 
-    if (layer_count > 1)
-        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_DEPTH_BIT,layer_count,0);
-    else
-        depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_DEPTH_BIT,1,0);
+
+    depth_attachment.mip_levels = 1;
+    depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_ASPECT_DEPTH_BIT,layer_count,0,depth_attachment.mip_levels);
+    
     depth_attachment.width = width;
     depth_attachment.height = height;
     depth_attachment.image_layout = VK_IMAGE_LAYOUT_GENERAL; //@FIX: why general ??????
+    
 
     //transition depth image to layout general (because im lazy :D)
     VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
@@ -1817,7 +1819,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
     );
     dg_end_single_time_commands(ddev, cmd);
 
-    dg_create_texture_sampler(ddev, &depth_attachment.sampler);
+    dg_create_texture_sampler(ddev, &depth_attachment.sampler,depth_attachment.mip_levels);
     
 	return depth_attachment;
 }
@@ -1828,7 +1830,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	dgBuffer idb;
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
-	dg_create_image(ddev, tex_w, tex_h, format, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1878,20 +1880,102 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 
 	dg_buf_destroy(&idb);
 	
-	
-	dg_create_texture_sampler(ddev, &tex.sampler);
 
-    if (layer_count > 1) //TODO change this is ugly just ?() : ()
-        tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D_ARRAY, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0);
-    else
-        tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
-
-
-	tex.mip_levels = 0;
+	tex.mip_levels = 1;
 	tex.width = tex_w;
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
+    tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels);
+    dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
+
 	return tex;
+}
+
+
+static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels) {
+    VkCommandBuffer cmd_buf = dg_begin_single_time_commands(&dd);//beginSingleTimeCommands();
+
+    ///*
+    VkImageMemoryBarrier barrier = {0};
+    barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
+    barrier.image = image;
+    barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    barrier.subresourceRange.baseArrayLayer = 0;
+    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.levelCount = 1;
+    //*/
+
+    s32 mip_w = tex_w;
+    s32 mip_h = tex_h;
+
+    for (u32 i = 1; i < mip_levels;++i){
+
+        //prepare mip i as blit destination (TRANSFER_DST)
+        dg_image_memory_barrier(
+            cmd_buf,
+            image,
+            0, 
+            VK_ACCESS_TRANSFER_WRITE_BIT,
+            VK_IMAGE_LAYOUT_UNDEFINED,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1 }
+        );
+
+        //blit from previous level (0->1->2,...)
+        VkImageBlit blit = {0};
+        blit.srcOffsets[0] = (VkOffset3D){ 0, 0, 0 };
+        blit.srcOffsets[1] = (VkOffset3D){ mip_w, mip_h, 1 };
+        blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        blit.srcSubresource.mipLevel = i - 1;//src
+        blit.srcSubresource.baseArrayLayer = 0;
+        blit.srcSubresource.layerCount = 1;
+        blit.dstOffsets[0] = (VkOffset3D){ 0, 0, 0 };
+        blit.dstOffsets[1] = (VkOffset3D){ mip_w > 1 ? mip_w / 2 : 1, mip_h > 1 ? mip_h / 2 : 1, 1 };
+        blit.dstSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT; //mipmapping does not happen in depth textures
+        blit.dstSubresource.mipLevel = i;//dst
+        blit.dstSubresource.baseArrayLayer = 0;
+        blit.dstSubresource.layerCount = 1;
+        vkCmdBlitImage(cmd_buf,
+            image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1, &blit,
+            VK_FILTER_LINEAR);
+
+
+        //prepare current mip to be blit src for next level
+        dg_image_memory_barrier(
+            cmd_buf,
+            image,
+            VK_ACCESS_TRANSFER_WRITE_BIT, 
+            VK_ACCESS_TRANSFER_READ_BIT,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            VK_PIPELINE_STAGE_TRANSFER_BIT,
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1 }
+        );
+        
+        if (mip_w >1)mip_w/=2;
+        if (mip_h >1)mip_h/=2;
+    }
+    //when we are finished, we trasition all mips from SRC_OPTIMAL to SHADER_READ
+    dg_image_memory_barrier(
+        cmd_buf,
+        image,
+        VK_ACCESS_TRANSFER_READ_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, mip_levels, 0, 1 }
+    );
+
+    dg_end_single_time_commands(&dd, cmd_buf);
 }
 
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
@@ -1901,7 +1985,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	s32 tex_w, tex_h, tex_c;
 	stbi_uc *pixels = stbi_load(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
 	VkDeviceSize image_size = tex_w * tex_h * 4;
-	
+	tex.mip_levels = (u32)(floor(log2(maximum(tex_w, tex_h)))) + 1;
 	
 	//[2]: we create a buffer to hold the pixel information (we also fill it)
 	dgBuffer idb;
@@ -1912,7 +1996,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	//[3]: we free the cpu side image, we don't need it
 	stbi_image_free(pixels);
 	//[4]: we create the VkImage that is undefined right now
-	dg_create_image(ddev, tex_w, tex_h, format, 1,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, format,tex.mip_levels, 1,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1920,12 +2004,12 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
     dg_image_memory_barrier(
         cmd,
         tex.image,
-        VK_ACCESS_HOST_WRITE_BIT, 
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_LAYOUT_PREINITIALIZED,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_HOST_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        0, 
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
         (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
     );
 
@@ -1951,26 +2035,49 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 		cmd,
 		idb.buffer,
 		tex.image,
-		VK_IMAGE_LAYOUT_GENERAL,
+		VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 		1,
 		&region
 	);
     
+
+    dg_image_memory_barrier(
+        cmd,
+        tex.image,
+        VK_ACCESS_TRANSFER_WRITE_BIT, 
+        VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+
+/*
+    dg_image_memory_barrier(
+        cmd,
+        tex.image,
+        VK_ACCESS_TRANSFER_READ_BIT, 
+        VK_ACCESS_SHADER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+    );
+*/
     dg_end_single_time_commands(ddev, cmd);
-    tex.width = tex_w;
-    tex.height = tex_w;
+    dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels);
 
 	dg_buf_destroy(&idb);
 	
 	
-	dg_create_texture_sampler(ddev, &tex.sampler);
+	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_ASPECT_COLOR_BIT,1,0, tex.mip_levels);
 	
-	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_VIEW_TYPE_2D, VK_IMAGE_ASPECT_COLOR_BIT,1,0);
-	tex.mip_levels = 0;
 	tex.width = tex_w;
 	tex.height = tex_h;
-    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
-	
+    tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 	sprintf(tex.name, filename);
 	return tex;
 }
@@ -1982,11 +2089,7 @@ static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width
     rt->cascaded_depth = TRUE;
     rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
     rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, VK_FORMAT_R8G8B8A8_SRGB, cascade_count);
-    for (u32 i =0; i < cascade_count; ++i)
-    {
-        rt->cascade_views[i] = dg_create_image_view(rt->depth_attachment.image, rt->depth_attachment.format, 
-        VK_IMAGE_VIEW_TYPE_2D_ARRAY,VK_IMAGE_ASPECT_DEPTH_BIT,1,i);
-    }
+
     rt->cascades_count = cascade_count;
 }
 
@@ -2197,7 +2300,7 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 *lsms, u32 cascade_in
 {
     if (!ddev->shadow_pass_active)return;
     
-    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 1, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
     dg_set_viewport(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2345,7 +2448,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_rendering_begin(ddev, csm_rt.color_attachments, 1, &csm_rt.depth_attachment,DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear swapchain?
-    //dg_rendering_begin(ddev, NULL, 1, NULL, TRUE, TRUE);
+    dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
 
 
 
