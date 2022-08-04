@@ -15,12 +15,13 @@
 #include "stb/stb_ds.h"
 #include "dentity.h"
 #include "dmaterial.h"
+#include "dcamera.h"
 //#include "dfiber.h"
 
 
 void dcore_init(void);
 
-void dcore_update(void);
+void dcore_update(f64 dt);
 
 void dcore_destroy(void);
 

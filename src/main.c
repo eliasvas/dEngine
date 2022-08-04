@@ -2,10 +2,12 @@
 #include "dui_renderer.h"
 #include "dentity.h"
 #include "dlog.h"
-
+#include "dtime.h"
 extern mu_Context ctx;
 extern dgDevice dd;
 extern dLogger engine_log;
+u64 frame_start;
+u64 frame_end;
 //FEATURES TODO
 //Skyboxes
 //shader/texture CACHING!!!!!
@@ -143,14 +145,14 @@ void init(void)
 }
 
 extern dTransformCM transform_manager;
-b32 update(void)
+b32 update(f64 dt)
 {
   dinput_update();
 
-   mu_begin(&ctx);
-   test_window(&ctx);
-   component_window(&ctx, &transform_manager, (dEntity){0});
-   mu_end(&ctx);
+  mu_begin(&ctx);
+  test_window(&ctx);
+  component_window(&ctx, &transform_manager, (dEntity){0});
+  mu_end(&ctx);
     
    return 1;
 }
@@ -161,12 +163,23 @@ void destroy(void)
 }
 
 extern dProfiler global_profiler;
+f64 dt;
+
 int main(void)
 {
     init();
-    while(update())
+    frame_start = dtime_now();
+    
+    while(update(dt))
     {
-        dcore_update();//update the state of the engine for each step
+        dcore_update(dt);//update the state of the engine for each step
+        frame_end = dtime_now();
+        while (dtime_sec(frame_end) - dtime_sec(frame_start) < 1.0f/60.0f){
+          //printf("%f\n",dtime_sec(frame_end) - dtime_sec(frame_start));
+          frame_end = dtime_now();
+        }
+        dt = dtime_sec(frame_end) - dtime_sec(frame_start);
+        frame_start = dtime_now();
         dui_present();
         dui_clear(mu_color(0, 0, 0, 255));
         mu_Command *cmd = NULL;

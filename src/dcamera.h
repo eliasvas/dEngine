@@ -24,7 +24,7 @@ typedef struct dCamera
 }dCamera;
 
 void dcamera_init(dCamera *camera);
-void dcamera_update(dCamera *camera);
+void dcamera_update(dCamera *camera, f64 dt);
 mat4 dcamera_get_view_matrix(dCamera *camera);
 
 #endif

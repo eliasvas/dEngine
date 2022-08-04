@@ -1,6 +1,5 @@
 #include "dcamera.h"
 #include "tools.h"
-f32 cDT = 1.0f/60.0f;
 
 //FIX: can't turn while moving?????
 
@@ -37,21 +36,21 @@ mat4 fps_view( vec3 eye, float pitch, float yaw )
     return view_matrix;
 }
 
-void dcamera_update(dCamera *camera)
+void dcamera_update(dCamera *camera, f64 dt)
 {
     if(camera->mode == DCAM_MODE_FPS)
     {
-        camera->pitch += dkey_down(DK_RMB) * cDT * camera->speed * dinput_get_mouse_delta().y; 
-        camera->yaw += -dkey_down(DK_RMB) * cDT * camera->speed * dinput_get_mouse_delta().x; 
+        camera->pitch += dkey_down(DK_RMB) * dt * camera->speed * dinput_get_mouse_delta().y; 
+        camera->yaw += -dkey_down(DK_RMB) * dt * camera->speed * dinput_get_mouse_delta().x; 
     }
     if (dkey_down(DK_W))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, -cDT * camera->speed));
+        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, -dt * camera->speed));
     if (dkey_down(DK_S))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, cDT * camera->speed));
+        camera->pos = vec3_add(camera->pos, vec3_mulf(camera->front, dt * camera->speed));
     if (dkey_down(DK_A))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), -cDT * camera->speed));
+        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), -dt * camera->speed));
     if (dkey_down(DK_D))
-        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), cDT * camera->speed));
+        camera->pos = vec3_add(camera->pos, vec3_mulf(vec3_cross(camera->up,camera->front), dt * camera->speed));
 }
 
 mat4 dcamera_get_view_matrix(dCamera *camera)

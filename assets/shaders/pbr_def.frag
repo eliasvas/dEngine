@@ -47,6 +47,6 @@ void main() {
 	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, occlusion);
 	vec3 normal = tbn * normalize( texture( normal_tex, f_tex_coord.xy ).xyz * 2.0 - 1.0 );
 	normal = normalize(normal);
-	g_normal = vec4(f_normal.x, f_normal.y, f_normal.z,roughness);
+	g_normal = vec4(normal.x, normal.y, normal.z,roughness);
 	g_pos = vec4(f_frag_pos.xyz,metallic);
 }

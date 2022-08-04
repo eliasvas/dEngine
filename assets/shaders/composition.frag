@@ -39,7 +39,7 @@ float shadow_calc(vec4 frag_pos_light_space,int cascade_index)
     // get depth of current fragment from light's perspective
     float current_depth = proj_coords.z;
     // check whether current frag pos is in shadow
-    float shadow = current_depth > closest_depth + 0.001 ? 1.0 : 0.0;
+    float shadow = current_depth > closest_depth + 0.005 ? 1.0 : 0.0;
     if(proj_coords.z > 1.0)
         shadow = 1.0;
     if(proj_coords.z < 0.0)
@@ -120,7 +120,7 @@ void main()
     vec3 N = normalize(norm);
     vec3 R = reflect(-ObjectData.light_dir.xyz, N);
     vec3 L = ObjectData.light_dir.xyz;
-    vec3 radiance = vec3(1.0 - shadow); 
+    vec3 radiance = vec3(1.0 - shadow) + 0.1; 
     vec3 Lo = vec3(0.0);
 
     float metallic = texture(g_pos, f_tex_coord).w;
@@ -148,7 +148,7 @@ void main()
     
     vec3 lighting = vec3(0.0);
     //calc point light's contrib
-    for (int i = 0; i < 1; ++i) //for each light
+    for (int i = 1; i < 1; ++i) //for each light
     {
         radiance = vec3(3);
         V  = normalize(ObjectData.view_pos.xyz - frag_pos);

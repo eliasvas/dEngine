@@ -9,6 +9,7 @@ extern dgDevice dd;
 mu_Context ctx;
 dWindow main_window;
 dTransformCM transform_manager;
+dCamera cam;
 
 extern dConfig engine_config;
 
@@ -92,6 +93,9 @@ void dcore_init(void)
     ctx.text_height = dui_text_height;
     dui_init();
 
+    //Initialize the main camera
+    dcamera_init(&cam);
+
 
     //stbds_unit_tests();
     /*
@@ -132,9 +136,10 @@ void dcore_init(void)
 
 }
 
-void dcore_update(void)
+void dcore_update(f64 dt)
 {
     DPROFILER_START("UPDATE");
+    dcamera_update(&cam,dt);
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
     

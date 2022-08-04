@@ -37,7 +37,7 @@ dgTexture t1;
 dgTexture t2;
 dgRT def_rt;
 dgRT csm_rt;
-dCamera cam;
+extern dCamera cam;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -548,9 +548,18 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mi
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_NEAREST;
 	sampler_info.minFilter = VK_FILTER_NEAREST;
-	sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-	sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    if (mip_levels <= 1){
+        sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+    }else{
+        sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    }
+	
+
+    
 	
 	VkPhysicalDeviceProperties prop = {0};
 	vkGetPhysicalDeviceProperties(ddev->physical_device, &prop);
@@ -2452,7 +2461,7 @@ void dg_frame_begin(dgDevice *ddev)
 
 
 
-    dcamera_update(&cam);
+    
     mat4 view = dcamera_get_view_matrix(&cam);
     mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.height, 0.01, 100);
 
@@ -2469,8 +2478,8 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.05,0.05,0.05)))));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.01,0.01,0.01)))));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
 
 
 
@@ -2488,7 +2497,8 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def_shadow(ddev, mat4_translate(v3(4,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
-    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
+    //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
+    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(1 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(0.01,0.01,0.01)))),lsm);
 
 
 
@@ -2547,7 +2557,15 @@ void dg_frame_begin(dgDevice *ddev)
 
 void dg_frame_end(dgDevice *ddev)
 {
+    //set desc set 0 again because it might have been redone
+    //TODO: should we set this in every drawcall?? and maybe when drawin models we can set it only once
+    /*
+    mat4 view = dcamera_get_view_matrix(&cam);
+    mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.height, 0.01, 100);
+    mat4 data[4] = {view, proj, m4d(1.0f),m4d(1.0f)};
+    dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
     draw_cube(ddev, mat4_translate(v3(2,10,0)));
+    */
 
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
@@ -2621,12 +2639,12 @@ void dg_device_init(void)
         dg_descriptor_allocator_init(&dd, &dd.desc_alloc[i]);
 
 
-    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*300);
+    dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*2000);
     dd.shadow_pass_active = FALSE;
     dd.grid_active = FALSE;
 	dlog(NULL, "Vulkan initialized correctly!\n");
 
-    dcamera_init(&cam);
+    
 }
 
 b32 dgfx_init(void)
@@ -2657,7 +2675,7 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
-    dg_rt_init_csm(&dd, &csm_rt, 3, 512,512);
+    dg_rt_init_csm(&dd, &csm_rt, 3, 1024,1024);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
     fox = dmodel_load_gltf("untitled");
