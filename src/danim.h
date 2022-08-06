@@ -24,6 +24,8 @@ typedef struct dSkeletonInfo
     u32 joint_count;
 }dSkeletonInfo;
 
+
+
 typedef enum DANIM_INTERP_TYPE{
     DANIM_INTERP_TYPE_STEP = 0x1,
     DANIM_INTERP_TYPE_LINEAR = 0x2,
@@ -73,6 +75,7 @@ typedef struct dAnimator{
     mat4 *gjm;
     mat4 *ibm;
 
+    mat4 model_mat;
     //dAllocator alloc;
 }dAnimator;
 
@@ -80,5 +83,13 @@ dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length);
 void danimator_animate(dAnimator *animator);
 
 
+typedef struct dAnimSocket{
+    mat4 local_transform;//transform rel to bone
+    u32 joint_id;
+}dAnimSocket;
+
+dAnimSocket danimator_make_socket(dAnimator *animator,char *joint_name, mat4 local_transform);
+
+mat4 danimator_get_socket_transform(dAnimator * animator, dAnimSocket s);
 
 #endif

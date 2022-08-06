@@ -41,7 +41,7 @@ extern dCamera cam;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
-
+extern dAnimator animator;
 
 #define VK_CHECK(x)                                                 \
 	do                                                              \
@@ -2478,8 +2478,8 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.01,0.01,0.01)))));
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.01,0.01,0.01)))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
 
 
 
@@ -2527,6 +2527,8 @@ void dg_frame_begin(dgDevice *ddev)
     //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
+
+
     //draw the grid ???
     if (ddev->grid_active){
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);

@@ -233,8 +233,11 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
+    //TODO: animator SHOULDN't be global, also change it to animation controller
     danimator_animate(&animator);
-    
+    animator.model_mat = model;
+    dAnimSocket s = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
+    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, s), mat4_scale(v3(10,10,10))));
 
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);

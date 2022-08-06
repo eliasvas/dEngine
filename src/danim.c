@@ -148,9 +148,9 @@ dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length){
     return anim;
 }
 
-
 void danimator_animate(dAnimator *animator)
 {
+
     animator->current_time = (animator->animation_speed * (dtime_sec(dtime_now()) - animator->start_time));
     
     f32 a = fmod(animator->current_time, animator->anim->keyframe_count);
@@ -188,5 +188,20 @@ void danimator_animate(dAnimator *animator)
     }
     //animator->gjm[0] = m4d(0.0); //this kindof works, but why?????
 
+}
+
+
+
+dAnimSocket danimator_make_socket(dAnimator *animator,char *joint_name, mat4 local_transform){
+    dAnimSocket s = {0};
+    u32 joint_index = hmget(animator->anim->skeleton_info.name_hash, hash_str(joint_name));
+    s.joint_id = joint_index;
+    s.local_transform = local_transform;
+    return s;
+}
+
+mat4 danimator_get_socket_transform(dAnimator * animator, dAnimSocket s){
+    mat4 gjm = mat4_mul(animator->gjm[s.joint_id],mat4_inv(animator->ibm[s.joint_id]));
+    return mat4_mul(animator->model_mat, mat4_mul( s.local_transform,gjm));
 }
 
