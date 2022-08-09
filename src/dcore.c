@@ -15,6 +15,7 @@ extern dConfig engine_config;
 
 dEntity parent;
 dEntity child;
+dEntity child2;
 
 
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
@@ -31,6 +32,7 @@ void dcore_init(void)
 
     parent = dentity_create();
     child = dentity_create();
+    child2 = dentity_create();
 
     u32 component_index = dtransform_cm_add(&transform_manager, parent, (dEntity){DENTITY_NOT_FOUND});
     dTransform parent_t = dtransform_default();
@@ -49,6 +51,15 @@ void dcore_init(void)
     dTransform wp = transform_manager.data.world[component_index];
     assert(equalf(wp.trans.x, 3, 0.01));
     assert(equalf(wp.trans.y, 10, 0.01));
+
+    component_index = dtransform_cm_add(&transform_manager, child2, parent);
+    child_t = dtransform_default();
+    child_t.trans = v3(-2,0,0);
+    dtransform_cm_set_local(&transform_manager, component_index, child_t);
+    component_index = dtransform_cm_lookup(&transform_manager, child2);
+    wp = transform_manager.data.world[component_index];
+
+    
 
 
 

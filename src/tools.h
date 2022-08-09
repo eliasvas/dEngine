@@ -1730,6 +1730,12 @@ static int read_file(const char *path, u32 **buffer, u32 *word_count)
 	return 0;
 }
 
+
+static f64 r01(void)
+{
+    return (double)rand() / (double)RAND_MAX;
+}
+
 #endif
 
 

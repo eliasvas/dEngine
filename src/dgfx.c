@@ -33,8 +33,7 @@ dgBuffer base_norm;
 dgBuffer base_tex;
 
 dgBuffer base_ibo;
-dgTexture t1;
-dgTexture t2;
+dgTexture noise_tex;
 dgRT def_rt;
 dgRT csm_rt;
 extern dCamera cam;
@@ -57,6 +56,7 @@ static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME,
     VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
     VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
     VK_KHR_MULTIVIEW_EXTENSION_NAME,
+    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
 };
 
 static const char *validation_layers[]= {
@@ -150,6 +150,24 @@ b32 dg_create_instance(dgDevice *ddev) {
     
 	create_info.enabledExtensionCount = array_count(base_extensions); create_info.ppEnabledExtensionNames = (const char**)base_extensions;
 	create_info.enabledLayerCount = 0;
+
+
+    VkValidationFeatureEnableEXT enabled[] = { VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT };
+    /*
+    VkValidationFeatureDisableEXT disabled[] = {
+    VK_VALIDATION_FEATURE_DISABLE_THREAD_SAFETY_EXT, VK_VALIDATION_FEATURE_DISABLE_API_PARAMETERS_EXT,
+        VK_VALIDATION_FEATURE_DISABLE_OBJECT_LIFETIMES_EXT, VK_VALIDATION_FEATURE_DISABLE_CORE_CHECKS_EXT 
+    };
+    */
+    VkValidationFeaturesEXT vf = {0};
+    vf.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
+    vf.disabledValidationFeatureCount = 0;
+    vf.enabledValidationFeatureCount = 1;
+    vf.pEnabledValidationFeatures = enabled;
+    vf.pDisabledValidationFeatures = NULL;
+    vf.pNext = NULL;
+
+    create_info.pNext = &vf;
 
     
 	VK_CHECK(volkInitialize());
@@ -1837,8 +1855,13 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 {
     dgTexture tex;
 	dgBuffer idb;
+    u32 format_size;
+    if (format == VK_FORMAT_R8_UINT)
+        format_size = sizeof(u8);
+    else
+        format_size = sizeof(vec4);
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * sizeof(u8), data);
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
 	dg_create_image(ddev, tex_w, tex_h, format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
@@ -2404,7 +2427,7 @@ static void dg_calc_lsm(vec3 ld, mat4 proj, mat4 view, mat4 *lsm, f32 *frustum_d
     }
 }
 
-extern dEntity child, parent;
+extern dEntity child,child2, parent;
 extern dTransformCM transform_manager;
 void draw_cube(dgDevice *ddev, mat4 model)
 {
@@ -2451,14 +2474,14 @@ void dg_frame_begin(dgDevice *ddev)
     //CLEAR ALL FBO's before drawing
     
     //clear deferred FBO
-    dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_rendering_begin(ddev, def_rt.color_attachments, 4, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear the CSM shadowmap
     dg_rendering_begin(ddev, csm_rt.color_attachments, 1, &csm_rt.depth_attachment,DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear swapchain?
     dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-
+    dg_rendering_end(ddev);
 
 
     
@@ -2528,6 +2551,36 @@ void dg_frame_begin(dgDevice *ddev)
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
 
+    //SSAO pass, TODO: should we synchronize this with the end of the deferred pass? maybe a barrier
+
+    //dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    //dg_rendering_end(ddev);
+
+    vec4 ssao_kernel[32];
+    for (u32 i = 0; i < 32; ++i){
+        vec3 sample = v3( r01() * 2 - 1 , r01() * 2 - 1, r01() * 2);
+        sample = vec3_normalize(sample);
+        sample = vec3_mulf(sample, r01());
+        
+        float scale = ((f32)i) / 32.0f;
+        sample = vec3_mulf(sample,lerp(0.1f, 1.0f, scale * scale));
+        ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
+    }
+    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->ssao_pipe);
+    dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
+    dgTexture textures[4];
+    textures[0] = def_rt.color_attachments[0];
+    textures[1] = def_rt.color_attachments[1];
+    textures[2] = noise_tex;
+    textures[3] = def_rt.depth_attachment;
+    dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
+    dg_draw(ddev, 3,0);
+    dg_rendering_end(ddev);
+
+
 
     //draw the grid ???
     if (ddev->grid_active){
@@ -2546,6 +2599,8 @@ void dg_frame_begin(dgDevice *ddev)
     dTransform * pt = dtransform_cm_world(&transform_manager, parent.id);
     draw_cube(ddev, dtransform_to_mat4(*pt));
     dTransform * ct = dtransform_cm_world(&transform_manager, child.id);
+    draw_cube(ddev, dtransform_to_mat4(*ct));
+    ct = dtransform_cm_world(&transform_manager, child2.id);
     draw_cube(ddev, dtransform_to_mat4(*ct));
     if (dkey_down(DK_1)){
         u32 component_index = dtransform_cm_lookup(&transform_manager, parent);
@@ -2629,6 +2684,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.pbr_shadow_pipe,"sm.vert", "sm.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
+    assert(dg_create_pipeline(&dd, &dd.ssao_pipe,"ssao.vert", "ssao.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
@@ -2678,6 +2734,12 @@ b32 dgfx_init(void)
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
     dg_rt_init_csm(&dd, &csm_rt, 3, 1024,1024);
+
+    vec4 noise_data[32];
+    for (u32 i = 0; i < 32; ++i){
+        noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, 0, 0);
+    }
+    noise_tex = dg_create_texture_image_wdata(&dd, noise_data, 4,4,VK_FORMAT_R8G8B8A8_SRGB, 1);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
     fox = dmodel_load_gltf("untitled");

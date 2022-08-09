@@ -177,15 +177,17 @@ u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
             manager->data.first_child[parent_index] = component_index;
         }else{
             //and search for the last sibling
-            while(child_index != DENTITY_NOT_FOUND)
+            u32 prev_sibling_index= child_index;
+            while(manager->data.next_sibling[child_index] != DENTITY_NOT_FOUND){
+                prev_sibling_index = manager->data.next_sibling[child_index];
                 child_index = manager->data.next_sibling[child_index];
+            }
             //when we find it we insert our component index as the sibling (which makes it a registered child of parent!)
             manager->data.next_sibling[child_index] = component_index;
+            manager->data.prev_sibling[component_index] = prev_sibling_index;
         }
        
     }
-
-
 
     return manager->data.n++;
 }
@@ -205,6 +207,7 @@ dTransform *dtransform_cm_world(dTransformCM *manager,u32 index){
     return &manager->data.world[index];
 }
 
+//TODO: this is wrong (for transform entities), the actual solution is pretty hard tho, we gotta do it
 void dtransform_cm_del(dTransformCM *manager, u32 index){
     u32 last_component = manager->data.n-1;
     dEntity e = manager->data.entity[index];
@@ -246,5 +249,5 @@ void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 comp
 
 
 u32 dtransform_cm_simulate(dTransformCM *manager){
-
+    //do nothing (maybe do collisions for selection :) )
 }

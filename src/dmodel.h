@@ -27,21 +27,13 @@ typedef struct dMeshPrimitive{
 }dMeshPrimitive;
 
 typedef struct dMesh {
-    dgBuffer pos_buf; //GPU buffer storing vertex positions
-    dgBuffer norm_buf; //GPU buffer storing vertex normals
-    dgBuffer tex_buf; //GPU buffer storing vertex tex-coords
-    dgBuffer tang_buf; //GPU buffer storing vertex tangent vectors
-    dgBuffer col_buf; //GPU buffer storing vertex colors
     dgBuffer joint_buf; //GPU buffer storing per-vertex joint IDs
-    dgBuffer weight_buf; //GPU buffer storing per-vertex joint weight
     
 
     dMeshPrimitive primitives[DMODEL_MAX_MESH_PRIMITIVES_PER_MESH];
     u32 primitives_count;
 
     dSkeletonInfo skeleton_info;
-
-    dgBuffer index_buf;
 }dMesh;
 
 

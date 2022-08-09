@@ -1,5 +1,5 @@
 
-const char DUI_VERT[1500] = 
+const char DUI_VERT[1000] = 
 "#version 450\n\
 layout(location = 0) in vec3 vertex_pos;\n\
 layout(location = 1) in vec3 vertex_normal;\n\
@@ -23,7 +23,7 @@ void main() {\n\
     gl_Position.z = 0.0;\n\
 }";
 
-const char DUI_FRAG[1500] = 
+const char DUI_FRAG[1000] = 
 "#version 450\n\
 layout(location = 0) in vec4 f_color;\n\
 layout(location = 1) in vec2 f_tex_coord;\n\

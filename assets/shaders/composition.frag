@@ -1,4 +1,5 @@
 #version 450
+#extension GL_EXT_debug_printf : enable
 
 layout(location = 0) out vec4 frag_color;
   
@@ -91,9 +92,12 @@ vec3 point_light_color = vec3(50.0,50.0,50.0);
 vec3 point_light_pos = vec3(2.0,6.0,0.0);
 
 void main()
-{             
+{
+        
+
     // retrieve data from G-buffer
     vec3 frag_pos = texture(g_pos, f_tex_coord).xyz;
+    
     vec3 norm = texture(g_normal, f_tex_coord).xyz;
     vec3 albedo = texture(g_albedo_spec, f_tex_coord).xyz;
     //float spec = texture(g_albedo_spec, f_tex_coord).a;
@@ -190,5 +194,7 @@ void main()
     */
     
     frag_color = vec4(color, 1.0);
+
+    //debugPrintfEXT("%f %f %f\n", frag_color.x, frag_color.y, frag_color.z);
     //frag_color[layer] += 0.05;
 }  
