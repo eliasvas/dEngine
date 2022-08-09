@@ -22,7 +22,7 @@ layout(set = 2, binding = 3) uniform sampler2D depth_map;
 
 
 vec2 noise_scale = vec2(800.0/4.0,600.0/4.0);
-float radius = 0.05;
+float radius = 0.2;
 float bias = 0.025;
 
 float random (vec2 st) {
@@ -31,21 +31,43 @@ float random (vec2 st) {
         43758.5453123);
 }
 
+const int samples = 16;
+vec3 sample_sphere[16] = {
+      vec3( 0.5381, 0.1856,-0.4319), vec3( 0.1379, 0.2486, 0.4430),
+      vec3( 0.3371, 0.5679,-0.0057), vec3(-0.6999,-0.0451,-0.0019),
+      vec3( 0.0689,-0.1598,-0.8547), vec3( 0.0560, 0.0069,-0.1843),
+      vec3(-0.0146, 0.1402, 0.0762), vec3( 0.0100,-0.1924,-0.0344),
+      vec3(-0.3577,-0.5301,-0.4358), vec3(-0.3169, 0.1063, 0.0158),
+      vec3( 0.0103,-0.5869, 0.0046), vec3(-0.0897,-0.4940, 0.3287),
+      vec3( 0.7119,-0.0154,-0.0918), vec3(-0.0533, 0.0596,-0.5411),
+      vec3( 0.0352,-0.0631, 0.5460), vec3(-0.4776, 0.2847,-0.0271)
+};
+
+float near = 0.1;
+float far = 100;
+float lin_depth(float d) {
+    //vec4 clip_space_pos = GlobalData.proj * GlobalData.view * vec4(pos.xyz, 1.0);
+    //float clip_space_depth = (clip_space_pos.z / clip_space_pos.w) * 2.0 - 1.0; // put back between -1 and 1
+    d = d * 2.0 - 1.0;
+	float linear_depth = (2.0 * near * far) / (far + near - d * (far - near)); // get linear value between 0.01 and 100
+    return linear_depth / far; // normalize
+}
+
 void main() {
 	vec3 frag_pos   = texture(g_pos, f_tex_coord).xyz;
 	vec3 normal     = normalize(texture(g_normal, f_tex_coord).rgb);
-	vec3 random_vec = normalize(texture(random_tex, f_tex_coord * noise_scale).xyz);
-	random_vec = random_vec * 2.0 - 1.0;
+	vec3 random_vec = normalize(texture(random_tex, f_tex_coord ).xyz);
+	normal = normal * 2.0 - 1.0;
+	
 
-	vec3 tangent = normalize(random_vec - normal * dot(random_vec, normal));
+	vec3 tangent = cross(normal, normalize(random_vec - normal * dot(random_vec, normal)));
 	vec3 bitangent = cross(tangent, normal);
 	mat3 TBN = mat3(tangent, bitangent, normal);
-
+	//debugPrintfEXT("%f %f %f\n", frag_pos.x, frag_pos.y, frag_pos.z);
 	float occlusion = 0.0;
-	for (int i = 0; i < 32; ++i){
-		vec3 sample1 = TBN * ObjectData.kernels[i].xyz;
-		sample1 = frag_pos;// + sample1 * radius;
-
+	for (int i = 0; i < 16; ++i){
+		vec3 sample1 = TBN * sample_sphere[i];
+		sample1 = vec4(GlobalData.view * vec4(frag_pos,1)).xyz + sample1 * radius;
 		
 		//then get sample pos in screen space
 		vec4 offset = vec4(sample1, 1.0); 
@@ -55,17 +77,12 @@ void main() {
 		
 		offset.xyz = offset.xyz * 0.5 + 0.5; //transform to 0.0 - 1.0 ??? vulkaaan
 		
-
-
-		float sample_depth = texture(depth_map, offset.xy).w;
-
-		float range_check = smoothstep(0.0, 1.0, 32.0 / abs(frag_pos.z - sample_depth));
-		occlusion += (sample_depth >= sample1.z + bias ? 1.0 : 0.0) * range_check;
-		
+		float sample_depth = -texture(g_normal, offset.xy).w;
+		//if (i == 0)debugPrintfEXT("%.2f ", sample_depth- sample1.z);
+		occlusion += (sample_depth >= sample1.z + 0.00024 ? 1.0 : 0.0);		
 	}
-	//debugPrintfEXT("Clip-Space offset is %f %f %f", GlobalData.proj[0][0], random_vec.y, random_vec.z);
-    //debugPrintfEXT("%f %f %f\n", random_vec.x, random_vec.y, random_vec.z);
-	frag_color = vec4(1.0 - (occlusion / 32.0));
-	debugPrintfEXT("%f %f %f\n", frag_color.x, frag_color.y, frag_color.z);
+	
+	frag_color = vec4(texture(g_normal, f_tex_coord).rgb,1.0 - (occlusion / 16.0));
+	
 	//frag_color.a = 1.0;
 }

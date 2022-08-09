@@ -100,6 +100,7 @@ void main()
     
     vec3 norm = texture(g_normal, f_tex_coord).xyz;
     vec3 albedo = texture(g_albedo_spec, f_tex_coord).xyz;
+    
     //float spec = texture(g_albedo_spec, f_tex_coord).a;
     
     vec4 frag_pos_view_space = GlobalData.view * vec4(frag_pos,1.0);
@@ -128,8 +129,8 @@ void main()
     vec3 Lo = vec3(0.0);
 
     float metallic = texture(g_pos, f_tex_coord).w;
-    float roughness = texture(g_normal, f_tex_coord).w;
-    float ao = texture(g_albedo_spec, f_tex_coord).w;
+    float roughness = texture(g_albedo_spec, f_tex_coord).w;
+    float ao = texture(g_normal, f_tex_coord).w;
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -181,7 +182,7 @@ void main()
     Lo += lighting;
 
 
-    vec3 ambient = vec3(0.03) * albedo;
+    vec3 ambient = vec3(0.03) * albedo * ao;
     vec3 color = ambient + Lo;
 
     //apply tone mapping

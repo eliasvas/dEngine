@@ -38,6 +38,13 @@ vec4 srgb_to_linear(vec4 sRGB)
     return vec4(mix(higher, lower, cutoff), sRGB.a);
 }
 
+float near = 0.01;
+float far = 100.0;
+float linear_depth(float depth)
+{
+	float z = depth * 2.0f - 1.0f; 
+	return (2.0f * near * far) / (far + near - z * (far - near));	
+}
 
 void main() {
 	vec3 emissive = texture(emissive_tex, f_tex_coord).xyz;
@@ -46,10 +53,10 @@ void main() {
 	float roughness = orm.y;
 	float metallic = orm.z;
 
-	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, occlusion);
+	g_albedo_spec = vec4(texture(base_color_tex, f_tex_coord.xy).xyz, roughness);
 	vec3 normal = tbn * normalize( texture( normal_tex, f_tex_coord.xy ).xyz * 2.0 - 1.0 );
 	normal = normalize(normal);
-	g_normal = vec4(normal.x, normal.y, normal.z,roughness);
+	g_normal = vec4(normal.x, normal.y, normal.z,linear_depth(gl_FragCoord.z));
 	g_pos = vec4(f_frag_pos.xyz,metallic);
 
 }

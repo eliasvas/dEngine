@@ -570,6 +570,9 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mi
         sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
+        //sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        //sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+        //sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     }else{
         sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -1186,8 +1189,8 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     for (u32 i = 0; i< DG_MAX_COLOR_ATTACHMENTS; ++i)
     {
         //if only one output, it means we write to swapchain, else, we write in some Render Target, 
-        //and all RTs are RGBA16 @FIX this when time
-        if (output_var_count > 1)
+        //and all RTs are RGBA16 @FIX this when time TODO TODO TODO WHY??!?!?!??
+        if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL)
             color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
         else 
             color_formats[i] = ddev->swap.image_format;
@@ -2524,7 +2527,35 @@ void dg_frame_begin(dgDevice *ddev)
     draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(1 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(0.01,0.01,0.01)))),lsm);
 
 
+    //SSAO pass, TODO: should we synchronize this with the end of the deferred pass? maybe a barrier
 
+    //dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    //dg_rendering_end(ddev);
+
+
+    vec4 ssao_kernel[32];
+    for (u32 i = 0; i < 32; ++i){
+        vec3 sample = v3( r01() * 2 - 1 , r01() * 2 - 1, r01() * 2);
+        sample = vec3_normalize(sample);
+        sample = vec3_mulf(sample, r01());
+        
+        float scale = ((f32)i) / 32.0f;
+        sample = vec3_mulf(sample,lerp(0.1f, 1.0f, scale * scale));
+        ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
+    }
+    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->ssao_pipe);
+    dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
+    dgTexture textures[4];
+    textures[0] = def_rt.color_attachments[0];
+    textures[1] = def_rt.color_attachments[1];
+    textures[2] = noise_tex;
+    textures[3] = def_rt.depth_attachment;
+    dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
+    dg_draw(ddev, 3,0);
+    dg_rendering_end(ddev);
 
     dg_wait_idle(ddev);
     {
@@ -2551,34 +2582,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
 
-    //SSAO pass, TODO: should we synchronize this with the end of the deferred pass? maybe a barrier
 
-    //dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    //dg_rendering_end(ddev);
-
-    vec4 ssao_kernel[32];
-    for (u32 i = 0; i < 32; ++i){
-        vec3 sample = v3( r01() * 2 - 1 , r01() * 2 - 1, r01() * 2);
-        sample = vec3_normalize(sample);
-        sample = vec3_mulf(sample, r01());
-        
-        float scale = ((f32)i) / 32.0f;
-        sample = vec3_mulf(sample,lerp(0.1f, 1.0f, scale * scale));
-        ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
-    }
-    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_bind_pipeline(ddev, &ddev->ssao_pipe);
-    dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
-    dgTexture textures[4];
-    textures[0] = def_rt.color_attachments[0];
-    textures[1] = def_rt.color_attachments[1];
-    textures[2] = noise_tex;
-    textures[3] = def_rt.depth_attachment;
-    dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
-    dg_draw(ddev, 3,0);
-    dg_rendering_end(ddev);
 
 
 
@@ -2739,7 +2743,7 @@ b32 dgfx_init(void)
     for (u32 i = 0; i < 32; ++i){
         noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, 0, 0);
     }
-    noise_tex = dg_create_texture_image_wdata(&dd, noise_data, 4,4,VK_FORMAT_R8G8B8A8_SRGB, 1);
+    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", VK_FORMAT_R8G8B8A8_SRGB);
 
     water_bottle = dmodel_load_gltf("WaterBottle");
     fox = dmodel_load_gltf("untitled");
