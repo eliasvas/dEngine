@@ -1190,7 +1190,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     {
         //if only one output, it means we write to swapchain, else, we write in some Render Target, 
         //and all RTs are RGBA16 @FIX this when time TODO TODO TODO WHY??!?!?!??
-        if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL)
+        if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL|| strstr(vert_name, "blur.vert") != NULL)
             color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
         else 
             color_formats[i] = ddev->swap.image_format;
@@ -1602,6 +1602,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
 
     vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
+    //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], (settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE > 0));
 }
 
 void dg_rendering_end(dgDevice *ddev)
@@ -2532,7 +2533,6 @@ void dg_frame_begin(dgDevice *ddev)
     //dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     //dg_rendering_end(ddev);
 
-
     vec4 ssao_kernel[32];
     for (u32 i = 0; i < 32; ++i){
         vec3 sample = v3( r01() * 2 - 1 , r01() * 2 - 1, r01() * 2);
@@ -2544,19 +2544,28 @@ void dg_frame_begin(dgDevice *ddev)
         ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
     }
     dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->ssao_pipe);
     dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
-    dgTexture textures[4];
-    textures[0] = def_rt.color_attachments[0];
-    textures[1] = def_rt.color_attachments[1];
-    textures[2] = noise_tex;
-    textures[3] = def_rt.depth_attachment;
-    dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 4, 2);
+    dgTexture textures1[4];
+    textures1[0] = def_rt.color_attachments[0];
+    textures1[1] = def_rt.color_attachments[1];
+    textures1[2] = noise_tex;
+    textures1[3] = def_rt.depth_attachment;
+    dg_set_desc_set(ddev,&ddev->ssao_pipe, textures1, 4, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
+    //blur the SSAO
+    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->blur_pipe);
+    dg_set_desc_set(ddev,&ddev->blur_pipe, &def_rt.color_attachments[1], 1, 2);
+    dg_draw(ddev, 3,0);
+    dg_rendering_end(ddev);
     dg_wait_idle(ddev);
     {
         dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_NONE);
@@ -2689,6 +2698,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.pbr_shadow_pipe,"sm.vert", "sm.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     assert(dg_create_pipeline(&dd, &dd.ssao_pipe,"ssao.vert", "ssao.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.blur_pipe,"blur.vert", "blur.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));

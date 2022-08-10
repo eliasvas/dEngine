@@ -35,5 +35,5 @@ layout(set = 2, binding = 3) uniform sampler2D depth_map;
 
 void main() {
     f_tex_coord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);
-    gl_Position = vec4(f_tex_coord * 2.0 -1.0, 0.1, 1.0);
+    gl_Position = vec4(f_tex_coord * 2.0 -1.0, 0.03, 1.0);
 }

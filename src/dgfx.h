@@ -23,6 +23,7 @@ typedef enum dgReseringSettigs
     DG_RENDERING_SETTINGS_CLEAR_COLOR = 0x1,
     DG_RENDERING_SETTINGS_CLEAR_DEPTH = 0x2,
     DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH = 0x4,
+    DG_RENDERING_SETTINGS_DEPTH_DISABLE = 0x8,
 }dgRenderingSettings;
 typedef struct dgShader 
 {
@@ -160,6 +161,7 @@ typedef struct dgDevice
     dgPipeline pbr_shadow_pipe;
     dgPipeline anim_pipe;
     dgPipeline ssao_pipe;
+    dgPipeline blur_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;

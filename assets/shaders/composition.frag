@@ -1,5 +1,4 @@
 #version 450
-#extension GL_EXT_debug_printf : enable
 
 layout(location = 0) out vec4 frag_color;
   
@@ -40,7 +39,7 @@ float shadow_calc(vec4 frag_pos_light_space,int cascade_index)
     // get depth of current fragment from light's perspective
     float current_depth = proj_coords.z;
     // check whether current frag pos is in shadow
-    float shadow = current_depth > closest_depth + 0.005 ? 1.0 : 0.0;
+    float shadow = current_depth > closest_depth + 0.001 ? 1.0 : 0.0;
     if(proj_coords.z > 1.0)
         shadow = 1.0;
     if(proj_coords.z < 0.0)
