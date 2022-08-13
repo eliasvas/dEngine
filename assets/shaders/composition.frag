@@ -97,9 +97,10 @@ void main()
     // retrieve data from G-buffer
     vec3 frag_pos = texture(g_pos, f_tex_coord).xyz;
     
+    
     vec3 norm = texture(g_normal, f_tex_coord).xyz;
     vec3 albedo = texture(g_albedo_spec, f_tex_coord).xyz;
-    
+    if (albedo.x + albedo.y + albedo.z < 0.000001)discard;//we discard nan's so we can write the skybox
     //float spec = texture(g_albedo_spec, f_tex_coord).a;
     
     vec4 frag_pos_view_space = GlobalData.view * vec4(frag_pos,1.0);
@@ -124,7 +125,7 @@ void main()
     vec3 N = normalize(norm);
     vec3 R = reflect(-ObjectData.light_dir.xyz, N);
     vec3 L = ObjectData.light_dir.xyz;
-    vec3 radiance = vec3(1.0 - shadow) + 0.1; 
+    vec3 radiance = vec3(1.0 - shadow) + 0.9; 
     vec3 Lo = vec3(0.0);
 
     float metallic = texture(g_pos, f_tex_coord).w;

@@ -21,10 +21,6 @@ extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
 dModel water_bottle;
 dModel fox;
 
-dgBuffer pos_vbo;
-dgBuffer normal_vbo;
-dgBuffer tex_vbo;
-
 dgDevice dd;
 dgBuffer base_vbo;
 
@@ -34,6 +30,8 @@ dgBuffer base_tex;
 
 dgBuffer base_ibo;
 dgTexture noise_tex;
+dgTexture hdr_map;
+dgTexture cube_tex;
 dgRT def_rt;
 dgRT csm_rt;
 extern dCamera cam;
@@ -543,7 +541,12 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
 
 static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer, u32 mip_levels)
 {
-    VkImageViewType view_type = (layer_count > 1) ? VK_IMAGE_VIEW_TYPE_2D_ARRAY : VK_IMAGE_VIEW_TYPE_2D;
+    VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
+    if (layer_count == 6)
+        view_type = VK_IMAGE_VIEW_TYPE_CUBE;
+    else if (layer_count > 1)
+        view_type = VK_IMAGE_VIEW_TYPE_2D_ARRAY;
+    
 	VkImageView image_view;
 	
 	VkImageViewCreateInfo view_info = {0};
@@ -1192,6 +1195,8 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
         //and all RTs are RGBA16 @FIX this when time TODO TODO TODO WHY??!?!?!??
         if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL|| strstr(vert_name, "blur.vert") != NULL)
             color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
+        else if (strstr(vert_name, "cubemap_conv.vert") != NULL) 
+            color_formats[i] = VK_FORMAT_R32G32B32A32_SFLOAT;
         else 
             color_formats[i] = ddev->swap.image_format;
     }
@@ -1204,6 +1209,8 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     //TODO: fix view mask generation for each pipeline :P, this is a HUGE hack pls pls pls fix before too late
     if (strstr(vert_name, "sm.vert") != NULL)
         pipe_renderingCI.viewMask = 0b00001111;
+    if (strstr(vert_name, "cubemap_conv.vert") != NULL)
+        pipe_renderingCI.viewMask = 0b00111111;
     pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
     pipe_renderingCI.stencilAttachmentFormat = ddev->swap.depth_attachment.format;
     // Chain into the pipeline create info
@@ -1595,8 +1602,14 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.pDepthAttachment = &depth_attachment;
     
     if (settings & DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH){
-        rendering_info.viewMask = 0b00001111;//DG_MAX_CASCADES-1;
-        rendering_info.layerCount = 3;
+        u32 layer_count= 0;
+        if (tex)
+            layer_count = maximum(tex->layer_count, layer_count);
+        if (depth_tex)
+            layer_count = maximum(depth_tex->layer_count, layer_count);
+        b32 view_mask = (1 << layer_count) - 1;
+        rendering_info.viewMask =  view_mask;//DG_MAX_CASCADES-1;
+        rendering_info.layerCount = layer_count;
     }
     //rendering_info.pStencilAttachment = &depth_attachment;
     rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
@@ -1769,7 +1782,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 	image_info.usage = usage | VK_IMAGE_USAGE_SAMPLED_BIT;
 	image_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 	image_info.samples = VK_SAMPLE_COUNT_1_BIT;
-	image_info.flags = 0;
+	image_info.flags = (image_info.arrayLayers == 6) ?  VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT : 0;
 	VK_CHECK(vkCreateImage(ddev->device, &image_info, NULL, image));
 	
 	VkMemoryRequirements mem_req;
@@ -1864,6 +1877,10 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
         format_size = sizeof(u8);
     else
         format_size = sizeof(vec4);
+
+    //TODO, make it possible to have 6-layer regular image arrays, not only cubes
+    b32 is_cube = (layer_count == 6);
+
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
 	dg_create_image(ddev, tex_w, tex_h, format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
@@ -1880,7 +1897,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
         VK_IMAGE_LAYOUT_GENERAL,
         VK_PIPELINE_STAGE_HOST_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 }
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layer_count }
     );
 
 
@@ -1921,6 +1938,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	tex.width = tex_w;
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
+    tex.layer_count = layer_count;
     tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels);
     dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 
@@ -2013,15 +2031,22 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
 
     dg_end_single_time_commands(&dd, cmd_buf);
 }
-
+//TODO make a global VK_FORMAT like structure
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
 {
 	dgTexture tex;
 	//[0]: we read an image and store all the pixels in a pointer
 	s32 tex_w, tex_h, tex_c;
-	stbi_uc *pixels = stbi_load(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
+	stbi_uc *pixels;
+    b32 is_hdr = strstr(filename, ".hdr") != NULL;
+    if (is_hdr)
+        pixels = stbi_loadf(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
+    else
+        pixels = stbi_load(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
 	VkDeviceSize image_size = tex_w * tex_h * 4;
-	tex.mip_levels = (u32)(floor(log2(maximum(tex_w, tex_h)))) + 1;
+    if (is_hdr)
+        image_size = tex_w * tex_h * (sizeof(f32)) * 4;
+	tex.mip_levels = (is_hdr) ? 1 : (u32)(floor(log2(maximum(tex_w, tex_h)))) + 1;
 	
 	//[2]: we create a buffer to hold the pixel information (we also fill it)
 	dgBuffer idb;
@@ -2506,7 +2531,7 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.01,0.01,0.01)))));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))));
 
 
 
@@ -2525,14 +2550,40 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
     //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
-    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(1 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(0.01,0.01,0.01)))),lsm);
+    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))),lsm);
+
+
+    mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
+    mat4 capture_views[6] =
+    {
+        look_at(v3(0,0,0),v3(1,0,0), v3(0,-1,0)),
+        look_at(v3(0,0,0),v3(-1,0,0), v3(0,-1,0)),
+        look_at(v3(0,0,0),v3(0,-1,0), v3(0,0,-1)),
+        look_at(v3(0,0,0),v3(0,1,0), v3(0,0,1)),
+        look_at(v3(0,0,0),v3(0,0,1), v3(0,-1,0)),
+        look_at(v3(0,0,0),v3(0,0,-1), v3(0,-1,0)),
+    };
+
+    
+    dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_set_viewport(ddev, 0,0,512, 512);
+    dg_set_scissor(ddev, 0,0,512, 512);
+    dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
+    dgBuffer buffers[] = {base_pos};
+    u64 offsets[] = {0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+
+    mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
+                        capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
+    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, cube_data, sizeof(cube_data), 1);
+    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
+    dg_rendering_end(ddev);
 
 
     //SSAO pass, TODO: should we synchronize this with the end of the deferred pass? maybe a barrier
-
-    //dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    //dg_rendering_end(ddev);
-
     vec4 ssao_kernel[32];
     for (u32 i = 0; i < 32; ++i){
         vec3 sample = v3( r01() * 2 - 1 , r01() * 2 - 1, r01() * 2);
@@ -2543,8 +2594,8 @@ void dg_frame_begin(dgDevice *ddev)
         sample = vec3_mulf(sample,lerp(0.1f, 1.0f, scale * scale));
         ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
     }
-    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_NONE);
-    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->ssao_pipe);
@@ -2566,9 +2617,13 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->blur_pipe, &def_rt.color_attachments[1], 1, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
+
+
+    
+
     dg_wait_idle(ddev);
     {
-        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_NONE);
+        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
         dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
 
@@ -2587,6 +2642,20 @@ void dg_frame_begin(dgDevice *ddev)
 
         dg_rendering_end(ddev);
     }
+
+    //draw the skybox! TODO this should be done AFTER deferred composition, but I can't infer fragment depth in comp FS
+    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_bind_pipeline(ddev, &ddev->skybox_pipe);
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+    dg_set_desc_set(ddev,&ddev->skybox_pipe, cube_data, sizeof(cube_data), 1);
+    dg_set_desc_set(ddev,&ddev->skybox_pipe, &cube_tex, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
+    dg_rendering_end(ddev);
+    
+
     //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
     
@@ -2699,6 +2768,8 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
     assert(dg_create_pipeline(&dd, &dd.ssao_pipe,"ssao.vert", "ssao.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.blur_pipe,"blur.vert", "blur.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.cubemap_conv_pipe,"cubemap_conv.vert", "cubemap_conv.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.skybox_pipe,"skybox.vert", "skybox.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
@@ -2753,9 +2824,13 @@ b32 dgfx_init(void)
     for (u32 i = 0; i < 32; ++i){
         noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, 0, 0);
     }
+
+    hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", VK_FORMAT_R32G32B32A32_SFLOAT);
+    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, VK_FORMAT_R32G32B32A32_SFLOAT, 6);
+
     noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", VK_FORMAT_R8G8B8A8_SRGB);
 
-    water_bottle = dmodel_load_gltf("WaterBottle");
+    water_bottle = dmodel_load_gltf("MetalRoughSpheres");
     fox = dmodel_load_gltf("untitled");
 	return 1;
 }

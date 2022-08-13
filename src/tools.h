@@ -1271,7 +1271,6 @@ INLINE Quaternion quat_sub(Quaternion l, Quaternion r)
     return res;
 }
 
-//TODO: check the scalars..
 INLINE Quaternion quat_mul(Quaternion l, Quaternion r)
 {
     Quaternion res;

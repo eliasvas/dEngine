@@ -6,8 +6,6 @@
 //TODO: check if primitive.attributes[weight_index].data->buffer_view->size is too big (it contains everything?)
 //and if so, add all of its components sizes and make a new packed array as it should be for each attrib
 
-//TODO: texture handling in models is shit, fix ASAP
-
 extern dgDevice dd;
 
 static dAnimation animation;

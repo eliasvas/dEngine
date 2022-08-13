@@ -83,5 +83,5 @@ void main() {
 	}
 	
 	frag_color = vec4(texture(g_normal, f_tex_coord).rgb,1.0 - (occlusion / 32.0));
-	//frag_color = vec4(1.0 - (occlusion / 16.0));
+	//frag_color = texture(random_tex, f_tex_coord);
 }
