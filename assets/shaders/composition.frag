@@ -23,6 +23,7 @@ layout(set = 2, binding = 0) uniform sampler2D g_pos;
 layout(set = 2, binding = 1) uniform sampler2D g_normal;
 layout(set = 2, binding = 2) uniform sampler2D g_albedo_spec;
 layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
+layout(set = 2, binding = 4) uniform samplerCube irradiance_map;
 
 
 const float PI = 3.141592653539;
@@ -50,6 +51,10 @@ float shadow_calc(vec4 frag_pos_light_space,int cascade_index)
 //F0 is ~0.04 for dielectrics and for metallics the albedo value
 vec3 fresnel_schlick(float cos_theta, vec3 F0){
     return F0 + (1.0 - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
+}
+
+vec3 fresnel_schlick_rougness(float cos_theta, vec3 F0, float roughness){
+    return F0 + (max(vec3(1.0 - roughness), F0) - F0) * pow(clamp(1.0 - cos_theta, 0.0, 1.0), 5.0);
 }
 
 float geometry_schlick_ggx(float NdotV, float roughness)
@@ -91,8 +96,7 @@ vec3 point_light_color = vec3(50.0,50.0,50.0);
 vec3 point_light_pos = vec3(2.0,6.0,0.0);
 
 void main()
-{
-        
+{        
 
     // retrieve data from G-buffer
     vec3 frag_pos = texture(g_pos, f_tex_coord).xyz;
@@ -134,7 +138,7 @@ void main()
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
-    vec3 F = fresnel_schlick(max(dot(H, V),0.0), F0);
+    vec3 F = fresnel_schlick_rougness(max(dot(N, V),0.0), F0, roughness);
     float NDF = distribution_ggx(N, H, roughness);
     float G = geometry_smith(N,V,L,roughness);
     vec3 numerator = NDF * F * G;
@@ -166,7 +170,7 @@ void main()
 
         vec3 F0 = vec3(0.04);
         F0 = mix(F0, albedo, metallic);
-        vec3 F = fresnel_schlick(max(dot(H, V),0.0), F0);
+        vec3 F = fresnel_schlick_rougness(max(dot(N, V),0.0), F0, roughness);
         float NDF = distribution_ggx(N, H, roughness);
         float G = geometry_smith(N,V,L,roughness);
         vec3 numerator = NDF * F * G;
@@ -181,8 +185,9 @@ void main()
     }
     Lo += lighting;
 
-
-    vec3 ambient = vec3(0.03) * albedo * ao;
+    vec3 irradiance = texture(irradiance_map, N).rgb;
+    vec3 diffuse = irradiance * albedo;
+    vec3 ambient = (kD * diffuse) * ao * 0.2;
     vec3 color = ambient + Lo;
 
     //apply tone mapping

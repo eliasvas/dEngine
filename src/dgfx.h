@@ -14,7 +14,7 @@
 #define DG_MAX_DESCRIPTOR_POOLS 32 //for the allocator
 #define DG_MAX_DESCRIPTOR_SET_LAYOUTS 64 //for the cache
 #define DG_MAX_DESCRIPTOR_SETS 4 //overall
-#define DG_MAX_DESCRIPTOR_SET_BINDINGS 4 //overall
+#define DG_MAX_DESCRIPTOR_SET_BINDINGS 6 //overall
 #define DG_MAX_CASCADES 4
 
 typedef enum dgReseringSettigs
@@ -164,6 +164,7 @@ typedef struct dgDevice
     dgPipeline blur_pipe;
     dgPipeline cubemap_conv_pipe;
     dgPipeline skybox_pipe;
+    dgPipeline skybox_gen_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;

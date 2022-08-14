@@ -123,7 +123,9 @@ void dcore_init(void)
     //Initialize the profiler
     dprofiler_init(NULL);
     dg_frame_begin(&dd);
+    dg_skybox_prepare(&dd);
 
+   
 
 
     /*Entity test

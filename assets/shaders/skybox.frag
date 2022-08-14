@@ -19,11 +19,13 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 
 layout(set = 2, binding = 0) uniform samplerCube tex_sampler1;
 
-void main() {
-	vec3 env_color = texture(tex_sampler1, f_local_pos).rgb;
+const float PI = 3.14159265359;
 
-    env_color = env_color / (env_color + vec3(1.0));
-    env_color = pow(env_color, vec3(1.0/2.2));
+void main() {
+	//this is the code for the normal skybox
+	vec3 env_color = texture(tex_sampler1, f_local_pos).rgb;
+    //env_color = env_color / (env_color + vec3(1.0));
+    //env_color = pow(env_color, vec3(1.0/2.2));
 
     color = vec4(env_color, 1.0);
 }
