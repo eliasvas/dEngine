@@ -20,7 +20,7 @@ void dtexture_manager_init(dTextureManager *tm){
 }
 #include "dgfx.h"
 extern dgDevice dd;
-dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, VkFormat f){
+dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, dgImageFormat f){
     if (tm == NULL)tm = &texture_manager;
     u32 tex_index = hmget(tm->texture_hash, hash_str(name));
     if (tex_index == DTEXTURE_NOT_FOUND){

@@ -187,6 +187,12 @@ b32 dg_create_instance(dgDevice *ddev) {
 	return TRUE;
 }
 
+static VkFormat dg_to_vk_format(dgImageFormat format)
+{
+    //the enums are the same for the vulkan driver, for other implementations 
+    //just switch all different formats to correct counterpart
+    return format;
+}
 typedef struct dgQueueFamilyIndices
 {
     u32 graphics_family;
@@ -1869,12 +1875,13 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format, u32 layer_count)
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count)
 {
     dgTexture tex;
 	dgBuffer idb;
     u32 format_size;
-    if (format == VK_FORMAT_R8_UINT)
+    VkFormat vk_format = dg_to_vk_format(format);
+    if (vk_format == VK_FORMAT_R8_UINT)
         format_size = sizeof(u8);
     else
         format_size = sizeof(vec4);
@@ -1884,7 +1891,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
-	dg_create_image(ddev, tex_w, tex_h, format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, vk_format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1940,7 +1947,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
     tex.layer_count = layer_count;
-    tex.view = dg_create_image_view(tex.image, format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels);
+    tex.view = dg_create_image_view(tex.image, vk_format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels);
     dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 
 	return tex;
@@ -2033,7 +2040,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
     dg_end_single_time_commands(&dd, cmd_buf);
 }
 //TODO make a global VK_FORMAT like structure
-dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format)
+dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format)
 {
 	dgTexture tex;
 	//[0]: we read an image and store all the pixels in a pointer
@@ -2058,7 +2065,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	//[3]: we free the cpu side image, we don't need it
 	stbi_image_free(pixels);
 	//[4]: we create the VkImage that is undefined right now
-	dg_create_image(ddev, tex_w, tex_h, format,tex.mip_levels, 1,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
+	dg_create_image(ddev, tex_w, tex_h, dg_to_vk_format(format),tex.mip_levels, 1,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT|VK_IMAGE_USAGE_TRANSFER_SRC_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -2134,7 +2141,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat forma
 	dg_buf_destroy(&idb);
 	
 	
-	tex.view = dg_create_image_view(tex.image, format,VK_IMAGE_ASPECT_COLOR_BIT,1,0, tex.mip_levels);
+	tex.view = dg_create_image_view(tex.image, dg_to_vk_format(format),VK_IMAGE_ASPECT_COLOR_BIT,1,0, tex.mip_levels);
 	
 	tex.width = tex_w;
 	tex.height = tex_h;
@@ -2150,7 +2157,7 @@ static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width
     rt->depth_active = TRUE;
     rt->cascaded_depth = TRUE;
     rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
-    rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, VK_FORMAT_R8G8B8A8_SRGB, cascade_count);
+    rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, DG_IMAGE_FORMAT_RGBA8_SRGB, cascade_count);
 
     rt->cascades_count = cascade_count;
 }
@@ -2163,7 +2170,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
-        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,VK_FORMAT_R16G16B16A16_SFLOAT, 1);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1);
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
@@ -2862,11 +2869,11 @@ b32 dgfx_init(void)
         noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, 0, 0);
     }
 
-    hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", VK_FORMAT_R32G32B32A32_SFLOAT);
-    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, VK_FORMAT_R32G32B32A32_SFLOAT, 6);
-    irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, VK_FORMAT_R32G32B32A32_SFLOAT, 6);
+    hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
+    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6);
+    irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6);
 
-    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", VK_FORMAT_R8G8B8A8_SRGB);
+    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB);
 
     water_bottle = dmodel_load_gltf("MetalRoughSpheres");
     fox = dmodel_load_gltf("untitled");

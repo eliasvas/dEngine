@@ -17,14 +17,22 @@
 #define DG_MAX_DESCRIPTOR_SET_BINDINGS 6 //overall
 #define DG_MAX_CASCADES 4
 
-typedef enum dgReseringSettigs
-{
+typedef enum dgReseringSettigs{
     DG_RENDERING_SETTINGS_NONE = 0x0,
     DG_RENDERING_SETTINGS_CLEAR_COLOR = 0x1,
     DG_RENDERING_SETTINGS_CLEAR_DEPTH = 0x2,
     DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH = 0x4,
     DG_RENDERING_SETTINGS_DEPTH_DISABLE = 0x8,
 }dgRenderingSettings;
+
+typedef enum dgImageFormat{
+    DG_IMAGE_FORMAT_UNDEFINED = 0,      //VK_FORMAT_UNDEFINED = 0
+    DG_IMAGE_FORMAT_R8_UINT = 13,       //VK_FORMAT_R8_UINT = 13
+    DG_IMAGE_FORMAT_RGBA8_UNORM = 37,   //VK_FORMAT_R8G8B8A8_UNORM = 37
+    DG_IMAGE_FORMAT_RGBA8_SRGB = 43,    //VK_FORMAT_R8G8B8A8_SRGB = 43
+    DG_IMAGE_FORMAT_RGBA16_SFLOAT = 97, //VK_FORMAT_R16G16B16A16_SFLOAT = 97
+    DG_IMAGE_FORMAT_RGBA32_SFLOAT = 109,//VK_FORMAT_R32G32B32A32_SFLOAT = 109
+}dgImageFormat;
 typedef struct dgShader 
 {
     VkShaderModule module;
@@ -227,8 +235,8 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count,
                         dgTexture *depth_tex, dgRenderingSettings settings);
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, VkFormat format, u32 layer_count);
-dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, VkFormat format);
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count);
+dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format);
 
 void dg_buf_destroy(dgBuffer *buf);
 VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset);

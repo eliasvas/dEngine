@@ -43,7 +43,7 @@ typedef struct dTextureManager{
 
 void dtexture_manager_init(dTextureManager *tm);
 //TODO: No more VkFormats!! this is not vulkan code!!!!!
-dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, VkFormat f);
+dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, dgImageFormat f);
 void dtexture_manager_del_tex(dTextureManager *tm, char *name);
 
 

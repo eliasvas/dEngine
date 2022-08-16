@@ -156,7 +156,7 @@ void main()
 
     
     vec3 lighting = vec3(0.0);
-    //calc point light's contrib
+    //calc point light's contrib TODO we should have different point lights for
     for (int i = 1; i < 1; ++i) //for each light
     {
         radiance = vec3(3);

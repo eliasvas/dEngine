@@ -42,27 +42,8 @@ dModel dmodel_load_gltf(const char *filename)
 
     //first load all the textures!
     model.textures_count= data->textures_count;
-    /*
-    for (u32 i = 0; i< data->textures_count;++i)
-    {
-        sprintf(filepath, "../assets/%s/%s", filename,data->textures[i].image->uri);
-        VkFormat = (whatattatat) ? VK_FORMAT_R8G8B8A8_SRGB : VK_FORMAT_R8G8B8A8_UNORM;
-        dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB);
-        dlog(NULL, "image FILEPATH: %s\n", filepath);
 
-        //FIX: VERY important for normal mapping, all non opaque/diffuse textures should be linear!
-        if (strstr(data->textures[i].image->uri, "ase") != NULL || strstr(data->textures[i].image->uri, "Cesium") != NULL)
-            model.textures[DMATERIAL_BASE_COLOR_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_SRGB);
-        else if (strstr(data->textures[i].image->uri, "etallic") != NULL)
-            model.textures[DMATERIAL_ORM_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
-        else if (strstr(data->textures[i].image->uri, "ormal") != NULL)
-            model.textures[DMATERIAL_NORMAL_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
-        else if (strstr(data->textures[i].image->uri, "missive") != NULL)
-            model.textures[DMATERIAL_EMISSIVE_INDEX] = dg_create_texture_image(&dd,filepath,VK_FORMAT_R8G8B8A8_UNORM);
-    } 
-    */
-
-    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, VK_FORMAT_R8G8B8A8_SRGB,1);
+    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, DG_IMAGE_FORMAT_RGBA8_SRGB,1);
     u32 meshes_count = data->meshes_count;
     
     cgltf_primitive primitive = data->meshes[0].primitives[0];
@@ -113,11 +94,11 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.m.settings |= DMATERIAL_BASE_COLOR | DMATERIAL_ORM;
                 if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, VK_FORMAT_R8G8B8A8_SRGB));
+                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, DG_IMAGE_FORMAT_RGBA8_SRGB));
                 }
                 if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
+                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
                 }
                 f32 *c = &primitive.material->pbr_metallic_roughness.base_color_factor;
                 prim.m.col = v4(c[0],c[1],c[2],c[3]);
@@ -126,7 +107,7 @@ dModel dmodel_load_gltf(const char *filename)
             {
                 prim.m.settings |= DMATERIAL_NORMAL;
                 sprintf(filepath, "../assets/%s/%s", filename,primitive.material->normal_texture.texture->image->uri);
-                prim.m.textures[DMATERIAL_NORMAL_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,VK_FORMAT_R8G8B8A8_UNORM));
+                prim.m.textures[DMATERIAL_NORMAL_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
             }
 
 
