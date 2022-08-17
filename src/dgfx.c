@@ -33,6 +33,8 @@ dgTexture noise_tex;
 dgTexture hdr_map;
 dgTexture cube_tex;
 dgTexture irradiance_map;
+dgTexture prefilter_map;
+dgTexture brdfLUT;
 dgRT def_rt;
 dgRT csm_rt;
 extern dCamera cam;
@@ -1200,7 +1202,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     {
         //if only one output, it means we write to swapchain, else, we write in some Render Target, 
         //and all RTs are RGBA16 @FIX this when time TODO TODO TODO WHY??!?!?!??
-        if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL|| strstr(vert_name, "blur.vert") != NULL)
+        if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL || strstr(vert_name, "brdf.vert") != NULL|| strstr(vert_name, "blur.vert") != NULL)
             color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
         else if (strstr(vert_name, "cubemap_conv.vert") != NULL || strstr(vert_name, "skybox_gen.vert") != NULL) 
             color_formats[i] = VK_FORMAT_R32G32B32A32_SFLOAT;
@@ -1875,23 +1877,21 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count)
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels)
 {
-    dgTexture tex;
+    dgTexture tex;//={0}??
 	dgBuffer idb;
     u32 format_size;
     VkFormat vk_format = dg_to_vk_format(format);
-    if (vk_format == VK_FORMAT_R8_UINT)
-        format_size = sizeof(u8);
-    else
-        format_size = sizeof(vec4);
+    format_size = (vk_format == VK_FORMAT_R8_UINT) ? sizeof(u8) : sizeof(vec4);
+    tex.mip_levels = mip_levels;
 
     //TODO, make it possible to have 6-layer regular image arrays, not only cubes
     b32 is_cube = (layer_count == 6);
 
 	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
-	dg_create_image(ddev, tex_w, tex_h, vk_format,1, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+	dg_create_image(ddev, tex_w, tex_h, vk_format,tex.mip_levels, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
 		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
 	
 
@@ -1942,7 +1942,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	dg_buf_destroy(&idb);
 	
 
-	tex.mip_levels = 1;
+	
 	tex.width = tex_w;
 	tex.height = tex_h;
     tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
@@ -2039,7 +2039,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
 
     dg_end_single_time_commands(&dd, cmd_buf);
 }
-//TODO make a global VK_FORMAT like structure
+
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format)
 {
 	dgTexture tex;
@@ -2157,7 +2157,7 @@ static void dg_rt_init_csm(dgDevice *ddev, dgRT* rt,u32 cascade_count, u32 width
     rt->depth_active = TRUE;
     rt->cascaded_depth = TRUE;
     rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,cascade_count);
-    rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, DG_IMAGE_FORMAT_RGBA8_SRGB, cascade_count);
+    rt->color_attachments[0] = dg_create_texture_image_wdata(ddev, NULL, width, height, DG_IMAGE_FORMAT_RGBA8_SRGB, cascade_count,1);
 
     rt->cascades_count = cascade_count;
 }
@@ -2170,7 +2170,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
-        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
     }
     if (rt->depth_active)
         //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
@@ -2501,21 +2501,39 @@ void dg_skybox_prepare(dgDevice *ddev)
 
 
     dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    dg_set_viewport(ddev, 0,0,512, 512);
+    dg_set_viewport(ddev, 0,0,512, 512); //TODO: 512 should be #DEFINE'd as skybox size or sth
     dg_set_scissor(ddev, 0,0,512, 512);
     dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
     dgBuffer buffers[] = {base_pos};
     u64 offsets[] = {0};
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
-
     mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
                         capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
     dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, cube_data, sizeof(cube_data), 1);
     dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
+
+    dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_set_viewport(ddev, 0,0,512, 512);
+    dg_set_scissor(ddev, 0,0,512, 512);
+    dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &base_ibo, 0);
+    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, cube_data, sizeof(cube_data), 1);
+    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
+    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
+    dg_rendering_end(ddev);
+
+    ///* Draw the brdfLUT texture
+    dg_rendering_begin(ddev, &brdfLUT, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_set_viewport(ddev, 0,0,brdfLUT.width, brdfLUT.height);
+    dg_set_scissor(ddev, 0,0,brdfLUT.width, brdfLUT.height);
+    dg_bind_pipeline(ddev, &ddev->brdf_lut_pipe);
+    dg_draw(ddev,4,0);
+    dg_rendering_end(ddev);
+    //*/
 
     //TODO we should draw this to a separate cubemap and then apply that with a shader for every render :P
     //Its too expensive done on a per-frame basis
@@ -2530,6 +2548,9 @@ void dg_skybox_prepare(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->skybox_gen_pipe, &cube_tex, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
+
+
+    
 }
     
 
@@ -2813,6 +2834,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.blur_pipe,"blur.vert", "blur.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.cubemap_conv_pipe,"cubemap_conv.vert", "cubemap_conv.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.skybox_pipe,"skybox.vert", "skybox.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.brdf_lut_pipe,"brdf.vert", "brdf.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.skybox_gen_pipe,"skybox_gen.vert", "skybox_gen.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
@@ -2870,10 +2892,11 @@ b32 dgfx_init(void)
     }
 
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
-    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6);
-    irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6);
-
+    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
+    prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
+    irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB);
+    brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
 
     water_bottle = dmodel_load_gltf("MetalRoughSpheres");
     fox = dmodel_load_gltf("untitled");

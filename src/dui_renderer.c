@@ -28,7 +28,7 @@ mu_Rect mr;
 void dui_init(void) {
   dlog(NULL, "dui init\n");
 
-  font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT,1);
+  font_atlas = dg_create_texture_image_wdata(&dd,atlas_texture, ATLAS_WIDTH,ATLAS_HEIGHT, VK_FORMAT_R8_UINT,1,1);
 
   dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
 	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 

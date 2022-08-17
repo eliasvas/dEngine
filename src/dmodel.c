@@ -43,7 +43,7 @@ dModel dmodel_load_gltf(const char *filename)
     //first load all the textures!
     model.textures_count= data->textures_count;
 
-    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, DG_IMAGE_FORMAT_RGBA8_SRGB,1);
+    dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, DG_IMAGE_FORMAT_RGBA8_SRGB,1,1);
     u32 meshes_count = data->meshes_count;
     
     cgltf_primitive primitive = data->meshes[0].primitives[0];

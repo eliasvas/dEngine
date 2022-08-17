@@ -173,6 +173,7 @@ typedef struct dgDevice
     dgPipeline cubemap_conv_pipe;
     dgPipeline skybox_pipe;
     dgPipeline skybox_gen_pipe;
+    dgPipeline brdf_lut_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;
@@ -235,7 +236,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count,
                         dgTexture *depth_tex, dgRenderingSettings settings);
 void dg_rendering_end(dgDevice *ddev);
 void dg_wait_idle(dgDevice *ddev);
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count);
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels);
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format);
 
 void dg_buf_destroy(dgBuffer *buf);
