@@ -548,7 +548,7 @@ static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
     vkDestroySampler(ddev->device, tex->sampler, NULL);
 }
 
-static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer, u32 mip_levels)
+static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAspectFlags aspect_flags, u32 layer_count, u32 base_layer, u32 mip_levels, u32 base_mip)
 {
     VkImageViewType view_type = VK_IMAGE_VIEW_TYPE_2D;
     if (layer_count == 6)
@@ -564,10 +564,10 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAs
 	view_info.viewType = view_type;
 	view_info.format = format;
 	view_info.subresourceRange.aspectMask = aspect_flags;
-	view_info.subresourceRange.baseMipLevel = 0;
-	view_info.subresourceRange.levelCount = mip_levels;
+	view_info.subresourceRange.baseMipLevel = base_mip;
+	view_info.subresourceRange.levelCount = mip_levels - base_mip;
 	view_info.subresourceRange.baseArrayLayer = base_layer;
-	view_info.subresourceRange.layerCount = layer_count;
+	view_info.subresourceRange.layerCount = layer_count - base_layer;
 	VK_CHECK(vkCreateImageView(dd.device, &view_info, NULL, &image_view));
 	return image_view;
 }
@@ -616,7 +616,7 @@ static b32 dg_create_swapchain_image_views(dgDevice *ddev)
 {
     ddev->swap.image_views = (VkImageView*)dalloc(sizeof(VkImageView) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)
-		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_ASPECT_COLOR_BIT,1,0,1);
+		ddev->swap.image_views[i] = dg_create_image_view(ddev->swap.images[i], ddev->swap.image_format,VK_IMAGE_ASPECT_COLOR_BIT,1,0,1,0);
     return DSUCCESS;
 }
 
@@ -1850,7 +1850,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 
 
     depth_attachment.mip_levels = 1;
-    depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_ASPECT_DEPTH_BIT,layer_count,0,depth_attachment.mip_levels);
+    depth_attachment.view = dg_create_image_view(depth_attachment.image, depth_attachment.format,VK_IMAGE_ASPECT_DEPTH_BIT,layer_count,0,depth_attachment.mip_levels,0);
     
     depth_attachment.width = width;
     depth_attachment.height = height;
@@ -1877,84 +1877,9 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 	return depth_attachment;
 }
 
-dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels)
-{
-    dgTexture tex;//={0}??
-	dgBuffer idb;
-    u32 format_size;
-    VkFormat vk_format = dg_to_vk_format(format);
-    format_size = (vk_format == VK_FORMAT_R8_UINT) ? sizeof(u8) : sizeof(vec4);
-    tex.mip_levels = mip_levels;
-
-    //TODO, make it possible to have 6-layer regular image arrays, not only cubes
-    b32 is_cube = (layer_count == 6);
-
-	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
-	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
-	dg_create_image(ddev, tex_w, tex_h, vk_format,tex.mip_levels, layer_count,VK_IMAGE_TILING_LINEAR, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
-		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
-	
-
-    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
-    dg_image_memory_barrier(
-        cmd,
-        tex.image,
-        VK_ACCESS_HOST_WRITE_BIT, 
-        VK_ACCESS_SHADER_READ_BIT,
-        VK_IMAGE_LAYOUT_PREINITIALIZED,
-        VK_IMAGE_LAYOUT_GENERAL,
-        VK_PIPELINE_STAGE_HOST_BIT,
-        VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layer_count }
-    );
 
 
-    //if there is data to be copied, copy it
-    if (data != NULL)
-    {
-        VkBufferImageCopy region = {0};
-        region.bufferOffset = 0;
-        region.bufferRowLength = 0;
-        region.bufferImageHeight = 0;
-
-        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
-        region.imageSubresource.mipLevel = 0;
-        region.imageSubresource.baseArrayLayer = 0;
-        region.imageSubresource.layerCount = 1;
-        region.imageOffset = (VkOffset3D){0, 0, 0};
-        region.imageExtent = (VkExtent3D){
-            tex_w,
-            tex_h,
-            1
-        };
-        vkCmdCopyBufferToImage(
-            cmd,
-            idb.buffer,
-            tex.image,
-            VK_IMAGE_LAYOUT_GENERAL,
-            1,
-            &region
-        );
-    }
-    
-    dg_end_single_time_commands(ddev, cmd);
-
-	dg_buf_destroy(&idb);
-	
-
-	
-	tex.width = tex_w;
-	tex.height = tex_h;
-    tex.image_layout = VK_IMAGE_LAYOUT_GENERAL;
-    tex.layer_count = layer_count;
-    tex.view = dg_create_image_view(tex.image, vk_format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels);
-    dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
-
-	return tex;
-}
-
-
-static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels) {
+static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels,u32 layer_count) {
     VkCommandBuffer cmd_buf = dg_begin_single_time_commands(&dd);//beginSingleTimeCommands();
 
     ///*
@@ -1965,7 +1890,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
     barrier.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     barrier.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     barrier.subresourceRange.baseArrayLayer = 0;
-    barrier.subresourceRange.layerCount = 1;
+    barrier.subresourceRange.layerCount = layer_count;
     barrier.subresourceRange.levelCount = 1;
     //*/
 
@@ -1984,7 +1909,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
             VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1 }
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, layer_count }
         );
 
         //blit from previous level (0->1->2,...)
@@ -2018,7 +1943,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
             VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
             VK_PIPELINE_STAGE_TRANSFER_BIT,
-            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, 1 }
+            (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, i, 1, 0, layer_count }
         );
         
         if (mip_w >1)mip_w/=2;
@@ -2034,10 +1959,101 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
         VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
         VK_PIPELINE_STAGE_TRANSFER_BIT,
         VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT,
-        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, mip_levels, 0, 1 }
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, mip_levels, 0, layer_count }
     );
 
     dg_end_single_time_commands(&dd, cmd_buf);
+}
+
+dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels)
+{
+    dgTexture tex;//={0}??
+	dgBuffer idb;
+    u32 format_size;
+    VkFormat vk_format = dg_to_vk_format(format);
+    format_size = (vk_format == VK_FORMAT_R8_UINT) ? sizeof(u8) : sizeof(vec4);
+    tex.mip_levels = mip_levels;
+    tex.format = vk_format; //TODO: make this format also in-engine
+
+    //TODO, make it possible to have 6-layer regular image arrays, not only cubes
+    b32 is_cube = (layer_count == 6);
+
+	dg_create_buffer(VK_BUFFER_USAGE_TRANSFER_SRC_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), &idb, tex_w * tex_h * format_size, data);
+	dg_create_image(ddev, tex_w, tex_h, vk_format,tex.mip_levels, layer_count,VK_IMAGE_TILING_OPTIMAL, VK_IMAGE_USAGE_TRANSFER_DST_BIT 
+		| VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, &tex.image, &tex.mem);
+	
+
+    VkCommandBuffer cmd = dg_begin_single_time_commands(ddev);
+    dg_image_memory_barrier(
+        cmd,
+        tex.image,
+        0, 
+        VK_ACCESS_TRANSFER_WRITE_BIT,
+        VK_IMAGE_LAYOUT_UNDEFINED,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layer_count }
+    );
+
+
+
+    //if there is data to be copied, copy it
+    if (data != NULL)
+    {
+        VkBufferImageCopy region = {0};
+        region.bufferOffset = 0;
+        region.bufferRowLength = 0;
+        region.bufferImageHeight = 0;
+
+        region.imageSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+        region.imageSubresource.mipLevel = 0;
+        region.imageSubresource.baseArrayLayer = 0;
+        region.imageSubresource.layerCount = 1;
+        region.imageOffset = (VkOffset3D){0, 0, 0};
+        region.imageExtent = (VkExtent3D){
+            tex_w,
+            tex_h,
+            1
+        };
+        vkCmdCopyBufferToImage(
+            cmd,
+            idb.buffer,
+            tex.image,
+            VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+            1,
+            &region
+        );
+    }
+    dg_image_memory_barrier(
+        cmd,
+        tex.image,
+        VK_ACCESS_TRANSFER_WRITE_BIT, 
+        VK_ACCESS_TRANSFER_READ_BIT,
+        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+        VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        VK_PIPELINE_STAGE_TRANSFER_BIT,
+        (VkImageSubresourceRange){ VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, layer_count }
+    );
+    
+    dg_end_single_time_commands(ddev, cmd);
+
+    dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels, layer_count);
+	
+    dg_buf_destroy(&idb);
+	
+
+	
+	tex.width = tex_w;
+	tex.height = tex_h;
+    tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    tex.layer_count = layer_count;
+    tex.view = dg_create_image_view(tex.image, vk_format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels,0);
+    dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
+
+	return tex;
 }
 
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format)
@@ -2136,15 +2152,16 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
     );
 */
     dg_end_single_time_commands(ddev, cmd);
-    dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels);
+    dg_generate_mips(tex.image, tex_w, tex_h, tex.mip_levels, 1);
 
 	dg_buf_destroy(&idb);
 	
 	
-	tex.view = dg_create_image_view(tex.image, dg_to_vk_format(format),VK_IMAGE_ASPECT_COLOR_BIT,1,0, tex.mip_levels);
+	tex.view = dg_create_image_view(tex.image, dg_to_vk_format(format),VK_IMAGE_ASPECT_COLOR_BIT,1,0, tex.mip_levels,0);
 	
 	tex.width = tex_w;
 	tex.height = tex_h;
+    tex.format = dg_to_vk_format(format);
     tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
 	sprintf(tex.name, filename);
@@ -2515,6 +2532,13 @@ void dg_skybox_prepare(dgDevice *ddev)
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
+
+    ///*
+    //DONT FORGET DIFFERENT MIPS HAVE LESS SIZE (W/H), KEEP IN MIND FOR SHADER INVOC
+    //VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, 1);
+    //prefilter_map.view = mip_view;
+    //*/
+
     dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
     dg_set_viewport(ddev, 0,0,512, 512);
     dg_set_scissor(ddev, 0,0,512, 512);
@@ -2525,6 +2549,9 @@ void dg_skybox_prepare(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
+
+    
+    
 
     ///* Draw the brdfLUT texture
     dg_rendering_begin(ddev, &brdfLUT, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
@@ -2715,7 +2742,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
     dg_set_desc_set(ddev,&ddev->skybox_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->skybox_pipe, &cube_tex, 1, 2);
+    dg_set_desc_set(ddev,&ddev->skybox_pipe, &prefilter_map, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
@@ -2895,7 +2922,7 @@ b32 dgfx_init(void)
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
     irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB);
+    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
 
     water_bottle = dmodel_load_gltf("MetalRoughSpheres");
