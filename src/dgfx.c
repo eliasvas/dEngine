@@ -1165,7 +1165,8 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
 
     VkDynamicState dynamic_state_enables[] =
     {   VK_DYNAMIC_STATE_VIEWPORT, 
-        VK_DYNAMIC_STATE_SCISSOR
+        VK_DYNAMIC_STATE_SCISSOR,
+        VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT,
     };
     VkPipelineDynamicStateCreateInfo dynamic_state = { 0 };
     dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
@@ -1204,7 +1205,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
         //and all RTs are RGBA16 @FIX this when time TODO TODO TODO WHY??!?!?!??
         if (output_var_count > 1 || strstr(vert_name, "ssao.vert") != NULL || strstr(vert_name, "brdf.vert") != NULL|| strstr(vert_name, "blur.vert") != NULL)
             color_formats[i] = VK_FORMAT_R16G16B16A16_SFLOAT;
-        else if (strstr(vert_name, "cubemap_conv.vert") != NULL || strstr(vert_name, "skybox_gen.vert") != NULL) 
+        else if (strstr(vert_name, "cubemap_conv.vert") != NULL || strstr(vert_name, "skybox_gen.vert") != NULL|| strstr(vert_name, "prefilter_map.vert") != NULL) 
             color_formats[i] = VK_FORMAT_R32G32B32A32_SFLOAT;
         else 
             color_formats[i] = ddev->swap.image_format;
@@ -1218,7 +1219,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     //TODO: fix view mask generation for each pipeline :P, this is a HUGE hack pls pls pls fix before too late
     if (strstr(vert_name, "sm.vert") != NULL)
         pipe_renderingCI.viewMask = 0b00000111;
-    if (strstr(vert_name, "cubemap_conv.vert") != NULL || strstr(vert_name, "skybox_gen.vert") != NULL)
+    if (strstr(vert_name, "cubemap_conv.vert") != NULL || strstr(vert_name, "skybox_gen.vert") != NULL || strstr(vert_name, "prefilter_map.vert") != NULL)
         pipe_renderingCI.viewMask = 0b00111111;
     pipe_renderingCI.depthAttachmentFormat = ddev->swap.depth_attachment.format;
     pipe_renderingCI.stencilAttachmentFormat = ddev->swap.depth_attachment.format;
@@ -1620,11 +1621,14 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
         rendering_info.viewMask =  view_mask;//DG_MAX_CASCADES-1;
         rendering_info.layerCount = layer_count;
     }
+    if (settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE){
+        rendering_info.pDepthAttachment = VK_NULL_HANDLE;
+    }
     //rendering_info.pStencilAttachment = &depth_attachment;
     rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
 
     vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
-    //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], (settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE > 0));
+    vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame],(settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE) ? VK_FALSE : VK_TRUE);
 }
 
 void dg_rendering_end(dgDevice *ddev)
@@ -2190,7 +2194,6 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
         rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
     }
     if (rt->depth_active)
-        //rt->depth_attachment = dg_create_depth_attachment(ddev, 1024, 1024);
         rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,1);
 }
 static void dg_rt_cleanup(dgDevice *ddev, dgRT* rt)
@@ -2517,9 +2520,9 @@ void dg_skybox_prepare(dgDevice *ddev)
     };
 
 
-    dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-    dg_set_viewport(ddev, 0,0,512, 512); //TODO: 512 should be #DEFINE'd as skybox size or sth
-    dg_set_scissor(ddev, 0,0,512, 512);
+    dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_set_viewport(ddev, 0,0,1024, 1024); //TODO: 512 should be #DEFINE'd as skybox size or sth
+    dg_set_scissor(ddev, 0,0,1024, 1024);
     dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
     dgBuffer buffers[] = {base_pos};
     u64 offsets[] = {0};
@@ -2538,23 +2541,33 @@ void dg_skybox_prepare(dgDevice *ddev)
     //VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, 1);
     //prefilter_map.view = mip_view;
     //*/
-
-    dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-    dg_set_viewport(ddev, 0,0,512, 512);
-    dg_set_scissor(ddev, 0,0,512, 512);
-    dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
-    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
-    dg_bind_index_buffer(ddev, &base_ibo, 0);
-    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
-    dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
-    dg_rendering_end(ddev);
-
+    //TODO i < 4 should be #defined
+    ///*
+    for (u32 i = 0; i < 4; ++i){
+        float roughness = i / 3.0;
+        VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, i);
+        prefilter_map.view = mip_view;
+        dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+        dg_set_viewport(ddev, 0,0,512/(i+1), 512/(i+1));
+        dg_set_scissor(ddev, 0,0,512/(i+1), 512/(i+1));
+        dg_bind_pipeline(ddev, &ddev->prefilter_map_pipe);
+        dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+        dg_bind_index_buffer(ddev, &base_ibo, 0);
+         mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
+                        capture_views[2],capture_views[3],capture_views[4],capture_views[5], {roughness}};
+        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, cube_data, sizeof(cube_data), 1);
+        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, &cube_tex, 1, 2);
+        dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
+        dg_rendering_end(ddev);
+    }
+    VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, 0);
+    prefilter_map.view = mip_view;
+    //*/
     
     
 
     ///* Draw the brdfLUT texture
-    dg_rendering_begin(ddev, &brdfLUT, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_rendering_begin(ddev, &brdfLUT, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     dg_set_viewport(ddev, 0,0,brdfLUT.width, brdfLUT.height);
     dg_set_scissor(ddev, 0,0,brdfLUT.width, brdfLUT.height);
     dg_bind_pipeline(ddev, &ddev->brdf_lut_pipe);
@@ -2565,9 +2578,9 @@ void dg_skybox_prepare(dgDevice *ddev)
     //TODO we should draw this to a separate cubemap and then apply that with a shader for every render :P
     //Its too expensive done on a per-frame basis
     //draw the skybox/irradiance map! TODO this should be done AFTER deferred composition, but I can't infer fragment depth in comp FS
-    dg_rendering_begin(ddev, &irradiance_map, 1,NULL, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rendering_begin(ddev, &irradiance_map, 1,NULL, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev, 0,0,64, 64);
+    dg_set_scissor(ddev, 0,0,64, 64);
     dg_bind_pipeline(ddev, &ddev->skybox_gen_pipe);
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
@@ -2687,7 +2700,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_rendering_end(ddev);
 
     //blur the SSAO
-    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->blur_pipe);
@@ -2697,30 +2710,6 @@ void dg_frame_begin(dgDevice *ddev)
 
 
     
-
-    dg_wait_idle(ddev);
-    {
-        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-
-        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        //FIX:  datafullscreen should be as big as the number of cascades, but im bored
-        mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
-        dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
-        dgTexture textures[5];
-        textures[0] = def_rt.color_attachments[0];
-        textures[1] = def_rt.color_attachments[1];
-        textures[2] = def_rt.color_attachments[2];
-        textures[3] = csm_rt.depth_attachment;
-        textures[4] = irradiance_map;
-        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 5, 2);
-        dg_draw(ddev, 3,0);
-
-        dg_rendering_end(ddev);
-    }
-
     mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
     mat4 capture_views[6] =
     {
@@ -2735,7 +2724,8 @@ void dg_frame_begin(dgDevice *ddev)
     u64 offsets[] = {0};
     mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
                         capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
-    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_NONE);
+    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], VK_FALSE);
     dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->skybox_pipe);
@@ -2745,6 +2735,35 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->skybox_pipe, &prefilter_map, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
+
+
+    dg_wait_idle(ddev);
+    {
+        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], VK_FALSE);
+
+        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+        dg_bind_pipeline(ddev, &ddev->composition_pipe);
+        //FIX:  datafullscreen should be as big as the number of cascades, but im bored
+        mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
+        dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
+        dgTexture textures[7];
+        textures[0] = def_rt.color_attachments[0];
+        textures[1] = def_rt.color_attachments[1];
+        textures[2] = def_rt.color_attachments[2];
+        textures[3] = csm_rt.depth_attachment;
+        textures[4] = irradiance_map;
+        textures[5] = prefilter_map;
+        textures[6] = brdfLUT;
+        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 7, 2);
+        dg_draw(ddev, 3,0);
+
+        dg_rendering_end(ddev);
+    }
+
+    
 
 
     //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
@@ -2860,6 +2879,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.ssao_pipe,"ssao.vert", "ssao.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.blur_pipe,"blur.vert", "blur.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.cubemap_conv_pipe,"cubemap_conv.vert", "cubemap_conv.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.prefilter_map_pipe,"prefilter_map.vert", "prefilter_map.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.skybox_pipe,"skybox.vert", "skybox.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.brdf_lut_pipe,"brdf.vert", "brdf.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.skybox_gen_pipe,"skybox_gen.vert", "skybox_gen.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
@@ -2919,7 +2939,7 @@ b32 dgfx_init(void)
     }
 
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
-    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
+    cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
     irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis

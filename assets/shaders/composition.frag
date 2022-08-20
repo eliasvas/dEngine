@@ -24,6 +24,8 @@ layout(set = 2, binding = 1) uniform sampler2D g_normal;
 layout(set = 2, binding = 2) uniform sampler2D g_albedo_spec;
 layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
 layout(set = 2, binding = 4) uniform samplerCube irradiance_map;
+layout(set = 2, binding = 5) uniform samplerCube prefilter_map;
+layout(set = 2, binding = 6) uniform sampler2D brdf_LUT;
 
 
 const float PI = 3.141592653539;
@@ -104,7 +106,7 @@ void main()
     
     vec3 norm = texture(g_normal, f_tex_coord).xyz;
     vec3 albedo = texture(g_albedo_spec, f_tex_coord).xyz;
-    if (albedo.x + albedo.y + albedo.z < 0.000001)discard;//we discard nan's so we can write the skybox
+    if (albedo.x + albedo.y + albedo.z < 0.0000001)discard;//we discard nan's so we can write the skybox
     //float spec = texture(g_albedo_spec, f_tex_coord).a;
     
     vec4 frag_pos_view_space = GlobalData.view * vec4(frag_pos,1.0);
@@ -157,6 +159,7 @@ void main()
     
     vec3 lighting = vec3(0.0);
     //calc point light's contrib TODO we should have different point lights for
+    /*
     for (int i = 1; i < 1; ++i) //for each light
     {
         radiance = vec3(3);
@@ -184,10 +187,16 @@ void main()
         lighting += (kD * albedo / PI + specular) * radiance * NdotL;
     }
     Lo += lighting;
-
+    */
     vec3 irradiance = texture(irradiance_map, N).rgb;
     vec3 diffuse = irradiance * albedo;
-    vec3 ambient = (kD * diffuse) * ao * 0.2;
+
+    const float MAX_REFLECTION_LOD = 4.0;
+    vec3 prefilter_color = textureLod(prefilter_map, R,  roughness * MAX_REFLECTION_LOD).rgb;   
+    vec2 env_brdf  = texture(brdf_LUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
+    vec3 specular_brdf = prefilter_color *(F * env_brdf.x + env_brdf.y);
+
+    vec3 ambient = (kD * diffuse + specular_brdf) * 0.9;
     vec3 color = ambient + Lo;
 
     //apply tone mapping
