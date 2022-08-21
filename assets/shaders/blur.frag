@@ -18,7 +18,7 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform sampler2D tex;
 
 
-int blur_size = 4;
+int blur_size = 8;
 
 void main() {
 	vec2 texel_size = 1.0 / vec2(textureSize(tex,0));
@@ -26,9 +26,9 @@ void main() {
 	for (int i  =-blur_size/2; i < blur_size/2; ++i){
 		for (int j = -blur_size/2; j < blur_size/2; ++j){
 			vec2 offset = (vec2(float(i), float(j))) * texel_size;
-			res += texture(tex, f_tex_coord + offset).a;
+			res += texture(tex, f_tex_coord + offset).r;
 		}
 	}
-	frag_color = vec4(texture(tex, f_tex_coord).xyz, res / float(blur_size * blur_size));
+	frag_color = vec4(vec3(res / float(blur_size * blur_size)), 1);
 	//debugPrintfEXT("%f %f %f\n", res, res, res);
 }

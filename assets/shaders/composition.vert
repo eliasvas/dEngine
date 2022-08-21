@@ -37,6 +37,7 @@ layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
 layout(set = 2, binding = 4) uniform sampler2DArray irradiance_map;
 layout(set = 2, binding = 5) uniform samplerCube prefilter_map;
 layout(set = 2, binding = 6) uniform sampler2D brdf_LUT;
+layout(set = 2, binding = 7) uniform sampler2D ssao_tex;
 
 void main() {
     f_tex_coord = vec2((gl_VertexIndex << 1) & 2, gl_VertexIndex & 2);

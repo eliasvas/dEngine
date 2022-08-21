@@ -82,6 +82,6 @@ void main() {
 		occlusion += (sample_depth >= sample1.z + 0.00024 ? 1.0 : 0.0);		
 	}
 	
-	frag_color = vec4(texture(g_normal, f_tex_coord).rgb,1.0 - (occlusion / 32.0));
-	//frag_color = texture(random_tex, f_tex_coord);
+	//frag_color = vec4(texture(g_normal, f_tex_coord).rgb,1.0 - (occlusion / 32.0));
+	frag_color = vec4(vec3(1.0 - (occlusion / 32.0)),1);
 }

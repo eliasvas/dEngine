@@ -26,6 +26,7 @@ layout(set = 2, binding = 3) uniform sampler2DArray depth_map;
 layout(set = 2, binding = 4) uniform samplerCube irradiance_map;
 layout(set = 2, binding = 5) uniform samplerCube prefilter_map;
 layout(set = 2, binding = 6) uniform sampler2D brdf_LUT;
+layout(set = 2, binding = 7) uniform sampler2D ssao_tex;
 
 
 const float PI = 3.141592653539;
@@ -136,7 +137,7 @@ void main()
 
     float metallic = texture(g_pos, f_tex_coord).w;
     float roughness = texture(g_albedo_spec, f_tex_coord).w;
-    float ao = texture(g_normal, f_tex_coord).w;
+    float ao = texture(ssao_tex, f_tex_coord).r;
 
     vec3 F0 = vec3(0.04);
     F0 = mix(F0, albedo, metallic);
@@ -196,7 +197,7 @@ void main()
     vec2 env_brdf  = texture(brdf_LUT, vec2(max(dot(N, V), 0.0), roughness)).rg;
     vec3 specular_brdf = prefilter_color *(F * env_brdf.x + env_brdf.y);
 
-    vec3 ambient = (kD * diffuse + specular_brdf) * 0.9;
+    vec3 ambient = (kD * diffuse + specular_brdf) * ao;
     vec3 color = ambient + Lo;
 
     //apply tone mapping

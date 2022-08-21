@@ -30,6 +30,7 @@ dgBuffer base_tex;
 
 dgBuffer base_ibo;
 dgTexture noise_tex;
+dgTexture ssao_tex;
 dgTexture hdr_map;
 dgTexture cube_tex;
 dgTexture irradiance_map;
@@ -576,8 +577,8 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mi
 {
 	VkSamplerCreateInfo sampler_info = {0};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
-	sampler_info.magFilter = VK_FILTER_NEAREST;
-	sampler_info.minFilter = VK_FILTER_NEAREST;
+	sampler_info.magFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
+	sampler_info.minFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
     if (mip_levels <= 1){
         sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
@@ -1610,7 +1611,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.colorAttachmentCount = (tex == NULL) ? 1 : attachment_count;
     rendering_info.pColorAttachments = color_attachments;
     rendering_info.pDepthAttachment = &depth_attachment;
-    
+
     if (settings & DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH){
         u32 layer_count= 0;
         if (tex)
@@ -1624,8 +1625,9 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     if (settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE){
         rendering_info.pDepthAttachment = VK_NULL_HANDLE;
     }
+    
     //rendering_info.pStencilAttachment = &depth_attachment;
-    rendering_info.pStencilAttachment = NULL; //TODO: this should be NULL only if depth+stencil=depth
+    rendering_info.pStencilAttachment = VK_NULL_HANDLE; //TODO: this should be NULL only if depth+stencil=depth
 
     vkCmdBeginRenderingKHR(ddev->command_buffers[ddev->current_frame], &rendering_info);
     vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame],(settings & DG_RENDERING_SETTINGS_DEPTH_DISABLE) ? VK_FALSE : VK_TRUE);
@@ -2521,8 +2523,8 @@ void dg_skybox_prepare(dgDevice *ddev)
 
 
     dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-    dg_set_viewport(ddev, 0,0,1024, 1024); //TODO: 512 should be #DEFINE'd as skybox size or sth
-    dg_set_scissor(ddev, 0,0,1024, 1024);
+    dg_set_viewport(ddev, 0,0,cube_tex.width, cube_tex.height); //TODO: 1024 should be #DEFINE'd as skybox size or sth
+    dg_set_scissor(ddev, 0,0,cube_tex.width, cube_tex.height);
     dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
     dgBuffer buffers[] = {base_pos};
     u64 offsets[] = {0};
@@ -2547,9 +2549,9 @@ void dg_skybox_prepare(dgDevice *ddev)
         float roughness = i / 3.0;
         VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, i);
         prefilter_map.view = mip_view;
-        dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
-        dg_set_viewport(ddev, 0,0,512/(i+1), 512/(i+1));
-        dg_set_scissor(ddev, 0,0,512/(i+1), 512/(i+1));
+        dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+        dg_set_viewport(ddev, 0,0,prefilter_map.width/(i+1.0), prefilter_map.height/(i+1.0));
+        dg_set_scissor(ddev, 0,0,prefilter_map.width/(i+1.0), prefilter_map.height/(i+1.0));
         dg_bind_pipeline(ddev, &ddev->prefilter_map_pipe);
         dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
         dg_bind_index_buffer(ddev, &base_ibo, 0);
@@ -2684,10 +2686,9 @@ void dg_frame_begin(dgDevice *ddev)
         sample = vec3_mulf(sample,lerp(0.1f, 1.0f, scale * scale));
         ssao_kernel[i] = v4(sample.x,sample.y,sample.z,1);
     }
-    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    //dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_CLEAR_DEPTH);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rendering_begin(ddev, &ssao_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev, 0,0,ssao_tex.width, ssao_tex.height);
+    dg_set_scissor(ddev, 0,0,ssao_tex.width, ssao_tex.height);
     dg_bind_pipeline(ddev, &ddev->ssao_pipe);
     dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
     dgTexture textures1[4];
@@ -2700,11 +2701,11 @@ void dg_frame_begin(dgDevice *ddev)
     dg_rendering_end(ddev);
 
     //blur the SSAO
-    dg_rendering_begin(ddev, &def_rt.color_attachments[1], 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rendering_begin(ddev, &ssao_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev, 0,0,ssao_tex.width, ssao_tex.height);
+    dg_set_scissor(ddev, 0,0,ssao_tex.width, ssao_tex.height);
     dg_bind_pipeline(ddev, &ddev->blur_pipe);
-    dg_set_desc_set(ddev,&ddev->blur_pipe, &def_rt.color_attachments[1], 1, 2);
+    dg_set_desc_set(ddev,&ddev->blur_pipe, &ssao_tex, 1, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
@@ -2732,7 +2733,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
     dg_set_desc_set(ddev,&ddev->skybox_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->skybox_pipe, &prefilter_map, 1, 2);
+    dg_set_desc_set(ddev,&ddev->skybox_pipe, &cube_tex, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
@@ -2749,7 +2750,7 @@ void dg_frame_begin(dgDevice *ddev)
         //FIX:  datafullscreen should be as big as the number of cascades, but im bored
         mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
         dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
-        dgTexture textures[7];
+        dgTexture textures[8];
         textures[0] = def_rt.color_attachments[0];
         textures[1] = def_rt.color_attachments[1];
         textures[2] = def_rt.color_attachments[2];
@@ -2757,7 +2758,8 @@ void dg_frame_begin(dgDevice *ddev)
         textures[4] = irradiance_map;
         textures[5] = prefilter_map;
         textures[6] = brdfLUT;
-        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 7, 2);
+        textures[7] = ssao_tex;
+        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 8, 2);
         dg_draw(ddev, 3,0);
 
         dg_rendering_end(ddev);
@@ -2940,7 +2942,8 @@ b32 dgfx_init(void)
 
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 512,512, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
+    ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);
+    prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
     irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
