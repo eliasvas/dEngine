@@ -212,6 +212,7 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
+    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     //TODO: animator SHOULDN't be global, also change it to animation controller
     danimator_animate(&animator);
     animator.model_mat = model;
@@ -236,7 +237,11 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
             memcpy(&object_data[MAX_JOINT_COUNT], &p->m.col, sizeof(vec4));
 
             dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
-            dg_set_desc_set(ddev,&ddev->anim_pipe, &p->m.textures[0], 4, 2);
+            texture_slots[0] = &p->m.textures[0];
+            texture_slots[1] = &p->m.textures[1];
+            texture_slots[2] = &p->m.textures[2];
+            texture_slots[3] = &p->m.textures[3];
+            dg_set_desc_set(ddev,&ddev->anim_pipe, texture_slots, 4, 2);
             u64 offsets[] = {p->tex_offset.x,p->pos_offset.x,p->norm_offset.x,p->joint_offset.x,p->weight_offset.x};
             dg_bind_vertex_buffers(ddev, buffers, offsets, 5);
             if (p->index_offset.y)
@@ -257,7 +262,7 @@ void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 {
     if (!ddev->shadow_pass_active)return;
     
-    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW);
     dg_set_viewport(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->pbr_shadow_pipe);
@@ -288,6 +293,7 @@ void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
+    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
@@ -301,7 +307,11 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
         for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
-            dg_set_desc_set(ddev,&ddev->pbr_def_pipe, &p->m.textures[0], 4, 2);
+            texture_slots[0] = &p->m.textures[0];
+            texture_slots[1] = &p->m.textures[1];
+            texture_slots[2] = &p->m.textures[2];
+            texture_slots[3] = &p->m.textures[3];
+            dg_set_desc_set(ddev,&ddev->pbr_def_pipe, texture_slots, 4, 2);
             u64 offsets[] = {p->tex_offset.x,p->norm_offset.x,p->pos_offset.x,p->tang_offset.x};
             dg_bind_vertex_buffers(ddev, buffers, offsets, 4);
             if (p->index_offset.y)

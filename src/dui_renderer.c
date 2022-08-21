@@ -196,7 +196,8 @@ void dui_present(void) {
   dg_set_desc_set(&dd,&dd.dui_pipe, global_data, sizeof(global_data), 0);
   dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
   //dg_set_desc_set(&dd,&dd.dui_pipe, data, sizeof(data), 1);
-  dg_set_desc_set(&dd,&dd.dui_pipe, &font_atlas, 1, 2);
+  dgTexture *atlas[1] = {&font_atlas};
+  dg_set_desc_set(&dd,&dd.dui_pipe, atlas, 1, 2);
   dg_draw(&dd, 4,buf_idx * 6);
 
 

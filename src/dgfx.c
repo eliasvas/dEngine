@@ -1612,7 +1612,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     rendering_info.pColorAttachments = color_attachments;
     rendering_info.pDepthAttachment = &depth_attachment;
 
-    if (settings & DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH){
+    if (settings & DG_RENDERING_SETTINGS_MULTIVIEW){
         u32 layer_count= 0;
         if (tex)
             layer_count = maximum(tex->layer_count, layer_count);
@@ -2259,15 +2259,16 @@ static void dg_update_desc_set(dgDevice *ddev, VkDescriptorSet set, void *data, 
     vkUpdateDescriptorSets(ddev->device, 1, &set_write, 0, NULL);
 }
 
-static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgTexture *textures, u32 view_count)
+static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgTexture **textures, u32 view_count)
 {
+    assert(textures);
     VkDescriptorImageInfo image_infos[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     for (u32 i = 0; i < view_count; ++i)
     {
         memset(&image_infos[i], 0, sizeof(VkDescriptorImageInfo));
-        image_infos[i].imageView = textures[i].view;
-        image_infos[i].sampler = textures[i].sampler;
-        image_infos[i].imageLayout = textures[i].image_layout;
+        image_infos[i].imageView = textures[i]->view;
+        image_infos[i].sampler = textures[i]->sampler;
+        image_infos[i].imageLayout = textures[i]->image_layout;
     }
 
     VkWriteDescriptorSet set_write = {0};
@@ -2319,9 +2320,9 @@ void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 
     dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_set, layout);
     if(set_num == 2) //because set number 2 is for images
     {
-        dgTexture *tex_data = (dgTexture*)data;
+        dgTexture **tex_data = data;
         u32 tex_count = size;
-        dg_update_desc_set_image(ddev, desc_set, tex_data, size);
+        dg_update_desc_set_image(ddev, desc_set, tex_data, tex_count);
     }
     else
     {
@@ -2356,7 +2357,6 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count)
 
 void draw_cube_def(dgDevice *ddev, mat4 model,vec4 col0, vec4 col1)
 {
-
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
@@ -2391,7 +2391,7 @@ void draw_cube_def_shadow(dgDevice *ddev, mat4 model, mat4 *lsms, u32 cascade_in
 {
     if (!ddev->shadow_pass_active)return;
     
-    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW);
     dg_set_viewport(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->shadow_pipe);
@@ -2510,6 +2510,7 @@ void draw_cube(dgDevice *ddev, mat4 model)
 
 void dg_skybox_prepare(dgDevice *ddev)
 {
+    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
     mat4 capture_views[6] =
     {
@@ -2522,7 +2523,7 @@ void dg_skybox_prepare(dgDevice *ddev)
     };
 
 
-    dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+    dg_rendering_begin(ddev, &cube_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW);
     dg_set_viewport(ddev, 0,0,cube_tex.width, cube_tex.height); //TODO: 1024 should be #DEFINE'd as skybox size or sth
     dg_set_scissor(ddev, 0,0,cube_tex.width, cube_tex.height);
     dg_bind_pipeline(ddev, &ddev->cubemap_conv_pipe);
@@ -2533,11 +2534,11 @@ void dg_skybox_prepare(dgDevice *ddev)
     mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
                         capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
     dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, &hdr_map, 1, 2);
+    texture_slots[0] = &hdr_map;
+    dg_set_desc_set(ddev,&ddev->cubemap_conv_pipe, texture_slots, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
-
-
+    
     ///*
     //DONT FORGET DIFFERENT MIPS HAVE LESS SIZE (W/H), KEEP IN MIND FOR SHADER INVOC
     //VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, 1);
@@ -2545,20 +2546,23 @@ void dg_skybox_prepare(dgDevice *ddev)
     //*/
     //TODO i < 4 should be #defined
     ///*
+    
     for (u32 i = 0; i < 4; ++i){
         float roughness = i / 3.0;
         VkImageView mip_view = dg_create_image_view(prefilter_map.image, prefilter_map.format,VK_IMAGE_ASPECT_COLOR_BIT, prefilter_map.layer_count, 0, prefilter_map.mip_levels, i);
         prefilter_map.view = mip_view;
-        dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH);
+        mat4 cube_data_mip[]= {capture_proj, capture_views[0],capture_views[1],
+                        capture_views[2],capture_views[3],capture_views[4],capture_views[5], {roughness}};
+        dg_rendering_begin(ddev, &prefilter_map, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE | DG_RENDERING_SETTINGS_MULTIVIEW);
         dg_set_viewport(ddev, 0,0,prefilter_map.width/(i+1.0), prefilter_map.height/(i+1.0));
         dg_set_scissor(ddev, 0,0,prefilter_map.width/(i+1.0), prefilter_map.height/(i+1.0));
         dg_bind_pipeline(ddev, &ddev->prefilter_map_pipe);
         dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
         dg_bind_index_buffer(ddev, &base_ibo, 0);
-         mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
-                        capture_views[2],capture_views[3],capture_views[4],capture_views[5], {roughness}};
-        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, cube_data, sizeof(cube_data), 1);
-        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, &cube_tex, 1, 2);
+         
+        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, cube_data_mip, sizeof(cube_data_mip), 1);
+        texture_slots[0] = &cube_tex;
+        dg_set_desc_set(ddev,&ddev->prefilter_map_pipe, texture_slots, 1, 2);
         dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
         dg_rendering_end(ddev);
     }
@@ -2580,18 +2584,20 @@ void dg_skybox_prepare(dgDevice *ddev)
     //TODO we should draw this to a separate cubemap and then apply that with a shader for every render :P
     //Its too expensive done on a per-frame basis
     //draw the skybox/irradiance map! TODO this should be done AFTER deferred composition, but I can't infer fragment depth in comp FS
-    dg_rendering_begin(ddev, &irradiance_map, 1,NULL, DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_rendering_begin(ddev, &irradiance_map, 1,NULL, DG_RENDERING_SETTINGS_MULTIVIEW | DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     dg_set_viewport(ddev, 0,0,64, 64);
     dg_set_scissor(ddev, 0,0,64, 64);
     dg_bind_pipeline(ddev, &ddev->skybox_gen_pipe);
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
     dg_set_desc_set(ddev,&ddev->skybox_gen_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->skybox_gen_pipe, &cube_tex, 1, 2);
+    texture_slots[0] =&cube_tex;
+    dg_set_desc_set(ddev,&ddev->skybox_gen_pipe, texture_slots, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
-
+    //printf("ddone at: %f seconds\n", (f32)dtime_sec(dtime_now()));
+    return;
     
 }
     
@@ -2600,7 +2606,7 @@ void dg_frame_begin(dgDevice *ddev)
 {
     vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
     vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
-
+    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
 
 
     VkResult res = vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
@@ -2623,7 +2629,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_rendering_begin(ddev, def_rt.color_attachments, 4, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear the CSM shadowmap
-    dg_rendering_begin(ddev, csm_rt.color_attachments, 1, &csm_rt.depth_attachment,DG_RENDERING_SETTINGS_MULTIVIEW_DEPTH | DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
+    dg_rendering_begin(ddev, csm_rt.color_attachments, 1, &csm_rt.depth_attachment,DG_RENDERING_SETTINGS_MULTIVIEW | DG_RENDERING_SETTINGS_CLEAR_COLOR|DG_RENDERING_SETTINGS_CLEAR_DEPTH);
     dg_rendering_end(ddev);
     //clear swapchain?
     dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_CLEAR_COLOR | DG_RENDERING_SETTINGS_CLEAR_DEPTH);
@@ -2647,8 +2653,8 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(4,0,0)), v4(1,0,0,1), v4(0,1,1,1));
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(0.01,0.01,0.01)))));
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(1,1,1)))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
 
 
 
@@ -2667,7 +2673,8 @@ void dg_frame_begin(dgDevice *ddev)
     draw_cube_def_shadow(ddev, mat4_translate(v3(8,0,0)), lsm,0);
     draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
     //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
-    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))),lsm);
+    //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))),lsm);
+    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))), lsm);
 
 
 
@@ -2691,12 +2698,11 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_scissor(ddev, 0,0,ssao_tex.width, ssao_tex.height);
     dg_bind_pipeline(ddev, &ddev->ssao_pipe);
     dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
-    dgTexture textures1[4];
-    textures1[0] = def_rt.color_attachments[0];
-    textures1[1] = def_rt.color_attachments[1];
-    textures1[2] = noise_tex;
-    textures1[3] = def_rt.depth_attachment;
-    dg_set_desc_set(ddev,&ddev->ssao_pipe, textures1, 4, 2);
+    texture_slots[0] = &def_rt.color_attachments[0];
+    texture_slots[1] = &def_rt.color_attachments[1];
+    texture_slots[2] = &noise_tex;
+    texture_slots[3] = &def_rt.depth_attachment;
+    dg_set_desc_set(ddev,&ddev->ssao_pipe, texture_slots, 4, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
@@ -2705,7 +2711,8 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_viewport(ddev, 0,0,ssao_tex.width, ssao_tex.height);
     dg_set_scissor(ddev, 0,0,ssao_tex.width, ssao_tex.height);
     dg_bind_pipeline(ddev, &ddev->blur_pipe);
-    dg_set_desc_set(ddev,&ddev->blur_pipe, &ssao_tex, 1, 2);
+    texture_slots[0] =  &ssao_tex;
+    dg_set_desc_set(ddev,&ddev->blur_pipe, texture_slots, 1, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
@@ -2733,10 +2740,12 @@ void dg_frame_begin(dgDevice *ddev)
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
     dg_set_desc_set(ddev,&ddev->skybox_pipe, cube_data, sizeof(cube_data), 1);
-    dg_set_desc_set(ddev,&ddev->skybox_pipe, &cube_tex, 1, 2);
+    texture_slots[0] = &cube_tex;
+    dg_set_desc_set(ddev,&ddev->skybox_pipe, texture_slots, 1, 2);
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
+    //TODO stop drawing in the swapchain and have a dedicated buffer for 3d rendering, then draw to the swapchain everything..
 
     dg_wait_idle(ddev);
     {
@@ -2750,16 +2759,15 @@ void dg_frame_begin(dgDevice *ddev)
         //FIX:  datafullscreen should be as big as the number of cascades, but im bored
         mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
         dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
-        dgTexture textures[8];
-        textures[0] = def_rt.color_attachments[0];
-        textures[1] = def_rt.color_attachments[1];
-        textures[2] = def_rt.color_attachments[2];
-        textures[3] = csm_rt.depth_attachment;
-        textures[4] = irradiance_map;
-        textures[5] = prefilter_map;
-        textures[6] = brdfLUT;
-        textures[7] = ssao_tex;
-        dg_set_desc_set(ddev,&ddev->composition_pipe, textures, 8, 2);
+        texture_slots[0] = &def_rt.color_attachments[0];
+        texture_slots[1] = &def_rt.color_attachments[1];
+        texture_slots[2] = &def_rt.color_attachments[2];
+        texture_slots[3] = &csm_rt.depth_attachment;
+        texture_slots[4] = &irradiance_map;
+        texture_slots[5] = &prefilter_map;
+        texture_slots[6] = &brdfLUT;
+        texture_slots[7] = &ssao_tex;
+        dg_set_desc_set(ddev,&ddev->composition_pipe, texture_slots, 8, 2);
         dg_draw(ddev, 3,0);
 
         dg_rendering_end(ddev);
@@ -2948,7 +2956,7 @@ b32 dgfx_init(void)
     noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
 
-    water_bottle = dmodel_load_gltf("MetalRoughSpheres");
+    water_bottle = dmodel_load_gltf("DamagedHelmet");
     fox = dmodel_load_gltf("untitled");
 	return 1;
 }
