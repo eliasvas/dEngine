@@ -573,19 +573,16 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAs
 	return image_view;
 }
 
-static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mip_levels)
+static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mip_levels, u32 clamp)
 {
 	VkSamplerCreateInfo sampler_info = {0};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
 	sampler_info.minFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
-    if (mip_levels <= 1){
+    if (mip_levels <= 1 && clamp){
         sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
         sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_BORDER;
-        //sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        //sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
-        //sampler_info.addressModeW = VK_SAMPLER_ADDRESS_MODE_REPEAT;
     }else{
         sampler_info.addressModeU = VK_SAMPLER_ADDRESS_MODE_REPEAT;
         sampler_info.addressModeV = VK_SAMPLER_ADDRESS_MODE_REPEAT;
@@ -1878,7 +1875,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
     );
     dg_end_single_time_commands(ddev, cmd);
 
-    dg_create_texture_sampler(ddev, &depth_attachment.sampler,depth_attachment.mip_levels);
+    dg_create_texture_sampler(ddev, &depth_attachment.sampler,depth_attachment.mip_levels,1);
     
 	return depth_attachment;
 }
@@ -1977,7 +1974,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
 	dgBuffer idb;
     u32 format_size;
     VkFormat vk_format = dg_to_vk_format(format);
-    format_size = (vk_format == VK_FORMAT_R8_UINT) ? sizeof(u8) : sizeof(vec4);
+    format_size = (vk_format == VK_FORMAT_R8_UINT) ? sizeof(u8) : sizeof(u8)*4;
     tex.mip_levels = mip_levels;
     tex.format = vk_format; //TODO: make this format also in-engine
 
@@ -2057,7 +2054,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
     tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
     tex.layer_count = layer_count;
     tex.view = dg_create_image_view(tex.image, vk_format, VK_IMAGE_ASPECT_COLOR_BIT,layer_count,0, tex.mip_levels,0);
-    dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
+    dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels,0);
 
 	return tex;
 }
@@ -2169,7 +2166,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
 	tex.height = tex_h;
     tex.format = dg_to_vk_format(format);
     tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels);
+	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels,0);
 	sprintf(tex.name, filename);
 	return tex;
 }
@@ -2706,6 +2703,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
+///*
     //blur the SSAO
     dg_rendering_begin(ddev, &ssao_tex, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     dg_set_viewport(ddev, 0,0,ssao_tex.width, ssao_tex.height);
@@ -2715,9 +2713,9 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->blur_pipe, texture_slots, 1, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
+//*/
 
-
-    
+    dg_wait_idle(ddev);
     mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
     mat4 capture_views[6] =
     {
@@ -2945,15 +2943,16 @@ b32 dgfx_init(void)
 
     vec4 noise_data[32];
     for (u32 i = 0; i < 32; ++i){
-        noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, 0, 0);
+        noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1);
     }
 
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);
+    ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA8_UNORM, 1,1);
     prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
     irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
+    noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA8_SRGB, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
+    //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
 
     water_bottle = dmodel_load_gltf("DamagedHelmet");

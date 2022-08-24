@@ -21,7 +21,7 @@ layout(set = 2, binding = 2) uniform sampler2D random_tex;
 layout(set = 2, binding = 3) uniform sampler2D depth_map;
 
 
-vec2 noise_scale = vec2(800.0/4.0,600.0/4.0);
+vec2 noise_scale = vec2(800.0/16.0,600.0/16.0);
 float radius = 0.3;
 float bias = 0.025;
 
@@ -56,17 +56,19 @@ float lin_depth(float d) {
 void main() {
 	vec3 frag_pos   = texture(g_pos, f_tex_coord).xyz;
 	vec3 normal     = normalize(texture(g_normal, f_tex_coord).rgb);
-	vec3 random_vec = normalize(texture(random_tex, f_tex_coord ).xyz);
-	normal = normal * 2.0 - 1.0;
-	
+	vec3 random_vec = normalize(texture(random_tex, f_tex_coord * noise_scale ).xyz);
+	random_vec.xy = random_vec.xy *2.0 - 1.0;
+	//normal = normal * 2.0 - 1.0;
+	normal =  vec3(GlobalData.view * vec4(normal,1.0));
+	normal = normalize(normal);
 
 	vec3 tangent = cross(normal, normalize(random_vec - normal * dot(random_vec, normal)));
 	vec3 bitangent = cross(tangent, normal);
 	mat3 TBN = mat3(tangent, bitangent, normal);
 	//debugPrintfEXT("%f %f %f\n", frag_pos.x, frag_pos.y, frag_pos.z);
 	float occlusion = 0.0;
-	for (int i = 0; i < 32; ++i){
-		vec3 sample1 = TBN * ObjectData.kernels[i].xyz;//sample_sphere[i];
+	for (int i = 0; i < 16; ++i){
+		vec3 sample1 = TBN * sample_sphere[i];
 		sample1 = vec4(GlobalData.view * vec4(frag_pos,1)).xyz + sample1 * radius;
 		
 		//then get sample pos in screen space
@@ -79,9 +81,10 @@ void main() {
 		
 		float sample_depth = -texture(g_normal, offset.xy).w;
 		//if (i == 0)debugPrintfEXT("%.2f ", sample_depth- sample1.z);
-		occlusion += (sample_depth >= sample1.z + 0.00024 ? 1.0 : 0.0);		
+		occlusion += (sample_depth >= sample1.z - 0.00024 ? 1.0 : 0.0);		
 	}
-	
 	//frag_color = vec4(texture(g_normal, f_tex_coord).rgb,1.0 - (occlusion / 32.0));
-	frag_color = vec4(vec3(1.0 - (occlusion / 32.0)),1);
+	frag_color = vec4(vec3(1.0 - (occlusion / 16.0)),1);
+
+	//frag_color = vec4(texture(random_tex, f_tex_coord).xyz,1);
 }

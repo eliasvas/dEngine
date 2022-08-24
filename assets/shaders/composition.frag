@@ -210,7 +210,7 @@ void main()
     */
     
     frag_color = vec4(color, 1.0);
-
+    //frag_color = texture(ssao_tex, f_tex_coord).xyzw;
     //debugPrintfEXT("%f %f %f\n", frag_color.x, frag_color.y, frag_color.z);
     //frag_color[layer] += 0.05;
 }  

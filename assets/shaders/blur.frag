@@ -18,7 +18,7 @@ layout(set = 1, binding = 0) uniform  ObjectBuffer{
 layout(set = 2, binding = 0) uniform sampler2D tex;
 
 
-int blur_size = 8;
+int blur_size = 4;
 
 void main() {
 	vec2 texel_size = 1.0 / vec2(textureSize(tex,0));
