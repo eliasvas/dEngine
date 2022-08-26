@@ -21,7 +21,7 @@ layout(set = 2, binding = 2) uniform sampler2D random_tex;
 layout(set = 2, binding = 3) uniform sampler2D depth_map;
 
 
-vec2 noise_scale = vec2(800.0/16.0,600.0/16.0);
+vec2 noise_scale = vec2(800.0/4.0,600.0/4.0);
 float radius = 0.3;
 float bias = 0.025;
 

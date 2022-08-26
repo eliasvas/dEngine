@@ -100,8 +100,8 @@ typedef enum dKey
     DK_F12,
 
     DK_LMB,
-    DK_MMB,
     DK_RMB,
+    DK_MMB,
 
     DK_MAX
 }dKey;
@@ -111,8 +111,8 @@ b32 dkey_pressed(dKey k);
 b32 dkey_released(dKey k);
 b32 dkey_up(dKey k);
 b32 dkey_down(dKey k);
-ivec2 dinput_get_mouse_pos(void);
-ivec2 dinput_get_mouse_delta(void);
+vec2 dinput_get_mouse_pos(void);
+vec2 dinput_get_mouse_delta(void);
 
 //inits all state needed to capture input
 void dinput_init(void);

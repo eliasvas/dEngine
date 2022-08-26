@@ -2,7 +2,6 @@
 #define VK_USE_PLATFORM_XLIB_KHR
 //#define VOLK_IMPLEMENTATION we don't define this because volk.c is compiled as object file
 #include "volk/volk.h"
-#include "SDL_vulkan.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #include "dtime.h"
@@ -150,8 +149,14 @@ b32 dg_create_instance(dgDevice *ddev) {
         VK_KHR_GET_PHYSICAL_DEVICE_PROPERTIES_2_EXTENSION_NAME,
 	};
     
-	create_info.enabledExtensionCount = array_count(base_extensions); create_info.ppEnabledExtensionNames = (const char**)base_extensions;
-	create_info.enabledLayerCount = 0;
+	
+    u32 count;
+    glfwGetRequiredInstanceExtensions(&count);
+    //create_info.enabledExtensionCount = array_count(base_extensions); 
+    //create_info.ppEnabledExtensionNames = (const char**)base_extensions;
+    create_info.ppEnabledExtensionNames = glfwGetRequiredInstanceExtensions(&count);
+	create_info.enabledExtensionCount = count;
+    create_info.enabledLayerCount = 0;
 
 
     VkValidationFeatureEnableEXT enabled[] = { VK_VALIDATION_FEATURE_ENABLE_DEBUG_PRINTF_EXT };
@@ -177,7 +182,7 @@ b32 dg_create_instance(dgDevice *ddev) {
 	VK_CHECK(vkCreateInstance(&create_info, NULL, &instance));
     volkLoadInstance(instance);
 
-	//(OPTIONAL): extension support
+	//(OPTIONAL): extension support TODO memleak fix
 	u32 ext_count = 0;
 	vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
 	VkExtensionProperties *extensions = (VkExtensionProperties*)dalloc(sizeof(VkExtensionProperties) * ext_count);
@@ -341,7 +346,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
     vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because llvmpipe is 0 and we don't want that! no vulkan 1.3!!
 #ifdef BUILD_UNIX
-    for (u32 i = 1; i < device_count; ++i)
+    for (u32 i = 0; i < device_count; ++i)
 #else
     for (u32 i = 0; i < device_count; ++i)
 #endif
@@ -351,6 +356,7 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 
 				VkPhysicalDeviceProperties p;
 				vkGetPhysicalDeviceProperties(ddev->physical_device, &p);
+                if (strstr(p.deviceName,"pipe")!=NULL)continue;
 				dlog(NULL, "VULKAN: physical device picked: %s\n", p.deviceName);
 				break;
 			}
@@ -362,9 +368,9 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 static b32 dg_surface_create(dgDevice *ddev,dWindow *window)
 {
 	//VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR
-    //printf("1%s\n", SDL_GetError());
-	VkResult res = SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
-    //printf("2%s\n", SDL_GetError());
+	//VkResult res = SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
+    VkResult res = glfwCreateWindowSurface(ddev->instance, window->gwindow, NULL, &ddev->surface);
+    assert(ddev->surface);
 	return TRUE;
 }
 
@@ -2697,7 +2703,7 @@ void dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->ssao_pipe, &ssao_kernel, sizeof(vec4) * 32, 1);
     texture_slots[0] = &def_rt.color_attachments[0];
     texture_slots[1] = &def_rt.color_attachments[1];
-    texture_slots[2] = &noise_tex;
+    texture_slots[2] = &def_rt.depth_attachment;
     texture_slots[3] = &def_rt.depth_attachment;
     dg_set_desc_set(ddev,&ddev->ssao_pipe, texture_slots, 4, 2);
     dg_draw(ddev, 3,0);
@@ -2948,10 +2954,10 @@ b32 dgfx_init(void)
 
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA8_UNORM, 1,1);
+    ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);
     prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
     irradiance_map = dg_create_texture_image_wdata(&dd, NULL, 64,64, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
-    noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA8_SRGB, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
+    //noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
 

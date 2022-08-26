@@ -1,13 +1,17 @@
 #ifndef __DWINDOW__
 #define __DWINDOW__
 #include "tools.h"
-#define SDL_MAIN_HANDLED 1
-#include <SDL.h>
+
+//#define GLFW_INCLUDE_VULKAN
+#include "volk/volk.h"
+//#define GLFW_VULKAN_STATIC
+#include "../ext/glfw/include/GLFW/glfw3.h"
+
 
 typedef struct dWindow
 {
-    SDL_Window *window;
-    SDL_Surface *screen_surface;
+    GLFWwindow *gwindow;
+
 
     u32 width, height;
     b32 hidden;

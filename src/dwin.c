@@ -20,7 +20,11 @@ const u32 indices[] = {
 
 b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
 {
+    glfwInit();
+    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
+    dw->gwindow = glfwCreateWindow(w, h, "Window Title", NULL, NULL);
     //if (opt & DWINDOW_OPT_VULKAN)printf("Vulkan Baby!!\n");
+    /*
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
     {
         dlog(NULL, "SDL could not initialize: %s!!\n", SDL_GetError());
@@ -45,6 +49,7 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
             //SDL_Delay(20);
         }
     }
+    */
     //sprintf(dw->title, t);
     dw->width = w;
     dw->height = h;

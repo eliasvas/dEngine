@@ -1,0 +1,44 @@
+make --dry-run --always-make --keep-going --print-directory
+make: Entering directory '/home/inv/Desktop/engine'
+ 
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dentity.c  -o build/./src/dentity.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dinput.c  -o build/./src/dinput.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dgfx.c  -o build/./src/dgfx.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dmem.c  -o build/./src/dmem.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dthread.c  -o build/./src/dthread.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/danim.c  -o build/./src/danim.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dwin.c  -o build/./src/dwin.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dprofiler.c  -o build/./src/dprofiler.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dcore.c  -o build/./src/dcore.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dui_renderer.c  -o build/./src/dui_renderer.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dcamera.c  -o build/./src/dcamera.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dmaterial.c  -o build/./src/dmaterial.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/main.c  -o build/./src/main.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dconfig.c  -o build/./src/dconfig.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dlog.c  -o build/./src/dlog.c.o
+mkdir -p build/./src/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c src/dmodel.c  -o build/./src/dmodel.c.o
+mkdir -p build/./ext/volk/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c ext/volk/volk.c  -o build/./ext/volk/volk.c.o
+mkdir -p build/./ext/microui/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c ext/microui/microui.c  -o build/./ext/microui/microui.c.o
+mkdir -p build/./ext/spirv_reflect/
+cc -g -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP  -w -c ext/spirv_reflect/spirv_reflect.c  -o build/./ext/spirv_reflect/spirv_reflect.c.o
+cc ./build/./src/dentity.c.o ./build/./src/dinput.c.o ./build/./src/dgfx.c.o ./build/./src/dmem.c.o ./build/./src/dthread.c.o ./build/./src/danim.c.o ./build/./src/dwin.c.o ./build/./src/dprofiler.c.o ./build/./src/dcore.c.o ./build/./src/dui_renderer.c.o ./build/./src/dcamera.c.o ./build/./src/dmaterial.c.o ./build/./src/main.c.o ./build/./src/dconfig.c.o ./build/./src/dlog.c.o ./build/./src/dmodel.c.o ./build/./ext/volk/volk.c.o ./build/./ext/microui/microui.c.o ./build/./ext/spirv_reflect/spirv_reflect.c.o -fstack-protector  -w -L./ext/vulkan/lib/x64  -L./ext/glfw/build/src  -lglfw3 -L/usr/X11R6/lib  -lX11 -Wl,-Bstatic -lshaderc_combined  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o build/engine 
+make: Leaving directory '/home/inv/Desktop/engine'
+ 

@@ -88,12 +88,12 @@ void dcore_init(void)
     assert(dthreads_ok());
 
     
-    //Initialize input system
-    dinput_init();
-
     //Initialize the Graphics Driver
     dtexture_manager_init(NULL);
     dgfx_init();
+
+    //Initialize input system
+    dinput_init();
 
     //Basic static hashmap testing
     assert(H32_static_ok());

@@ -1,6 +1,7 @@
 build/*
 assets/Sponza
 assets/MetalRoughSpheres
+ext/glfw/build
 tcc/*
 *.pdb
 *.exp

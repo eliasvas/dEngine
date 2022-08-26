@@ -11,7 +11,12 @@
         "dlog.h": "c",
         "dentity.h": "c",
         "env.h": "c",
-        "visibility.h": "c"
+        "visibility.h": "c",
+        "stb_ds.h": "c",
+        "spirv_reflect.h": "c",
+        "glfw3.h": "c",
+        "sdl_vulkan.h": "c",
+        "dtime.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
