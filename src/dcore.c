@@ -1,22 +1,19 @@
 #define DTIME_IMPLEMENTATION
 #include "dcore.h"
-#include "dui_renderer.h"
 #define STBDS_UNIT_TESTS
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
 extern dgDevice dd;
 
-mu_Context ctx;
 dWindow main_window;
 dTransformCM transform_manager;
 dCamera cam;
-
+ 
 extern dConfig engine_config;
 
 dEntity parent;
 dEntity child;
 dEntity child2;
-
 
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
@@ -92,17 +89,22 @@ void dcore_init(void)
     dtexture_manager_init(NULL);
     dgfx_init();
 
+    
+
     //Initialize input system
     dinput_init();
 
     //Basic static hashmap testing
     assert(H32_static_ok());
 
+    
+    /*
     //Initialize microui
     mu_init(&ctx);
     ctx.text_width = dui_text_width;
     ctx.text_height = dui_text_height;
     dui_init();
+    */
 
     //Initialize the main camera
     dcamera_init(&cam);
@@ -144,15 +146,17 @@ void dcore_init(void)
     }
     */
 
-
-
+    //Initialize editor
+    deditor_init(NULL);
 
 }
 
 void dcore_update(f64 dt)
 {
     DPROFILER_START("UPDATE");
+    deditor_update(NULL, dt);
     dcamera_update(&cam,dt);
+    deditor_draw(NULL);
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
     

@@ -8,7 +8,7 @@ make: *** No rule to make target 'all'.  Stop.
 # This is free software: you are free to change and redistribute it.
 # There is NO WARRANTY, to the extent permitted by law.
 
-# Make data base, printed on Fri Aug 26 14:30:41 2022
+# Make data base, printed on Sat Aug 27 12:06:54 2022
 
 # Variables
 
@@ -40,8 +40,8 @@ QT_ACCESSIBILITY = 1
 @D = $(patsubst %/,%,$(dir $@))
 # environment
 VSCODE_HANDLES_UNCAUGHT_ERRORS = true
-# makefile (from 'Makefile', line 23)
-INC_FLAGS := -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect
+# makefile (from 'Makefile', line 22)
+INC_FLAGS := -I./src -Iext/volk -Iext/spirv_reflect/
 # default
 .VARIABLES := 
 # environment
@@ -71,11 +71,11 @@ MAKEFLAGS = pqrR
 # makefile
 CURDIR := /home/inv/Desktop/engine
 # environment
-APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = 1
+APPLICATION_INSIGHTS_NO_DIAGNOSTIC_CHANNEL = true
 # environment
 LESSOPEN = | /usr/bin/lesspipe %s
-# makefile (from 'Makefile', line 10)
-SRCS := ./src/dentity.c ./src/dinput.c ./src/dgfx.c ./src/dmem.c ./src/dthread.c ./src/danim.c ./src/dwin.c ./src/dprofiler.c ./src/dcore.c ./src/dui_renderer.c ./src/dcamera.c ./src/dmaterial.c ./src/main.c ./src/dconfig.c ./src/dlog.c ./src/dmodel.c ./ext/volk/volk.c ./ext/microui/microui.c ./ext/spirv_reflect/spirv_reflect.c
+# makefile (from 'Makefile', line 9)
+SRCS := ./src/dentity.c ./src/dinput.c ./src/dgfx.c ./src/dmem.c ./src/dthread.c ./src/danim.c ./src/dwin.c ./src/dprofiler.c ./src/dcore.c ./src/dcamera.c ./src/dmaterial.c ./src/main.c ./src/dconfig.c ./src/dlog.c ./src/dmodel.c ext/volk/volk.c ext/spirv_reflect/spirv_reflect.c ext/imgui/imgui.cpp ext/imgui/imgui_demo.cpp ext/imgui/imgui_draw.cpp ext/imgui/imgui_widgets.cpp ext/imgui/imgui_tables.cpp ext/imgui/backends/imgui_impl_vulkan.cpp ext/imgui/backends/imgui_impl_glfw.cpp
 # automatic
 *D = $(patsubst %/,%,$(dir $*))
 # environment
@@ -90,18 +90,18 @@ XDG_CONFIG_DIRS = /etc/xdg/xdg-cinnamon:/etc/xdg
 +D = $(patsubst %/,%,$(dir $+))
 # environment
 XDG_SESSION_DESKTOP = cinnamon
-# makefile (from 'build/./ext/spirv_reflect/spirv_reflect.c.d', line 1)
-MAKEFILE_LIST := Makefile build/./src/dentity.c.d build/./src/dinput.c.d build/./src/dgfx.c.d build/./src/dmem.c.d build/./src/dthread.c.d build/./src/danim.c.d build/./src/dwin.c.d build/./src/dprofiler.c.d build/./src/dcore.c.d build/./src/dui_renderer.c.d build/./src/dcamera.c.d build/./src/dmaterial.c.d build/./src/main.c.d build/./src/dconfig.c.d build/./src/dlog.c.d build/./src/dmodel.c.d build/./ext/volk/volk.c.d build/./ext/microui/microui.c.d build/./ext/spirv_reflect/spirv_reflect.c.d
+# makefile (from 'build/ext/imgui/backends/imgui_impl_glfw.cpp.d', line 1)
+MAKEFILE_LIST := Makefile build/./src/dentity.c.d build/./src/dinput.c.d build/./src/dgfx.c.d build/./src/dmem.c.d build/./src/dthread.c.d build/./src/danim.c.d build/./src/dwin.c.d build/./src/dprofiler.c.d build/./src/dcore.c.d build/./src/dcamera.c.d build/./src/dmaterial.c.d build/./src/main.c.d build/./src/dconfig.c.d build/./src/dlog.c.d build/./src/dmodel.c.d build/ext/volk/volk.c.d build/ext/spirv_reflect/spirv_reflect.c.d build/ext/imgui/imgui.cpp.d build/ext/imgui/imgui_demo.cpp.d build/ext/imgui/imgui_draw.cpp.d build/ext/imgui/imgui_widgets.cpp.d build/ext/imgui/imgui_tables.cpp.d build/ext/imgui/backends/imgui_impl_vulkan.cpp.d build/ext/imgui/backends/imgui_impl_glfw.cpp.d
 # automatic
 @F = $(notdir $@)
 # environment
-VSCODE_PID = 2005
+VSCODE_PID = 3198
 # environment
 XDG_SESSION_TYPE = x11
 # automatic
 ?D = $(patsubst %/,%,$(dir $?))
 # environment
-SESSION_MANAGER = local/inv-desktop:@/tmp/.ICE-unix/1355,unix/inv-desktop:/tmp/.ICE-unix/1355
+SESSION_MANAGER = local/inv-desktop:@/tmp/.ICE-unix/1379,unix/inv-desktop:/tmp/.ICE-unix/1379
 # automatic
 *F = $(notdir $*)
 # environment
@@ -116,8 +116,8 @@ DBUS_SESSION_BUS_ADDRESS = unix:path=/run/user/1000/bus
 VSCODE_NLS_CONFIG = {"locale":"en-us","availableLanguages":{},"_languagePackSupport":true}
 # default
 MAKE_HOST := x86_64-pc-linux-gnu
-# makefile (from 'Makefile', line 14)
-OBJS := ./build/./src/dentity.c.o ./build/./src/dinput.c.o ./build/./src/dgfx.c.o ./build/./src/dmem.c.o ./build/./src/dthread.c.o ./build/./src/danim.c.o ./build/./src/dwin.c.o ./build/./src/dprofiler.c.o ./build/./src/dcore.c.o ./build/./src/dui_renderer.c.o ./build/./src/dcamera.c.o ./build/./src/dmaterial.c.o ./build/./src/main.c.o ./build/./src/dconfig.c.o ./build/./src/dlog.c.o ./build/./src/dmodel.c.o ./build/./ext/volk/volk.c.o ./build/./ext/microui/microui.c.o ./build/./ext/spirv_reflect/spirv_reflect.c.o
+# makefile (from 'Makefile', line 13)
+OBJS := ./build/./src/dentity.c.o ./build/./src/dinput.c.o ./build/./src/dgfx.c.o ./build/./src/dmem.c.o ./build/./src/dthread.c.o ./build/./src/danim.c.o ./build/./src/dwin.c.o ./build/./src/dprofiler.c.o ./build/./src/dcore.c.o ./build/./src/dcamera.c.o ./build/./src/dmaterial.c.o ./build/./src/main.c.o ./build/./src/dconfig.c.o ./build/./src/dlog.c.o ./build/./src/dmodel.c.o ./build/ext/volk/volk.c.o ./build/ext/spirv_reflect/spirv_reflect.c.o ./build/ext/imgui/imgui.cpp.o ./build/ext/imgui/imgui_demo.cpp.o ./build/ext/imgui/imgui_draw.cpp.o ./build/ext/imgui/imgui_widgets.cpp.o ./build/ext/imgui/imgui_tables.cpp.o ./build/ext/imgui/backends/imgui_impl_vulkan.cpp.o ./build/ext/imgui/backends/imgui_impl_glfw.cpp.o
 # environment
 GNOME_DESKTOP_SESSION_ID = this-is-deprecated
 # makefile
@@ -129,7 +129,7 @@ GJS_DEBUG_TOPICS = JS ERROR;JS LOG
 # environment
 SHLVL = 0
 # makefile (from 'Makefile', line 5)
-SRC_DIRS := ./src ./ext
+SRC_DIRS := ./src ext/volk ext/spirv_reflect/ ext/imgui/imgui.cpp ext/imgui/imgui_demo.cpp ext/imgui/imgui_draw.cpp ext/imgui/imgui_widgets.cpp ext/imgui/imgui_tables.cpp ext/imgui/backends/imgui_impl_vulkan.cpp ext/imgui/backends/imgui_impl_glfw.cpp
 # environment
 MAKELEVEL := 0
 # default
@@ -170,8 +170,8 @@ ORIGINAL_XDG_CURRENT_DESKTOP = X-Cinnamon
 GNUMAKEFLAGS := 
 # environment
 LOGNAME = inv
-# makefile (from 'Makefile', line 27)
-CPPFLAGS := -Iecho -I./src -I./ext -I./ext/cgltf -I./ext/vulkan -I./ext/vulkan/lib -I./ext/vulkan/lib/x64 -I./ext/volk -I./ext/microui -I./ext/stb -I./ext/spirv_reflect -MMD -MP
+# makefile (from 'Makefile', line 26)
+CPPFLAGS := -I./src -Iext/volk -Iext/spirv_reflect/ -MMD -MP
 # environment
 GIO_LAUNCHED_DESKTOP_FILE = /usr/share/applications/code.desktop
 # environment
@@ -184,8 +184,6 @@ DISPLAY = :0
 USER = inv
 # environment
 GTK_MODULES = gail:atk-bridge
-# makefile (from 'Makefile', line 6)
-EXCL_DIRS := glfw
 # environment
 DEFAULTS_PATH = /usr/share/gconf/cinnamon.default.path
 # default
@@ -195,7 +193,7 @@ MAKE_VERSION := 4.3
 # environment
 LC_MEASUREMENT = el_GR.UTF-8
 # environment
-GIO_LAUNCHED_DESKTOP_FILE_PID = 2005
+GIO_LAUNCHED_DESKTOP_FILE_PID = 3198
 # environment
 _ = /usr/share/code/code
 # environment
@@ -222,14 +220,14 @@ ELECTRON_RUN_AS_NODE = 1
 VSCODE_IPC_HOOK = /run/user/1000/vscode-57a8a1e7-1.70.2-main.sock
 # environment
 XDG_SESSION_ID = c2
-# makefile (from 'Makefile', line 21)
-INC_DIRS := echo ./src ./ext ./ext/cgltf ./ext/vulkan ./ext/vulkan/lib ./ext/vulkan/lib/x64 ./ext/volk ./ext/microui ./ext/stb ./ext/spirv_reflect
+# makefile (from 'Makefile', line 20)
+INC_DIRS := ./src ext/volk ext/spirv_reflect/
 # default
 .RECIPEPREFIX := 
 # automatic
 <F = $(notdir $<)
-# makefile (from 'Makefile', line 18)
-DEPS := ./build/./src/dentity.c.d ./build/./src/dinput.c.d ./build/./src/dgfx.c.d ./build/./src/dmem.c.d ./build/./src/dthread.c.d ./build/./src/danim.c.d ./build/./src/dwin.c.d ./build/./src/dprofiler.c.d ./build/./src/dcore.c.d ./build/./src/dui_renderer.c.d ./build/./src/dcamera.c.d ./build/./src/dmaterial.c.d ./build/./src/main.c.d ./build/./src/dconfig.c.d ./build/./src/dlog.c.d ./build/./src/dmodel.c.d ./build/./ext/volk/volk.c.d ./build/./ext/microui/microui.c.d ./build/./ext/spirv_reflect/spirv_reflect.c.d
+# makefile (from 'Makefile', line 17)
+DEPS := ./build/./src/dentity.c.d ./build/./src/dinput.c.d ./build/./src/dgfx.c.d ./build/./src/dmem.c.d ./build/./src/dthread.c.d ./build/./src/danim.c.d ./build/./src/dwin.c.d ./build/./src/dprofiler.c.d ./build/./src/dcore.c.d ./build/./src/dcamera.c.d ./build/./src/dmaterial.c.d ./build/./src/main.c.d ./build/./src/dconfig.c.d ./build/./src/dlog.c.d ./build/./src/dmodel.c.d ./build/ext/volk/volk.c.d ./build/ext/spirv_reflect/spirv_reflect.c.d ./build/ext/imgui/imgui.cpp.d ./build/ext/imgui/imgui_demo.cpp.d ./build/ext/imgui/imgui_draw.cpp.d ./build/ext/imgui/imgui_widgets.cpp.d ./build/ext/imgui/imgui_tables.cpp.d ./build/ext/imgui/backends/imgui_impl_vulkan.cpp.d ./build/ext/imgui/backends/imgui_impl_glfw.cpp.d
 # default
 SUFFIXES := 
 # environment
@@ -241,7 +239,7 @@ GDMSESSION = cinnamon
 # environment
 LC_IDENTIFICATION = el_GR.UTF-8
 # variable set hash-table stats:
-# Load=114/1024=11%, Rehash=0, Collisions=20/204=10%
+# Load=113/1024=11%, Rehash=0, Collisions=11/211=5%
 
 # Pattern-specific Variable Values
 
@@ -256,17 +254,22 @@ LC_IDENTIFICATION = el_GR.UTF-8
 # Implicit Rules
 
 build/%.c.o: %.c
-#  recipe to execute (from 'Makefile', line 34):
+#  recipe to execute (from 'Makefile', line 33):
 	mkdir -p $(dir $@)
-	$(CC) -g $(CPPFLAGS) $(CFLAGS) -w -c $<  -o $@
+	$(CC) -g $(CPPFLAGS) $(CFLAGS) -w -I./ext -c $<  -o $@
 
 build/%.cpp.o: %.cpp
-#  recipe to execute (from 'Makefile', line 39):
+#  recipe to execute (from 'Makefile', line 38):
 	mkdir -p $(dir $@)
-	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -w -c $< -o $@
+	$(CXX) $(CPPFLAGS) $(CXXFLAGS) -w -I./ext -I./ext/imgui -c $< -o $@
 
 # 2 implicit rules, 0 (0.0%) terminal.
 # Files
+
+ext/glfw/include/GLFW/glfw3.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
 
 build/./src/dcamera.c.o: src/dcamera.c src/dcamera.h src/tools.h src/dinput.h
 #  Implicit rule search has not been done.
@@ -279,6 +282,11 @@ src/dmaterial.c:
 #  Modification time never checked.
 #  File has not been updated.
 
+ext/imgui/imstb_rectpack.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
 build/./src/dwin.c.o: src/dwin.c src/dwin.h src/tools.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/dlog.h src/dthread.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
@@ -286,7 +294,11 @@ build/./src/dwin.c.o: src/dwin.c src/dwin.h src/tools.h ext/volk/volk.h ext/vulk
 
 src/tools.h:
 #  Implicit rule search has not been done.
- 
+#  Modification time never checked.
+#  File has not been updated.
+
+build/ext/imgui/imgui_tables.cpp.o: ext/imgui/imgui_tables.cpp ext/imgui/imgui.h ext/imgui/imconfig.h ext/imgui/imgui_internal.h ext/imgui/imstb_textedit.h
+#  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
@@ -308,21 +320,22 @@ src/dinput.h:
 # Not a target:
 build/./src/main.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:25:26.997169307
+ 
+#  Last modified 2022-08-27 12:02:27.908285402
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+build/ext/volk/volk.c.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:55:45.824731377
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 build/./src/dlog.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:18.171929396
-#  File has been updated.
-#  Successfully updated.
-
-# Not a target:
-build/./ext/spirv_reflect/spirv_reflect.c.d:
-#  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:19.6719523
+#  Last modified 2022-08-27 11:01:20.030307029
 #  File has been updated.
 #  Successfully updated.
 
@@ -334,11 +347,11 @@ ext/stb/stb_ds.h:
 # Not a target:
 build/./src/danim.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:15.987896045
+#  Last modified 2022-08-27 11:01:18.746299782
 #  File has been updated.
 #  Successfully updated.
 
-build/./src/dcore.c.o: src/dcore.c src/dcore.h src/tools.h ext/microui/microui.h src/dmem.h src/dconfig.h src/dtime.h src/dthread.h src/dinput.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/dgfx.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h src/dprofiler.h src/dlog.h ext/stb/stb_ds.h src/dentity.h src/dmaterial.h src/dcamera.h src/dui_renderer.h src/../ext/microui/microui.h
+build/./src/dcore.c.o: src/dcore.c src/dcore.h src/tools.h src/dmem.h src/dconfig.h src/dtime.h src/dthread.h src/dinput.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/dgfx.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h src/dprofiler.h src/dlog.h ext/stb/stb_ds.h src/dentity.h src/dmaterial.h src/dcamera.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -352,7 +365,7 @@ src/dthread.c:
 # Not a target:
 Makefile:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:28:32.758146955
+#  Last modified 2022-08-27 12:06:47.890433718
 #  File has been updated.
 #  Successfully updated.
 
@@ -362,7 +375,18 @@ src/dlog.c:
 #  Modification time never checked.
 #  File has not been updated.
 
-build/./ext/spirv_reflect/spirv_reflect.c.o: ext/spirv_reflect/spirv_reflect.c ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h
+ext/imgui/backends/imgui_impl_glfw.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+ext/imgui/imconfig.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+ext/imgui/imgui_demo.cpp:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -373,13 +397,6 @@ ext/spirv_reflect/spirv_reflect.c:
 #  Modification time never checked.
 #  File has not been updated.
 
-# Not a target:
-build/./ext/volk/volk.c.d:
-#  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:19.131944054
-#  File has been updated.
-#  Successfully updated.
-
 src/dconfig.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
@@ -388,7 +405,14 @@ src/dconfig.h:
 # Not a target:
 build/./src/dmodel.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 10:11:55.660702933
+#  Last modified 2022-08-27 12:02:28.49629036
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+build/ext/imgui/backends/imgui_impl_glfw.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 12:05:47.361940436
 #  File has been updated.
 #  Successfully updated.
 
@@ -401,7 +425,7 @@ ext/volk/volk.c:
 # Not a target:
 build/./src/dmem.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:15.783892929
+#  Last modified 2022-08-27 11:01:18.562298743
 #  File has been updated.
 #  Successfully updated.
 
@@ -410,19 +434,12 @@ build/./src/dentity.c.o: src/dentity.c src/dentity.h src/tools.h src/dmem.h src/
 #  Modification time never checked.
 #  File has not been updated.
 
-# Not a target:
-build/./ext/microui/microui.c.d:
-#  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:19.395948085
-#  File has been updated.
-#  Successfully updated.
-
 clean:
 #  Phony target (prerequisite of .PHONY).
 #  Implicit rule search has not been done.
 #  File does not exist.
 #  File has not been updated.
-#  recipe to execute (from 'Makefile', line 45):
+#  recipe to execute (from 'Makefile', line 44):
 	rm -r $(BUILD_DIR)
 
 src/shaders.inl:
@@ -433,11 +450,10 @@ src/shaders.inl:
 # Not a target:
 build/./src/dprofiler.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:16.379902031
+#  Last modified 2022-08-27 11:01:19.018301316
 #  File has been updated.
 #  Successfully updated.
 
- 
 ext/vulkan/vulkan.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
@@ -459,6 +475,12 @@ src/dentity.h:
 #  File has not been updated.
 
 # Not a target:
+ext/imgui/imgui_draw.cpp:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
 src/danim.c:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
@@ -470,12 +492,15 @@ src/dcamera.c:
 #  Modification time never checked.
 #  File has not been updated.
 
-# Not a target:
-build/./src/dui_renderer.c.d:
-#  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:28:11.642030509
-#  File has been updated.
-#  Successfully updated.
+build/ext/imgui/imgui_demo.cpp.o: ext/imgui/imgui_demo.cpp ext/imgui/imgui.h ext/imgui/imconfig.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+build/ext/imgui/imgui.cpp.o: ext/imgui/imgui.cpp ext/imgui/imgui.h ext/imgui/imconfig.h ext/imgui/imgui_internal.h ext/imgui/imstb_textedit.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
 
 src/../ext/glfw/include/GLFW/glfw3.h:
 #  Implicit rule search has not been done.
@@ -488,7 +513,7 @@ src/dcore.c:
 #  Modification time never checked.
 #  File has not been updated.
 
-build/./src/main.c.o: src/main.c src/dcore.h src/tools.h ext/microui/microui.h src/dmem.h src/dconfig.h src/dtime.h src/dthread.h src/dinput.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/dgfx.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h src/dprofiler.h src/dlog.h ext/stb/stb_ds.h src/dentity.h src/dmaterial.h src/dcamera.h src/dui_renderer.h src/../ext/microui/microui.h
+build/./src/main.c.o: src/main.c src/dcore.h src/tools.h src/dmem.h src/dconfig.h src/dtime.h src/dthread.h src/dinput.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/dgfx.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h src/dprofiler.h src/dlog.h ext/stb/stb_ds.h src/dentity.h src/dmaterial.h src/dcamera.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -519,6 +544,11 @@ src/dmaterial.h:
 #  Modification time never checked.
 #  File has not been updated.
 
+build/ext/imgui/imgui_widgets.cpp.o: ext/imgui/imgui_widgets.cpp ext/imgui/imgui.h ext/imgui/imconfig.h ext/imgui/imgui_internal.h ext/imgui/imstb_textedit.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
 # Not a target:
 src/dmem.c:
 #  Implicit rule search has not been done.
@@ -528,21 +558,11 @@ src/dmem.c:
 # Not a target:
 build/./src/dinput.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:27:46.425893063
+#  Last modified 2022-08-27 12:02:23.712250006
 #  File has been updated.
 #  Successfully updated.
 
 ext/vulkan/shaderc.h:
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
-build/./src/dui_renderer.c.o: src/dui_renderer.c src/dui_renderer.h src/../ext/microui/microui.h src/tools.h src/../ext/microui/atlas.inl src/dgfx.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h src/dlog.h src/dthread.h src/dcore.h ext/microui/microui.h src/dmem.h src/dconfig.h src/dtime.h src/dinput.h src/dprofiler.h ext/stb/stb_ds.h src/dentity.h src/dmaterial.h src/dcamera.h
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
-ext/microui/microui.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -558,37 +578,44 @@ ext/vulkan/env.h:
 #  File has not been updated.
 
 # Not a target:
+build/ext/imgui/imgui_draw.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:57:25.453648966
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
 build/./src/dwin.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 10:11:54.01669122
+#  Last modified 2022-08-27 12:02:25.944268838
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 build/./src/dmaterial.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 10:11:54.968698002
+#  Last modified 2022-08-27 12:02:27.696283614
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 build/./src/dgfx.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:27:58.205957047
+#  Last modified 2022-08-27 12:02:25.484264958
 #  File has been updated.
 #  Successfully updated.
 
-build/engine: build/./src/dentity.c.o build/./src/dinput.c.o build/./src/dgfx.c.o build/./src/dmem.c.o build/./src/dthread.c.o build/./src/danim.c.o build/./src/dwin.c.o build/./src/dprofiler.c.o build/./src/dcore.c.o build/./src/dui_renderer.c.o build/./src/dcamera.c.o build/./src/dmaterial.c.o build/./src/main.c.o build/./src/dconfig.c.o build/./src/dlog.c.o build/./src/dmodel.c.o build/./ext/volk/volk.c.o build/./ext/microui/microui.c.o build/./ext/spirv_reflect/spirv_reflect.c.o
+build/engine: build/./src/dentity.c.o build/./src/dinput.c.o build/./src/dgfx.c.o build/./src/dmem.c.o build/./src/dthread.c.o build/./src/danim.c.o build/./src/dwin.c.o build/./src/dprofiler.c.o build/./src/dcore.c.o build/./src/dcamera.c.o build/./src/dmaterial.c.o build/./src/main.c.o build/./src/dconfig.c.o build/./src/dlog.c.o build/./src/dmodel.c.o build/ext/volk/volk.c.o build/ext/spirv_reflect/spirv_reflect.c.o build/ext/imgui/imgui.cpp.o build/ext/imgui/imgui_demo.cpp.o build/ext/imgui/imgui_draw.cpp.o build/ext/imgui/imgui_widgets.cpp.o build/ext/imgui/imgui_tables.cpp.o build/ext/imgui/backends/imgui_impl_vulkan.cpp.o build/ext/imgui/backends/imgui_impl_glfw.cpp.o
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
-#  recipe to execute (from 'Makefile', line 31):
-	$(CC) $(OBJS) -fstack-protector  -w -L./ext/vulkan/lib/x64  -L./ext/glfw/build/src  -lglfw3 -L/usr/X11R6/lib  -lX11 -Wl,-Bstatic -lshaderc_combined  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
+#  recipe to execute (from 'Makefile', line 30):
+	$(CC) $(OBJS)  -fstack-protector  -w -I./ext/ -L./ext/vulkan/lib/x64  -L./ext/glfw/build/src  -lglfw3 -L/usr/X11R6/lib  -lX11 -Wl,-Bstatic -lshaderc_combined  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
 
 # Not a target:
 build/./src/dcamera.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:25:26.849168575
+#  Last modified 2022-08-27 11:01:19.514304117
 #  File has been updated.
 #  Successfully updated.
 
@@ -603,18 +630,13 @@ ext/vulkan/status.h:
 #  Modification time never checked.
 #  File has not been updated.
 
-build/./ext/microui/microui.c.o: ext/microui/microui.c ext/microui/microui.h
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
 ext/vulkan/visibility.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
 # Not a target:
-src/dui_renderer.c:
+ext/imgui/backends/imgui_impl_glfw.cpp:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -626,8 +648,7 @@ all:
 #  File does not exist.
 #  File has not been updated.
 
-# Not a target:
-ext/microui/microui.c:
+build/ext/imgui/backends/imgui_impl_vulkan.cpp.o: ext/imgui/backends/imgui_impl_vulkan.cpp ext/imgui/backends/imgui_impl_vulkan.h ext/imgui/imgui.h ext/imgui/imconfig.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -645,32 +666,35 @@ src/dthread.h:
 # Not a target:
 build/./src/dconfig.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:18.119928602
+#  Last modified 2022-08-27 11:01:19.966306668
 #  File has been updated.
 #  Successfully updated.
 
-build/./src/dgfx.c.o: src/dgfx.c src/dgfx.h src/tools.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h ext/stb/stb_image.h src/dtime.h src/../ext/microui/microui.h src/../ext/microui/atlas.inl ext/vulkan/shaderc.h ext/vulkan/env.h ext/vulkan/status.h ext/vulkan/visibility.h src/shaders.inl src/dlog.h src/dthread.h src/dcamera.h src/dinput.h src/dmem.h src/dmodel.h src/dmaterial.h ext/stb/stb_ds.h src/danim.h ext/cgltf/cgltf.h src/dentity.h src/dconfig.h
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
-build/./src/dinput.c.o: src/dinput.c src/dinput.h src/tools.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h src/../ext/microui/microui.h
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
-src/dui_renderer.h:
+build/./src/dgfx.c.o: src/dgfx.c src/dgfx.h src/tools.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h ext/stb/stb_image.h src/dtime.h ext/vulkan/shaderc.h ext/vulkan/env.h ext/vulkan/status.h ext/vulkan/visibility.h src/shaders.inl src/dlog.h src/dthread.h src/dcamera.h src/dinput.h src/dmem.h src/dmodel.h src/dmaterial.h ext/stb/stb_ds.h src/danim.h ext/cgltf/cgltf.h src/dentity.h src/dconfig.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
 # Not a target:
-src/dgfx.c:
+ext/imgui/imgui_widgets.cpp:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
-src/../ext/microui/microui.h:
+build/./src/dinput.c.o: src/dinput.c src/dinput.h src/tools.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+ext/imgui/imgui.cpp:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+ 
+src/dgfx.c:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -685,17 +709,43 @@ src/dtime.h:
 #  Modification time never checked.
 #  File has not been updated.
 
+# Not a target:
+build/ext/imgui/imgui_tables.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:59:33.686790226
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+build/ext/imgui/imgui_widgets.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:57:27.501667522
+#  File has been updated.
+#  Successfully updated.
+
 src/dwin.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
-build/./src/dmaterial.c.o: src/dmaterial.c src/dmaterial.h src/tools.h src/dgfx.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h ext/stb/stb_ds.h
+ext/imgui/imgui.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
 
-build/./ext/volk/volk.c.o: ext/volk/volk.c ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h
+ext/imgui/imstb_textedit.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+build/ext/imgui/imgui_demo.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:57:23.805634027
+#  File has been updated.
+#  Successfully updated.
+
+build/./src/dmaterial.c.o: src/dmaterial.c src/dmaterial.h src/tools.h src/dgfx.h src/dwin.h ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h src/../ext/glfw/include/GLFW/glfw3.h ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h ext/stb/stb_ds.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -703,15 +753,35 @@ build/./ext/volk/volk.c.o: ext/volk/volk.c ext/volk/volk.h ext/vulkan/vulkan.h e
 # Not a target:
 build/./src/dentity.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:14.015865928
+#  Last modified 2022-08-27 11:01:02.710208875
 #  File has been updated.
 #  Successfully updated.
+
+# Not a target:
+build/ext/imgui/imgui.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:56:02.508887194
+#  File has been updated.
+#  Successfully updated.
+
+# Not a target:
+ext/imgui/imgui_tables.cpp:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
 
 # Not a target:
 src/dinput.c:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
+
+# Not a target:
+build/ext/imgui/backends/imgui_impl_vulkan.cpp.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 12:00:21.875209442
+#  File has been updated.
+#  Successfully updated.
 
 # Not a target:
 src/dmodel.c:
@@ -726,11 +796,31 @@ build/./src/dmodel.c.o: src/dmodel.c src/dmodel.h src/dgfx.h src/tools.h src/dwi
 
 build/./src/dlog.c.o: src/dlog.c src/dlog.h src/tools.h src/dthread.h
 #  Implicit rule search has not been done.
- 
 #  Modification time never checked.
 #  File has not been updated.
 
 ext/volk/volk.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+build/ext/volk/volk.c.o: ext/volk/volk.c ext/volk/volk.h ext/vulkan/vulkan.h ext/vulkan/vk_platform.h ext/vulkan/vulkan_core.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+# Not a target:
+ext/imgui/backends/imgui_impl_vulkan.cpp:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+ext/imgui/backends/imgui_impl_vulkan.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+build/ext/imgui/backends/imgui_impl_glfw.cpp.o: ext/imgui/backends/imgui_impl_glfw.cpp ext/imgui/imgui.h ext/imgui/imconfig.h ext/imgui/backends/imgui_impl_glfw.h ext/glfw/include/GLFW/glfw3.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -746,7 +836,17 @@ src/dprofiler.h:
 #  Modification time never checked.
 #  File has not been updated.
 
+ext/imgui/imstb_truetype.h:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
 build/./src/dmem.c.o: src/dmem.c src/dmem.h src/tools.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+ext/imgui/imgui_internal.h:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -756,6 +856,13 @@ src/dconfig.c:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
+
+# Not a target:
+build/ext/spirv_reflect/spirv_reflect.c.d:
+#  Implicit rule search has been done.
+#  Last modified 2022-08-27 11:56:38.705222169
+#  File has been updated.
+#  Successfully updated.
 
 ext/vulkan/vk_platform.h:
 #  Implicit rule search has not been done.
@@ -767,8 +874,18 @@ ext/vulkan/vk_platform.h:
 #  Modification time never checked.
 #  File has not been updated.
 
+build/ext/spirv_reflect/spirv_reflect.c.o: ext/spirv_reflect/spirv_reflect.c ext/spirv_reflect/spirv_reflect.h ext/vulkan/spirv.h
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
 # Not a target:
 src/dwin.c:
+#  Implicit rule search has not been done.
+#  Modification time never checked.
+#  File has not been updated.
+
+build/ext/imgui/imgui_draw.cpp.o: ext/imgui/imgui_draw.cpp ext/imgui/imgui.h ext/imgui/imconfig.h ext/imgui/imgui_internal.h ext/imgui/imstb_textedit.h ext/imgui/imstb_rectpack.h ext/imgui/imstb_truetype.h
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -776,14 +893,14 @@ src/dwin.c:
 # Not a target:
 build/./src/dthread.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-25 16:09:15.847893907
+#  Last modified 2022-08-27 11:01:18.638299172
 #  File has been updated.
 #  Successfully updated.
 
 # Not a target:
 build/./src/dcore.c.d:
 #  Implicit rule search has been done.
-#  Last modified 2022-08-26 14:26:07.289371628
+#  Last modified 2022-08-27 12:06:28.198273625
 #  File has been updated.
 #  Successfully updated.
 
@@ -793,11 +910,6 @@ src/dmem.h:
 #  File has not been updated.
 
 src/danim.h:
-#  Implicit rule search has not been done.
-#  Modification time never checked.
-#  File has not been updated.
-
-src/../ext/microui/atlas.inl:
 #  Implicit rule search has not been done.
 #  Modification time never checked.
 #  File has not been updated.
@@ -829,19 +941,19 @@ src/dentity.c:
 #  File has not been updated.
 
 # files hash-table stats:
-# Load=99/1024=10%, Rehash=0, Collisions=13/577=2%
+# Load=119/1024=12%, Rehash=0, Collisions=16/605=3%
 # VPATH Search Paths
 
 # No 'vpath' search paths.
 
 # No general ('VPATH' variable) search path.
 
-# strcache buffers: 1 (0) / strings = 116 / storage = 2071 B / avg = 17 B
-# current buf: size = 8162 B / used = 2071 B / count = 116 / avg = 17 B
+# strcache buffers: 1 (0) / strings = 136 / storage = 2781 B / avg = 20 B
+# current buf: size = 8162 B / used = 2781 B / count = 136 / avg = 20 B
 
-# strcache performance: lookups = 731 / hit rate = 84%
+# strcache performance: lookups = 743 / hit rate = 81%
 # hash-table stats:
-# Load=116/8192=1%, Rehash=0, Collisions=0/731=0%
-# Finished Make data base on Fri Aug 26 14:30:41 2022
+# Load=136/8192=2%, Rehash=0, Collisions=0/743=0%
+# Finished Make data base on Sat Aug 27 12:06:54 2022
 
  

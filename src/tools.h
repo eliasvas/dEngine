@@ -152,7 +152,7 @@ typedef union vec2
         f32 r,g;
     };
     f32 elements[2];
-#ifdef __cplusplus
+#ifdef __cplusplus && 0
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -173,7 +173,7 @@ typedef union vec3
         f32 r,g,b;
     };
     f32 elements[3];
-#ifdef __cplusplus
+#ifdef __cplusplus && 0
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -198,7 +198,7 @@ typedef union vec4
 #ifdef TOOLS_SSE
     __m128 elements_sse; //because __m128 = 128 = 4 * float = 4*32 = 128 bits
 #endif
-#ifdef __cplusplus
+#ifdef __cplusplus && 0
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -219,7 +219,7 @@ typedef union mat4
 #ifdef TOOLS_SSE
     __m128 cols[4]; //same as elements (our matrices are column major)
 #endif
-#ifdef __cplusplus
+#ifdef __cplusplus && 0
     inline vec4 operator[](s32 &Index)
     {
         f32* col = elements[Index];
@@ -1047,7 +1047,7 @@ INLINE mat4 look_at(vec3 eye, vec3 target, vec3 fake_up)
 }
 
 //some operator overloading
-#ifdef __cplusplus
+#if 0
 INLINE vec2 operator+(vec2 l, vec2 r)
 {
     vec2 res = vec2_add(l, r);

@@ -16,7 +16,9 @@
         "spirv_reflect.h": "c",
         "glfw3.h": "c",
         "sdl_vulkan.h": "c",
-        "dtime.h": "c"
+        "dtime.h": "c",
+        "dprofiler.h": "c",
+        "deditor.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

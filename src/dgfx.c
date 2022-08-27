@@ -1,19 +1,16 @@
 #include "dgfx.h"
 #define VK_USE_PLATFORM_XLIB_KHR
-//#define VOLK_IMPLEMENTATION we don't define this because volk.c is compiled as object file
-#include "volk/volk.h"
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #include "dtime.h"
-#include "../ext/microui/microui.h"
-#include "../ext/microui/atlas.inl"
 #include "vulkan/shaderc.h"
 #include "shaders.inl"
+#include "spirv_reflect/spirv_reflect.h"
 #include "dlog.h"
 #include "dcamera.h"
 #include "dmem.h"
 #include "dmodel.h"
-#include "dentity.h"
+#include "dentity.h" 
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
@@ -1815,7 +1812,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 }
 
 
-static VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
+VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
 {
 	VkCommandBufferAllocateInfo alloc_info = {0};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -1834,7 +1831,7 @@ static VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
 	return command_buffer;
 }
 
-static void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer)
+void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer)
 {
 	vkEndCommandBuffer(command_buffer);
 	

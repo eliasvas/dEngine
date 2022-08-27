@@ -2,8 +2,16 @@
 #define __DGFX__
 #include "tools.h"
 #include "dwin.h"
-#include "volk/volk.h"
+
 #include "spirv_reflect/spirv_reflect.h"
+
+#ifdef __cplusplus
+    extern "C" {
+#endif
+#include "volk/volk.h"
+#ifdef __cplusplus
+    }
+#endif
 
 #define DG_PHYSICAL_DEVICE_MAX 10
 #define DG_QUEUE_FAMILY_MAX 32
@@ -233,9 +241,7 @@ void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe);
 void dg_bind_vertex_buffers(dgDevice *ddev, dgBuffer* vbo, u64 *offsets, u32 vbo_count);
 void dg_bind_index_buffer(dgDevice *ddev, dgBuffer* ibo, u32 ibo_offset);
 void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
-void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
-                        dgTexture *depth_tex, dgRenderingSettings settings);
-void dg_rendering_end(dgDevice *ddev);
+
 void dg_wait_idle(dgDevice *ddev);
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels);
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format);
@@ -243,5 +249,21 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
 void dg_buf_destroy(dgBuffer *buf);
 VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset);
 void dg_buf_unmap(dgBuffer *buf);
+
+//because these are used in a cpp source file
+#ifdef __cplusplus
+extern "C"{
+#endif
+
+void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
+                        dgTexture *depth_tex, dgRenderingSettings settings);
+void dg_rendering_end(dgDevice *ddev);
+
+VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev);
+void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

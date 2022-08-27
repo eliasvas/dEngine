@@ -1,9 +1,10 @@
 #ifndef __DCORE__
 #define __DCORE__
+#define VK_NO_PROTOTYPES
 #include "tools.h"
-#include "microui/microui.h"
 //include all subsystems so we can manage them
 #include "dmem.h"
+#include "deditor.h"
 #include "dconfig.h"
 #include "dtime.h"
 #include "dthread.h"
@@ -16,6 +17,7 @@
 #include "dentity.h"
 #include "dmaterial.h"
 #include "dcamera.h"
+
 //#include "dfiber.h"
 
 

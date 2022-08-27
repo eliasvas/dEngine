@@ -3,7 +3,6 @@
 #include "tools.h"
 
 //#define GLFW_INCLUDE_VULKAN
-#include "volk/volk.h"
 //#define GLFW_VULKAN_STATIC
 #include "../ext/glfw/include/GLFW/glfw3.h"
 

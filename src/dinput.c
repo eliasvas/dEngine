@@ -1,10 +1,8 @@
 #include "dinput.h"
 #include "tools.h"
 #include "dwin.h" //we need GLFW window handle to poll input
-#include "../ext/microui/microui.h"
 #include "../ext/glfw/include/GLFW/glfw3.h"
-
-extern mu_Context ctx; 
+ 
 extern dWindow main_window;
 //The input state of the engine for the current frame (its a singleton!)
 typedef struct dInputState
@@ -29,6 +27,7 @@ void dinput_init(void)
 void dinput_update(void)
 {
     glfwPollEvents();
+    if (glfwWindowShouldClose(main_window.gwindow))exit(1);
     memcpy(dis.prev_keys,dis.keys, sizeof(dis.keys[0]) * DK_MAX);
     //get keys
     for (u32 i = GLFW_KEY_A; i <= GLFW_KEY_Z; ++i)
