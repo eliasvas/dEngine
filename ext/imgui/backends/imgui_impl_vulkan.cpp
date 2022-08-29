@@ -846,10 +846,10 @@ static void ImGui_ImplVulkan_CreatePipeline(VkDevice device, const VkAllocationC
     VkPipelineRenderingCreateInfoKHR pipe_renderingCI{};
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
     pipe_renderingCI.colorAttachmentCount = 1;
-    VkFormat pipe_format = VK_FORMAT_R8G8B8A8_SRGB;
+    VkFormat pipe_format = VK_FORMAT_B8G8R8A8_SRGB;
     pipe_renderingCI.pColorAttachmentFormats = &pipe_format;
-    pipe_renderingCI.depthAttachmentFormat = VK_FORMAT_D24_UNORM_S8_UINT;
-    pipe_renderingCI.stencilAttachmentFormat = VK_FORMAT_D24_UNORM_S8_UINT;
+    pipe_renderingCI.depthAttachmentFormat = VK_FORMAT_UNDEFINED;
+    pipe_renderingCI.stencilAttachmentFormat = VK_FORMAT_UNDEFINED;
 
     VkGraphicsPipelineCreateInfo info = {};
     info.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;

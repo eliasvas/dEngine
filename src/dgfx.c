@@ -9,6 +9,7 @@
 #include "dlog.h"
 #include "dcamera.h"
 #include "dmem.h"
+#include "deditor.h"
 #include "dmodel.h"
 #include "dentity.h" 
 
@@ -35,6 +36,14 @@ dgTexture brdfLUT;
 dgRT def_rt;
 dgRT csm_rt;
 extern dCamera cam;
+extern dEditor main_editor;
+
+//TOODO move these to the editor OR the deviec
+mat4 lsm[DG_MAX_CASCADES];
+f32 fdist[DG_MAX_CASCADES];
+vec3 light_dir;
+mat4 proj;
+mat4 view;
 
 //NOTE(ilias): This is UGLY AF!!!!
 extern dWindow main_window;
@@ -1025,7 +1034,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
             VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &layouts[current_set.set]));
             dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
                 (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, layouts[current_set.set]);
-            dlog(NULL, "Created (another) DSL!! :( \n");
+            //dlog(NULL, "Created (another) DSL!! :( \n");
         }
         else
         {
@@ -1570,7 +1579,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
         color_attachments[0].imageLayout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
         color_attachments[0].loadOp = cload_op;
         color_attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-        color_attachments[0].clearValue.color = (VkClearColorValue){0.f,0.f,0.f,0.f};
+        color_attachments[0].clearValue.color = (VkClearColorValue){0.05,0.05,0.05,1};
     }
     else
     {
@@ -2491,7 +2500,7 @@ extern dTransformCM transform_manager;
 void draw_cube(dgDevice *ddev, mat4 model)
 {
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
     dgBuffer buffers[] = {base_vbo};
@@ -2637,8 +2646,8 @@ void dg_frame_begin(dgDevice *ddev)
 
 
     
-    mat4 view = dcamera_get_view_matrix(&cam);
-    mat4 proj = perspective_proj(60.0f, ddev->swap.extent.width/(f32)ddev->swap.extent.height, 0.01, 100);
+    view = dcamera_get_view_matrix(&cam);
+    proj = perspective_proj(60.0f,(main_editor.viewport.z-main_editor.viewport.x)/(main_editor.viewport.w -main_editor.viewport.y), 0.01, 100);
 
 
 
@@ -2659,10 +2668,7 @@ void dg_frame_begin(dgDevice *ddev)
 
 
 
-    mat4 lsm[DG_MAX_CASCADES];
-    //TODO fdist should be passed on the shader (the composition shader too??? is it hardcoded???)
-    f32 fdist[DG_MAX_CASCADES];
-    vec3 light_dir = vec3_mulf(vec3_normalize(v3(0,0.9,0.3)), 1);
+    light_dir = vec3_mulf(vec3_normalize(v3(0,0.9,0.3)), 1);
     u32 cascade_count = 3;
     dg_calc_lsm(light_dir, proj, view, lsm,fdist, cascade_count);
     //draw to shadow map
@@ -2719,6 +2725,49 @@ void dg_frame_begin(dgDevice *ddev)
 //*/
 
     dg_wait_idle(ddev);
+    
+
+    
+
+    
+
+
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
+    
+
+
+
+
+
+    
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
+    /*
+    dTransform * pt = dtransform_cm_world(&transform_manager, parent.id);
+    draw_cube(ddev, dtransform_to_mat4(*pt));
+    dTransform * ct = dtransform_cm_world(&transform_manager, child.id);
+    draw_cube(ddev, dtransform_to_mat4(*ct));
+    ct = dtransform_cm_world(&transform_manager, child2.id);
+    draw_cube(ddev, dtransform_to_mat4(*ct));
+    if (dkey_down(DK_1)){
+        u32 component_index = dtransform_cm_lookup(&transform_manager, parent);
+        dTransform nt = *pt;
+        nt.trans.y +=1.0;
+        dtransform_cm_set_local(&transform_manager, component_index, nt);
+    }
+    */
+
+    //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
+}
+
+void dg_frame_end(dgDevice *ddev)
+{
+
+    //set desc set 0
+    mat4 data0[4] = {view, proj, m4d(1.0f),m4d(1.0f)};
+    dg_set_desc_set(ddev,&ddev->def_pipe, data0, sizeof(data0), 0);
+    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
+
     mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
     mat4 capture_views[6] =
     {
@@ -2734,8 +2783,7 @@ void dg_frame_begin(dgDevice *ddev)
     mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
                         capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
     dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-    //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], VK_FALSE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->skybox_pipe);
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
@@ -2746,49 +2794,37 @@ void dg_frame_begin(dgDevice *ddev)
     dg_draw(ddev, 24,base_ibo.size/sizeof(u16));
     dg_rendering_end(ddev);
 
-    //TODO stop drawing in the swapchain and have a dedicated buffer for 3d rendering, then draw to the swapchain everything..
-
-    dg_wait_idle(ddev);
-    {
-        dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-        //vkCmdSetDepthTestEnableEXT(ddev->command_buffers[ddev->current_frame], VK_FALSE);
-
-        mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
-        dg_bind_pipeline(ddev, &ddev->composition_pipe);
-        //FIX:  datafullscreen should be as big as the number of cascades, but im bored
-        mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
-        dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
-        texture_slots[0] = &def_rt.color_attachments[0];
-        texture_slots[1] = &def_rt.color_attachments[1];
-        texture_slots[2] = &def_rt.color_attachments[2];
-        texture_slots[3] = &csm_rt.depth_attachment;
-        texture_slots[4] = &irradiance_map;
-        texture_slots[5] = &prefilter_map;
-        texture_slots[6] = &brdfLUT;
-        texture_slots[7] = &ssao_tex;
-        dg_set_desc_set(ddev,&ddev->composition_pipe, texture_slots, 8, 2);
-        dg_draw(ddev, 3,0);
-
-        dg_rendering_end(ddev);
-    }
-
-    
 
 
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
+
+    //draw the 3d scene in the correct viewport (given by the editor)
+    dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
+    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+    dg_bind_pipeline(ddev, &ddev->composition_pipe);
+    //FIX:  datafullscreen should be as big as the number of cascades, but im bored
+    mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
+    dg_set_desc_set(ddev,&ddev->composition_pipe, &data_fullscreen, sizeof(data_fullscreen), 1);
+    texture_slots[0] = &def_rt.color_attachments[0];
+    texture_slots[1] = &def_rt.color_attachments[1];
+    texture_slots[2] = &def_rt.color_attachments[2];
+    texture_slots[3] = &csm_rt.depth_attachment;
+    texture_slots[4] = &irradiance_map;
+    texture_slots[5] = &prefilter_map;
+    texture_slots[6] = &brdfLUT;
+    texture_slots[7] = &ssao_tex;
+    dg_set_desc_set(ddev,&ddev->composition_pipe, texture_slots, 8, 2);
+    dg_draw(ddev, 3,0);
+    dg_rendering_end(ddev);
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
-    
-
-
 
 
 
     //draw the grid ???
     if (ddev->grid_active){
         dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-        dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
         dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
         dg_bind_pipeline(ddev, &ddev->grid_pipe);
         //@FIX: why float copy doesn't work due to alignment and we have to copy v4's ?????? (SPIR-V thing)
@@ -2797,26 +2833,8 @@ void dg_frame_begin(dgDevice *ddev)
         dg_draw(ddev, 6,0);
         dg_rendering_end(ddev);
     }
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
-    
-    dTransform * pt = dtransform_cm_world(&transform_manager, parent.id);
-    draw_cube(ddev, dtransform_to_mat4(*pt));
-    dTransform * ct = dtransform_cm_world(&transform_manager, child.id);
-    draw_cube(ddev, dtransform_to_mat4(*ct));
-    ct = dtransform_cm_world(&transform_manager, child2.id);
-    draw_cube(ddev, dtransform_to_mat4(*ct));
-    if (dkey_down(DK_1)){
-        u32 component_index = dtransform_cm_lookup(&transform_manager, parent);
-        dTransform nt = *pt;
-        nt.trans.y +=1.0;
-        dtransform_cm_set_local(&transform_manager, component_index, nt);
-    }
 
-    //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
-}
 
-void dg_frame_end(dgDevice *ddev)
-{
     //set desc set 0 again because it might have been redone
     //TODO: should we set this in every drawcall?? and maybe when drawin models we can set it only once
     /*

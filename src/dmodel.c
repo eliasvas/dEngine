@@ -3,6 +3,7 @@
 #define CGLTF_WRITE_IMPLEMENTATION
 #include "cgltf/cgltf.h"
 #include "dlog.h"
+#include "deditor.h"
 //TODO: check if primitive.attributes[weight_index].data->buffer_view->size is too big (it contains everything?)
 //and if so, add all of its components sizes and make a new packed array as it should be for each attrib
 
@@ -10,7 +11,7 @@ extern dgDevice dd;
 
 static dAnimation animation;
 static dAnimator animator;
-
+extern dEditor main_editor;
 
 dModel dmodel_load_gltf(const char *filename)
 {
@@ -220,7 +221,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, s), mat4_scale(v3(10,10,10))));
 
     dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-    dg_set_viewport(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
     dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
     
@@ -235,7 +236,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
             mat4 object_data[MAX_JOINT_COUNT+1] = {model};
             memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
             memcpy(&object_data[MAX_JOINT_COUNT], &p->m.col, sizeof(vec4));
-
+            
             dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
             texture_slots[0] = &p->m.textures[0];
             texture_slots[1] = &p->m.textures[1];
