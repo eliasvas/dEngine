@@ -33,8 +33,9 @@ dgTexture cube_tex;
 dgTexture irradiance_map;
 dgTexture prefilter_map;
 dgTexture brdfLUT;
-dgRT def_rt;
-dgRT csm_rt;
+dgRT def_rt; //the G-buffer
+dgRT csm_rt; //the Cascaded Shadow map
+dgRT composition_rt; //here the def_rt and csm_rt values are combined and the final 3d image is rendered
 extern dCamera cam;
 extern dEditor main_editor;
 
@@ -1303,7 +1304,7 @@ static void dg_recreate_swapchain(dgDevice *ddev)
     vkDeviceWaitIdle(ddev->device);
     //in case of window minimization (w = 0, h = 0) we wait until we get a proper window again
     
-    
+
     dg_cleanup_swapchain(ddev);
     dg_create_swapchain(ddev);
     dg_create_swapchain_image_views(ddev);
@@ -1313,6 +1314,8 @@ static void dg_recreate_swapchain(dgDevice *ddev)
     //(optional): recreate the deferred render target so it can be scaled
     dg_rt_cleanup(ddev, &def_rt);
     dg_rt_init(&dd, &def_rt, 4, TRUE, ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rt_cleanup(ddev, &composition_rt);
+    dg_rt_init(&dd, &composition_rt, 1, TRUE, ddev->swap.extent.width, ddev->swap.extent.height);
 
     
     dg_create_command_buffers(ddev);
@@ -2202,7 +2205,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
-        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height, (color_count > 1) ? DG_IMAGE_FORMAT_RGBA16_SFLOAT: dd.swap.image_format, 1, 1);
     }
     if (rt->depth_active)
         rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,1);
@@ -2611,7 +2614,7 @@ void dg_skybox_prepare(dgDevice *ddev)
 }
     
 
-void dg_frame_begin(dgDevice *ddev)
+b32 dg_frame_begin(dgDevice *ddev)
 {
     vkWaitForFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame], VK_TRUE, UINT64_MAX);
     vkResetFences(ddev->device, 1, &ddev->in_flight_fences[ddev->current_frame]);
@@ -2621,7 +2624,7 @@ void dg_frame_begin(dgDevice *ddev)
     VkResult res = vkAcquireNextImageKHR(ddev->device, ddev->swap.swapchain, UINT64_MAX, ddev->image_available_semaphores[ddev->current_frame],
         VK_NULL_HANDLE, &ddev->image_index);
 
-    if (res == VK_ERROR_OUT_OF_DATE_KHR) { dg_recreate_swapchain(ddev); return; }
+    if (res == VK_ERROR_OUT_OF_DATE_KHR) { dg_recreate_swapchain(ddev); return FALSE; }
     else if (res != VK_SUCCESS && res != VK_SUBOPTIMAL_KHR)printf("Failed to acquire swapchain image!\n");
 
     vkResetCommandBuffer(ddev->command_buffers[ddev->current_frame],0);
@@ -2726,48 +2729,6 @@ void dg_frame_begin(dgDevice *ddev)
 
     dg_wait_idle(ddev);
     
-
-    
-
-    
-
-
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(3,0,0)), mat4_mul(mat4_mul(mat4_rotate(90,v3(0,-1,0)),mat4_rotate(90, v3(-1,0,0))),mat4_scale(v3(5,5,5)))));
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
-    
-
-
-
-
-
-    
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(3,3,0)), mat4_scale(v3(10,10,10))));
-    /*
-    dTransform * pt = dtransform_cm_world(&transform_manager, parent.id);
-    draw_cube(ddev, dtransform_to_mat4(*pt));
-    dTransform * ct = dtransform_cm_world(&transform_manager, child.id);
-    draw_cube(ddev, dtransform_to_mat4(*ct));
-    ct = dtransform_cm_world(&transform_manager, child2.id);
-    draw_cube(ddev, dtransform_to_mat4(*ct));
-    if (dkey_down(DK_1)){
-        u32 component_index = dtransform_cm_lookup(&transform_manager, parent);
-        dTransform nt = *pt;
-        nt.trans.y +=1.0;
-        dtransform_cm_set_local(&transform_manager, component_index, nt);
-    }
-    */
-
-    //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
-}
-
-void dg_frame_end(dgDevice *ddev)
-{
-
-    //set desc set 0
-    mat4 data0[4] = {view, proj, m4d(1.0f),m4d(1.0f)};
-    dg_set_desc_set(ddev,&ddev->def_pipe, data0, sizeof(data0), 0);
-    dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
-
     mat4 capture_proj = perspective_proj(90.0f, 1, 0.01, 100);
     mat4 capture_views[6] =
     {
@@ -2782,9 +2743,10 @@ void dg_frame_end(dgDevice *ddev)
     u64 offsets[] = {0};
     mat4 cube_data[]= {capture_proj, capture_views[0],capture_views[1],
                         capture_views[2],capture_views[3],capture_views[4],capture_views[5]};
-    dg_rendering_begin(ddev, NULL, 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+
+    dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->skybox_pipe);
     dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
     dg_bind_index_buffer(ddev, &base_ibo, 0);
@@ -2796,12 +2758,11 @@ void dg_frame_end(dgDevice *ddev)
 
 
 
-
-    //draw the 3d scene in the correct viewport (given by the editor)
-    dg_rendering_begin(ddev, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
-    mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+    
+    //draw the 3d scene in the correct viewport (given by the editor?)
+    dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+    dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->composition_pipe);
     //FIX:  datafullscreen should be as big as the number of cascades, but im bored
     mat4 data_fullscreen[6] = {lsm[0], lsm[1],lsm[2],lsm[3], (mat4){fdist[0],0,0,0,fdist[1],0,0,0,fdist[2],0,0,0,fdist[3],0,0,0},{light_dir.x,light_dir.y,light_dir.z,0, cam.pos.x,cam.pos.y,cam.pos.z, 1.0} };
@@ -2817,15 +2778,14 @@ void dg_frame_end(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->composition_pipe, texture_slots, 8, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
-
-
+   
+    
 
     //draw the grid ???
     if (ddev->grid_active){
-        dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-        dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
-        dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+        dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
+        dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+        dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
         dg_bind_pipeline(ddev, &ddev->grid_pipe);
         //@FIX: why float copy doesn't work due to alignment and we have to copy v4's ?????? (SPIR-V thing)
         vec4 object_data = (vec4){2.0f};
@@ -2833,7 +2793,15 @@ void dg_frame_end(dgDevice *ddev)
         dg_draw(ddev, 6,0);
         dg_rendering_end(ddev);
     }
+    //dui_draw_rect((mu_Rect){100,100,100,100}, (mu_Color){255,0,0,255});
 
+    return TRUE;
+}
+
+void dg_frame_end(dgDevice *ddev)
+{
+
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
 
     //set desc set 0 again because it might have been redone
     //TODO: should we set this in every drawcall?? and maybe when drawin models we can set it only once
@@ -2960,6 +2928,7 @@ b32 dgfx_init(void)
 	&base_ibo, sizeof(cube_indices[0]) * array_count(cube_indices), cube_indices);
 
     dg_rt_init(&dd, &def_rt, 4, TRUE,dd.swap.extent.width, dd.swap.extent.height);
+    dg_rt_init(&dd, &composition_rt, 1, TRUE, dd.swap.extent.width, dd.swap.extent.height);
     dg_rt_init_csm(&dd, &csm_rt, 3, 1024,1024);
 
     vec4 noise_data[32];

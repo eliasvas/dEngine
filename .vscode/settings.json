@@ -19,7 +19,8 @@
         "dtime.h": "c",
         "dprofiler.h": "c",
         "deditor.h": "c",
-        "cgltf.h": "c"
+        "cgltf.h": "c",
+        "*.tcc": "cpp"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

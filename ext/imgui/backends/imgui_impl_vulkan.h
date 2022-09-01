@@ -117,6 +117,7 @@ IMGUI_IMPL_API VkSurfaceFormatKHR   ImGui_ImplVulkanH_SelectSurfaceFormat(VkPhys
 IMGUI_IMPL_API VkPresentModeKHR     ImGui_ImplVulkanH_SelectPresentMode(VkPhysicalDevice physical_device, VkSurfaceKHR surface, const VkPresentModeKHR* request_modes, int request_modes_count);
 IMGUI_IMPL_API int                  ImGui_ImplVulkanH_GetMinImageCountFromPresentMode(VkPresentModeKHR present_mode);
 
+void ImGui_ImplVulkan_ResetDescriptorPool();
 void ImGui_ImplVulkan_RenderWindow(ImGuiViewport* viewport, void*);
 
 // Helper structure to hold the data needed by one rendering frame

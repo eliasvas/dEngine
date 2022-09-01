@@ -228,7 +228,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
 b32 dgfx_init(void);
 
 void dg_draw_frame(dgDevice *ddev);
-void dg_frame_begin(dgDevice *ddev);
+b32 dg_frame_begin(dgDevice *ddev);
 void dg_frame_end(dgDevice *ddev);
 
 void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, 

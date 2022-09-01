@@ -15,6 +15,11 @@ typedef struct dInputState dInputState;
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui/imconfig.h"
 
+
+extern dgRT composition_rt;
+extern dgRT def_rt;
+VkDescriptorSet def_desc_sets[DG_MAX_COLOR_ATTACHMENTS];
+VkDescriptorSet comp_desc_set;
 extern dgDevice dd;
 extern dConfig engine_config;
 extern dWindow main_window;
@@ -24,7 +29,6 @@ extern dProfiler global_profiler;
 dEditor main_editor;
 
 VkRenderPass imgui_rp;
-
 void dui_init(void)
 {
     //1: create descriptor pool for IMGUI
@@ -52,6 +56,7 @@ void dui_init(void)
 	pool_info.pPoolSizes = pool_sizes;
 
 	VkDescriptorPool imguiPool;
+	
 	vkCreateDescriptorPool(dd.device, &pool_info, NULL, &imguiPool);
 
 
@@ -206,8 +211,20 @@ void deditor_init(dEditor *editor){
 	editor->style= deditor_style_default();
 	deditor_update_style(editor);
 	ImGuiIO& io = ImGui::GetIO();
+	for (u32 i = 0; i < 3; ++i)
+		def_desc_sets[i] = ImGui_ImplVulkan_AddTexture(def_rt.color_attachments[i].sampler, def_rt.color_attachments[i].view, def_rt.color_attachments[i].image_layout);
+	comp_desc_set = ImGui_ImplVulkan_AddTexture(composition_rt.color_attachments[0].sampler, composition_rt.color_attachments[0].view, composition_rt.color_attachments[0].image_layout);
 }
 void deditor_update(dEditor *editor, float dt){
+	//TODO resizing the swapchain makes the image descriptor sets invalid and crash
+	//one fix would be to make them each frame, but that way the descriptor pool overflows,
+	//look a bit into vulkan descriptors AND the backend.
+	/*
+	ImGui_ImplVulkan_ResetDescriptorPool();
+	for (u32 i = 0; i < 3; ++i)
+		def_desc_sets[i] = ImGui_ImplVulkan_AddTexture(def_rt.color_attachments[i].sampler, def_rt.color_attachments[i].view, def_rt.color_attachments[i].image_layout);
+	comp_desc_set = ImGui_ImplVulkan_AddTexture(composition_rt.color_attachments[0].sampler, composition_rt.color_attachments[0].view, composition_rt.color_attachments[0].image_layout);
+	*/
 	//deditor_update_style(editor);
 	ImGui::SetNextFrameWantCaptureMouse(true);
 	ImGuiIO& io = ImGui::GetIO();
@@ -227,7 +244,8 @@ void deditor_draw(dEditor *editor){
 	ImGui::Begin("Viewport",0,ImGuiWindowFlags_NoMove);
 	static float sf = 0.4f;
 	ImVec2 win_max, win_min;
-    ImGui::Button("Hello!");
+	ImVec2 viewportPanelSize = ImGui::GetContentRegionAvail();
+	
 	{
 		ImVec2 vMin = ImGui::GetWindowContentRegionMin();
 		ImVec2 vMax = ImGui::GetWindowContentRegionMax();
@@ -241,6 +259,7 @@ void deditor_draw(dEditor *editor){
 		editor->viewport = v4(vMin.x, vMin.y, vMax.x, vMax.y);
 		
 		ImGui::GetForegroundDrawList()->AddRect( vMin, vMax, IM_COL32( 255, 255, 0, 255 ) );
+		ImGui::Image(comp_desc_set, ImVec2(editor->viewport.z - editor->viewport.x, editor->viewport.w - editor->viewport.y));
 	}
 	ImGui::SetNextWindowPos(ImVec2(win_max.x, 0),0);
 	ImGui::SetNextWindowSize(ImVec2( dd.swap.extent.width-win_max.x, dd.swap.extent.height),0);
@@ -291,6 +310,8 @@ void deditor_draw(dEditor *editor){
 		static ImU32 some_colors[] = {IM_COL32( 255, 0,0,255 ),IM_COL32( 63, 255,0,255 ),IM_COL32( 0, 122, 254,255 )};
 		ImGui::GetForegroundDrawList()->AddQuadFilled({tl.x,tl.y},{tl.x, br.y-4},{br.x, br.y-4},{br.x,tl.y},some_colors[i % array_count(some_colors)]);
 	}
+	//viewportPanelSize = ImGui::GetContentRegionAvail();
+	//ImGui::Image(def_desc_sets[0], ImVec2{viewportPanelSize.x, viewportPanelSize.y});
 
 	ImGui::End();
 

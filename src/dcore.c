@@ -150,9 +150,15 @@ void dcore_init(void)
     deditor_init(NULL);
 
 }
-
+static frame_ok = TRUE;
 void dcore_update(f64 dt)
 {
+    if (!frame_ok)//something wen't wrong in begin, probably resized swapchain, so we skip
+    {
+        frame_ok = TRUE;
+        dg_frame_end(&dd);
+        return;
+    }
     DPROFILER_START("UPDATE");
     deditor_update(NULL, dt);
     dcamera_update(&cam,dt);
@@ -160,7 +166,7 @@ void dcore_update(f64 dt)
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
     
-    dg_frame_begin(&dd);
+    frame_ok = dg_frame_begin(&dd);
     DPROFILER_END();
 }
 

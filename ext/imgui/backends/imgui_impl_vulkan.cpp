@@ -282,6 +282,13 @@ static ImGui_ImplVulkan_Data* ImGui_ImplVulkan_GetBackendData()
     return ImGui::GetCurrentContext() ? (ImGui_ImplVulkan_Data*)ImGui::GetIO().BackendRendererUserData : NULL;
 }
 
+void ImGui_ImplVulkan_ResetDescriptorPool()
+{
+    ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
+	ImGui_ImplVulkan_InitInfo *v = &bd->VulkanInitInfo;
+	vkResetDescriptorPool(v->Device, v->DescriptorPool,0);
+}
+
 static uint32_t ImGui_ImplVulkan_MemoryType(VkMemoryPropertyFlags properties, uint32_t type_bits)
 {
     ImGui_ImplVulkan_Data* bd = ImGui_ImplVulkan_GetBackendData();
