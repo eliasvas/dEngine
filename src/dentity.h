@@ -21,7 +21,7 @@ u32 dentity_generation(dEntity e);
 #define MAX_FREE_INDICES 2048
 #define MAX_GENERATION 2048 * 32
 typedef struct dEntityManager{
-    u8 generation[MAX_GENERATION];
+    u8 generation[MAX_GENERATION]; 
     u32 generation_count;
     u32 free_indices[MAX_FREE_INDICES];
     u32 indices_start_index, indices_end_index;

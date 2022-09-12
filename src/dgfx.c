@@ -12,6 +12,7 @@
 #include "deditor.h"
 #include "dmodel.h"
 #include "dentity.h" 
+#include "dparticle.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
@@ -72,7 +73,7 @@ static const char *validation_layers[]= {
 };
 
 vec3 cube_positions[]  = {
-	{0.5f, 0.5f, 0.5f},  {-0.5f, 0.5f, 0.5f},  {-0.5f,-0.5f, 0.5f}, {0.5f,-0.5f, 0.5f},   // v0,v1,v2,v3 (front)
+	{0.5f, 0.5f, 0.5f},  {-0.5f, 0.5f, 0.5f},  {-0.5f ,-0.5f, 0.5f}, {0.5f,-0.5f, 0.5f},   // v0,v1,v2,v3 (front)
     {0.5f, 0.5f, 0.5f},  {0.5f,-0.5f, 0.5f},   {0.5f,-0.5f,-0.5f},  {0.5f, 0.5f,-0.5f},   // v0,v3,v4,v5 (right)
     {0.5f, 0.5f, 0.5f},  {0.5f, 0.5f,-0.5f},   {-0.5f, 0.5f,-0.5f}, {-0.5f, 0.5f, 0.5f},   // v0,v5,v6,v1 (top)
     {-0.5f, 0.5f, 0.5f}, {-0.5f, 0.5f,-0.5f},  {-0.5f,-0.5f,-0.5f}, {-0.5f,-0.5f, 0.5f},   // v1,v6,v7,v2 (left)
@@ -2812,6 +2813,7 @@ void dg_frame_end(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->def_pipe, data, sizeof(data), 0);
     draw_cube(ddev, mat4_translate(v3(2,10,0)));
     */
+    
 
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 

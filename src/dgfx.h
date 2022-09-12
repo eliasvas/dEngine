@@ -234,7 +234,6 @@ void dg_frame_end(dgDevice *ddev);
 void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_flags, 
     dgBuffer*buf, VkDeviceSize size, void *data);
 
-void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num);
 void dg_set_scissor(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
 void dg_set_viewport(dgDevice *ddev,f32 x, f32 y, f32 width, f32 height);
 void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe);
@@ -254,6 +253,8 @@ void dg_buf_unmap(dgBuffer *buf);
 #ifdef __cplusplus
 extern "C"{
 #endif
+
+void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num);
 
 void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, 
                         dgTexture *depth_tex, dgRenderingSettings settings);

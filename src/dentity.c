@@ -28,15 +28,20 @@ dEntity dentity_make(u32 index, u8 generation){
 }
 
 b32 dentity_alive(dEntity e){
-    return (entity_manager.generation[e.id] == e.id);
+    return (entity_manager.generation[dentity_index(e)] == dentity_generation(e));
 }
 
+//Each time entity is destroyed, its generation in that index is incremented and the
+//index (which points to a generation) is added to the free_indices array, to be reused later
 void dentity_destroy(dEntity e){
-    u32 idx = e.id;
+    u32 idx = dentity_index(e);
     ++entity_manager.generation[idx];
     entity_manager.free_indices[entity_manager.indices_end_index++ % MAX_FREE_INDICES] = idx;
 }
 
+//If we have a lot of unused entity indices (they have been destroyed and then put in free_indices array)
+//we take an entry from free_indices, whose data is the index of a free generation that has been inc'ed
+//and use that as our entity ID
 dEntity dentity_create(void){
     u32 idx;
 

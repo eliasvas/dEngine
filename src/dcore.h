@@ -17,6 +17,7 @@
 #include "dentity.h"
 #include "dmaterial.h"
 #include "dcamera.h"
+#include "dparticle.h"
 
 //#include "dfiber.h"
 

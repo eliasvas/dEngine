@@ -4,6 +4,7 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
 extern dgDevice dd;
+extern dParticleEmitter test_emitter;
 
 dWindow main_window;
 dTransformCM transform_manager;
@@ -88,7 +89,7 @@ void dcore_init(void)
     //Initialize the Graphics Driver
     dtexture_manager_init(NULL);
     dgfx_init();
-
+    dparticle_system_init(); //depends on dgfx_init because the vert/index buffers have to be created
     
 
     //Initialize input system
@@ -149,10 +150,14 @@ void dcore_init(void)
     //Initialize editor
     deditor_init(NULL);
 
+
+
 }
 static frame_ok = TRUE;
 void dcore_update(f64 dt)
 {
+
+    dparticle_emitter_update(&test_emitter, dt);
     if (!frame_ok)//something wen't wrong in begin, probably resized swapchain, so we skip
     {
         frame_ok = TRUE;
@@ -163,6 +168,8 @@ void dcore_update(f64 dt)
     deditor_update(NULL, dt);
     dcamera_update(&cam,dt);
     deditor_draw(NULL);
+    
+    dparticle_emitter_render(&test_emitter);
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
     

@@ -22,6 +22,8 @@ typedef struct
 dEditor{
     vec4 viewport; //3D viewport bounds
     dEditorStyle style;
+
+	b32 editor_open;
 }dEditor;
 
 

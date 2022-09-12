@@ -6,6 +6,7 @@ extern "C" {
 	#include "dinput.h"
 	
 	#include "dprofiler.h"
+	#include "dparticle.h"
 }
 typedef struct dInputState dInputState;
 #include "dgfx.h"
@@ -25,6 +26,7 @@ extern dConfig engine_config;
 extern dWindow main_window;
 extern dInputState dis;
 extern dProfiler global_profiler;
+extern  mat4 view, proj;
 
 dEditor main_editor;
 
@@ -209,6 +211,8 @@ void deditor_init(dEditor *editor){
 	if (editor == NULL)editor = &main_editor;
 	dui_init();
 	editor->style= deditor_style_default();
+	editor->viewport = v4(0,0,dd.swap.extent.width, dd.swap.extent.height);
+	editor->editor_open = TRUE;//(DEBUG_BUILD) ? 1 : 0;
 	deditor_update_style(editor);
 	ImGuiIO& io = ImGui::GetIO();
 	for (u32 i = 0; i < 3; ++i)
@@ -216,6 +220,8 @@ void deditor_init(dEditor *editor){
 	comp_desc_set = ImGui_ImplVulkan_AddTexture(composition_rt.color_attachments[0].sampler, composition_rt.color_attachments[0].view, composition_rt.color_attachments[0].image_layout);
 }
 void deditor_update(dEditor *editor, float dt){
+	if (editor == NULL)editor = &main_editor;
+	if (!editor->editor_open)return;
 	//TODO resizing the swapchain makes the image descriptor sets invalid and crash
 	//one fix would be to make them each frame, but that way the descriptor pool overflows,
 	//look a bit into vulkan descriptors AND the backend.
@@ -235,11 +241,23 @@ void deditor_update(dEditor *editor, float dt){
 
 void deditor_draw(dEditor *editor){
 	if (editor == NULL)editor = &main_editor;
+	
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
 
-
+	if (!editor->editor_open && 0){
+		ImGui::Begin("Viewport",0,ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
+		ImGui::Image(comp_desc_set, ImVec2(editor->viewport.z - editor->viewport.x, editor->viewport.w - editor->viewport.y));
+		
+		
+		ImGui::Render();
+		ImGui::End();
+		dg_rendering_begin(&dd, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
+		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), dd.command_buffers[dd.current_frame]);
+		dg_rendering_end(&dd);
+		return;
+	}
 
 	ImGui::Begin("Viewport",0,ImGuiWindowFlags_NoMove);
 	static float sf = 0.4f;
@@ -325,4 +343,9 @@ void deditor_draw(dEditor *editor){
 	dg_rendering_begin(&dd, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
 	ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), dd.command_buffers[dd.current_frame]);
 	dg_rendering_end(&dd);
+
+
+	//set desc set 0
+    //mat4 data[4] = {view, proj, m4d(1.0f),m4d(1.0f)};
+    //dg_set_desc_set(&dd,&dd.def_pipe, data, sizeof(data), 0);
 }

@@ -20,7 +20,8 @@
         "dprofiler.h": "c",
         "deditor.h": "c",
         "cgltf.h": "c",
-        "*.tcc": "cpp"
+        "*.tcc": "cpp",
+        "dparticle.h": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }
