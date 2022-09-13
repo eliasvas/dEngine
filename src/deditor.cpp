@@ -7,6 +7,7 @@ extern "C" {
 	
 	#include "dprofiler.h"
 	#include "dparticle.h"
+	#include "dentity.h"
 }
 typedef struct dInputState dInputState;
 #include "dgfx.h"
@@ -27,6 +28,12 @@ extern dWindow main_window;
 extern dInputState dis;
 extern dProfiler global_profiler;
 extern  mat4 view, proj;
+
+
+//these are just for test, remove after end TODO TODO
+extern dParticleEmitter test_emitter;
+extern dParticleEmitterCM particle_emitter_cm;
+extern dEntity particle_emitter_entity;
 
 dEditor main_editor;
 
@@ -239,6 +246,50 @@ void deditor_update(dEditor *editor, float dt){
 	io.AddMouseButtonEvent(2,dkey_down(DK_MMB));
 }
 
+
+/*
+typedef struct dComponentField{
+    char name[32];
+    u32 offset; //offset in struct of Component (so we can modify it)
+    dComponentFieldType type;
+}dComponentField;
+
+//NOTE: dComponentDesc must be zero initialized instead of init'ed, its the same process
+typedef struct dComponentDesc{
+    u32 field_count;
+    dComponentField *fields_buf;
+}dComponentDesc;
+*/
+
+//We shouldnt search EACH frame for the description and make the UI, TODO fix
+void deditor_ecs_view(void *data, dComponentDesc desc){
+	ImGui::Begin("Component_view", NULL, ImGuiWindowFlags_None);
+	for (u32 i = 0; i < desc.field_count; ++i){
+		dComponentField *field = &desc.fields_buf[i];
+		switch (field->type){
+			case DCOMPONENT_FIELD_TYPE_U32:
+				ImGui::SliderInt(field->name, (s32*)(data + field->offset), 0, 100, NULL, 0);
+				break;
+			case DCOMPONENT_FIELD_TYPE_F32:
+				ImGui::SliderFloat(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				break;
+			case DCOMPONENT_FIELD_TYPE_VEC2:
+				ImGui::SliderFloat2(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				break;
+			case DCOMPONENT_FIELD_TYPE_VEC3:
+				ImGui::SliderFloat3(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				break;
+			case DCOMPONENT_FIELD_TYPE_VEC4:
+				ImGui::SliderFloat4(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				break;
+			default:
+				break;
+		}
+	}
+	ImGui::End();
+
+}
+
 void deditor_draw(dEditor *editor){
 	if (editor == NULL)editor = &main_editor;
 	
@@ -333,7 +384,14 @@ void deditor_draw(dEditor *editor){
 
 	ImGui::End();
 
-	
+
+	//Test for ECS based object interactions
+	//We get the particle emitter for some entity -> we make a widget out of its properties
+	u32 ci = dparticle_emitter_cm_lookup(NULL, particle_emitter_entity);
+	assert(ci != DENTITY_NOT_FOUND);
+	dParticleEmitter *e = dparticle_emitter_cm_emitter(NULL, ci);
+	deditor_ecs_view(e, particle_emitter_cm.component_desc);
+
 	
 
 	//ImGui::ShowDemoWindow();

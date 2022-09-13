@@ -2884,6 +2884,7 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.skybox_gen_pipe,"skybox_gen.vert", "skybox_gen.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
     assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.particle_pipe,"particle.vert", "particle.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.dui_pipe,DUI_VERT, DUI_FRAG, DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND | DG_PIPE_OPTION_READY_SHADERS));

@@ -5,6 +5,7 @@
 #include "dmem.h"
 #include "dthread.h"
 
+
 //this ECS pretty much follows the stingray approach
 //https://bitsquid.blogspot.com/2017/05/rebuilding-entity-index.html
 
@@ -42,6 +43,7 @@ typedef enum dComponentFieldType{
     DCOMPONENT_FIELD_TYPE_VEC3 = 0x4,
     DCOMPONENT_FIELD_TYPE_VEC4 = 0x8,
     DCOMPONENT_FIELD_TYPE_MAT4 = 0x10,
+    DCOMPONENT_FIELD_TYPE_U32 = 0x20,
 }dComponentFieldType;
 
 typedef struct dComponentField{
@@ -85,7 +87,7 @@ typedef struct dTransformCM{
     struct InstanceData data;
     dComponentDesc component_desc;
 
-    struct {u32 key; u32 value}*entity_hash;//entity ID -> array index
+    struct {u32 key; u32 value;}*entity_hash;//entity ID -> array index
     dLinearAllocator data_allocator;
     dMutex m;
 }dTransformCM;
@@ -107,4 +109,8 @@ u32 dtransform_cm_simulate(dTransformCM *manager);
 void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransform t);
 
 void dtransform_cm_del(dTransformCM *manager, u32 index);
+
+
+dComponentField dcomponent_field_make(char *name, u32 offset, dComponentFieldType type);
+void dcomponent_desc_insert(dComponentDesc *d, dComponentField f);
 #endif

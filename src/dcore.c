@@ -16,6 +16,8 @@ dEntity parent;
 dEntity child;
 dEntity child2;
 
+dEntity particle_emitter_entity;
+
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -146,6 +148,10 @@ void dcore_init(void)
         dlog(NULL, "entity id: %u \n", e.id);
     }
     */
+    dparticle_emitter_cm_init(NULL);
+    //test entity TODO delete :)
+    particle_emitter_entity = dentity_create();
+    u32 ci = dparticle_emitter_cm_add(NULL, particle_emitter_entity);
 
     //Initialize editor
     deditor_init(NULL);
@@ -157,7 +163,8 @@ static frame_ok = TRUE;
 void dcore_update(f64 dt)
 {
 
-    dparticle_emitter_update(&test_emitter, dt);
+    //dparticle_emitter_update(&test_emitter, dt);
+    dparticle_emitter_cm_simulate(NULL, dt);
     if (!frame_ok)//something wen't wrong in begin, probably resized swapchain, so we skip
     {
         frame_ok = TRUE;
@@ -167,9 +174,11 @@ void dcore_update(f64 dt)
     DPROFILER_START("UPDATE");
     deditor_update(NULL, dt);
     dcamera_update(&cam,dt);
+
     deditor_draw(NULL);
-    
-    dparticle_emitter_render(&test_emitter);
+
+    dparticle_emitter_cm_render(NULL);
+    //dparticle_emitter_render(&test_emitter);
     dg_frame_end(&dd);
     dmem_linear_free_all(&temp_alloc);
     

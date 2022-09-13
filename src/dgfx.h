@@ -183,6 +183,7 @@ typedef struct dgDevice
     dgPipeline skybox_gen_pipe;
     dgPipeline brdf_lut_pipe;
     dgPipeline prefilter_map_pipe;
+    dgPipeline particle_pipe;
 
     VkCommandPool command_pool;
     VkCommandBuffer* command_buffers;
