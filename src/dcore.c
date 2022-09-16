@@ -7,7 +7,6 @@ extern dgDevice dd;
 extern dParticleEmitter test_emitter;
 
 dWindow main_window;
-dTransformCM transform_manager;
 dCamera cam;
  
 extern dConfig engine_config;
@@ -26,43 +25,8 @@ void dcore_init(void)
     dentity_manager_init(NULL);
 
         //Initialize transform manager
-    dtransform_cm_init(&transform_manager);
+    dtransform_cm_init(NULL);
     ddebug_name_cm_init(NULL);
-
-    parent = dentity_create();
-    child = dentity_create();
-    child2 = dentity_create();
-
-    u32 component_index = dtransform_cm_add(&transform_manager, parent, (dEntity){DENTITY_NOT_FOUND});
-    dTransform parent_t = dtransform_default();
-    parent_t.trans = v3(1,10,0);
-    dtransform_cm_set_local(&transform_manager, component_index, parent_t);
-    component_index = dtransform_cm_lookup(&transform_manager, parent);
-    dTransform lp = transform_manager.data.local[component_index];
-    assert(equalf(lp.trans.y, 10, 0.01));
-
-
-    component_index = dtransform_cm_add(&transform_manager, child, parent);
-    dTransform child_t = dtransform_default();
-    child_t.trans = v3(2,0,0);
-    dtransform_cm_set_local(&transform_manager, component_index, child_t);
-    component_index = dtransform_cm_lookup(&transform_manager, child);
-    dTransform wp = transform_manager.data.world[component_index];
-    assert(equalf(wp.trans.x, 3, 0.01));
-    assert(equalf(wp.trans.y, 10, 0.01));
-
-    component_index = dtransform_cm_add(&transform_manager, child2, parent);
-    child_t = dtransform_default();
-    child_t.trans = v3(-2,0,0);
-    dtransform_cm_set_local(&transform_manager, component_index, child_t);
-    component_index = dtransform_cm_lookup(&transform_manager, child2);
-    wp = transform_manager.data.world[component_index];
-
-    
-
-
-
-
 
     //Initialize basic engine allocators 
     dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));

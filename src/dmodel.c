@@ -13,6 +13,10 @@ static dAnimation animation;
 static dAnimator animator;
 extern dEditor main_editor;
 
+
+extern dgRT csm_rt;//TODO: fix all these externs
+extern dgRT composition_rt;
+
 dModel dmodel_load_gltf(const char *filename)
 {
     char filepath[256];
@@ -220,9 +224,9 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dAnimSocket s = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
     draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, s), mat4_scale(v3(10,10,10))));
 
-    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->anim_pipe);
     
 
@@ -258,7 +262,6 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     dg_rendering_end(ddev);
 }
 
-extern dgRT csm_rt;//TODO: fix all these externs
 void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 {
     if (!ddev->shadow_pass_active)return;

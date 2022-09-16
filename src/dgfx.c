@@ -2779,7 +2779,8 @@ b32 dg_frame_begin(dgDevice *ddev)
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
    
-    
+    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
+
 
     //draw the grid ???
     if (ddev->grid_active){
@@ -2801,7 +2802,6 @@ b32 dg_frame_begin(dgDevice *ddev)
 void dg_frame_end(dgDevice *ddev)
 {
 
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
 
     //set desc set 0 again because it might have been redone
     //TODO: should we set this in every drawcall?? and maybe when drawin models we can set it only once

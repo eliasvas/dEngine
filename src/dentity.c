@@ -107,9 +107,12 @@ dTransform mat4_to_dtransform(mat4 m){
     return t;
 }
 
+dTransformCM transform_manager;
+
 //TODO: this allocate should happen after every insert if there is not enough size for new element
 void dtransform_cm_allocate(dTransformCM *manager, u32 size)
 {
+    if (manager == NULL)manager = &transform_manager;
     assert(size > manager->data.n);
 
     struct InstanceData new_data;
@@ -144,6 +147,7 @@ void dtransform_cm_allocate(dTransformCM *manager, u32 size)
 }
 
 void dtransform_cm_init(dTransformCM *manager){
+    if (manager == NULL)manager = &transform_manager;
     memset(manager, 0, sizeof(dTransformCM));
     dmem_linear_init(&manager->data_allocator, malloc(10), 10);
     manager->entity_hash = NULL;
@@ -162,6 +166,7 @@ void dtransform_cm_init(dTransformCM *manager){
 }
 
 u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
+    if (manager == NULL)manager = &transform_manager;
     u32 component_index = manager->data.n;
     hmput(manager->entity_hash, e.id, component_index);
 
@@ -196,23 +201,27 @@ u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
 
 //Return value of 0xFFFFFFFF means entity not found
 u32 dtransform_cm_lookup(dTransformCM *manager, dEntity e){
+    if (manager == NULL)manager = &transform_manager;
     s32 component_index = hmget(manager->entity_hash, e.id);
     return component_index;
 }
 
 
 dTransform *dtransform_cm_local(dTransformCM *manager,u32 index){
+    if (manager == NULL)manager = &transform_manager;
     return &manager->data.local[index];
 }
 
 //TODO, we should make this a const pointer because we are not
 //supposed to play with the world transform, its very unsafe
 dTransform *dtransform_cm_world(dTransformCM *manager,u32 index){
+    if (manager == NULL)manager = &transform_manager;
     return &manager->data.world[index];
 }
 
 //TODO: this is wrong (for transform entities), the actual solution is pretty hard tho, we gotta do it
 void dtransform_cm_del(dTransformCM *manager, u32 index){
+    if (manager == NULL)manager = &transform_manager;
     u32 last_component = manager->data.n-1;
     dEntity e = manager->data.entity[index];
     dEntity last_entity = manager->data.entity[last_component];
@@ -228,8 +237,8 @@ void dtransform_cm_del(dTransformCM *manager, u32 index){
     manager->data.n--;
 }
 
-void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransform t)
-{
+void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransform t){
+    if (manager == NULL)manager = &transform_manager;
     manager->data.local[component_index] = t;
     u32 parent_index = manager->data.parent[component_index];
     dTransform parent_trans = dtransform_default();
@@ -238,8 +247,8 @@ void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransf
     dtransform_cm_transform(manager,parent_trans, component_index);
 }
 
-void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 component_index)
-{
+void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 component_index){
+    if (manager == NULL)manager = &transform_manager;
     mat4 world = mat4_mul(dtransform_to_mat4(manager->data.local[component_index]),dtransform_to_mat4(parent));
     manager->data.world[component_index] = mat4_to_dtransform(world);
 
@@ -253,14 +262,14 @@ void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 comp
 
 
 u32 dtransform_cm_simulate(dTransformCM *manager){
+    if (manager == NULL)manager = &transform_manager;
     //do nothing (maybe do collisions for selection :) )
 }
 
 
 
 dDebugNameCM debug_name_cm;
-void ddebug_name_cm_allocate(dDebugNameCM *manager, u32 size)
-{
+void ddebug_name_cm_allocate(dDebugNameCM *manager, u32 size){
     if (manager == NULL)manager = &debug_name_cm;
     assert(size > manager->data.n);
 

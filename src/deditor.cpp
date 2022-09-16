@@ -256,12 +256,12 @@ void deditor_init(dEditor *editor){
 	}
 
 
-	if (0){
+	{
 		e2 = dentity_create();
-		u32 ci = dparticle_emitter_cm_add(NULL, e2);
+		//u32 ci = dparticle_emitter_cm_add(NULL, e2);
 		u32 component_index = dtransform_cm_add(&transform_manager, e2, e0);
 		dTransform parent_t = dtransform_default();
-		parent_t.trans = v3(3,0,0);
+		parent_t.trans = v3(4,3,0);
 		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
 
 		u32 name_index = ddebug_name_cm_add(NULL, e2);
@@ -291,24 +291,12 @@ void deditor_update(dEditor *editor, float dt){
 }
 
 
-/*
-typedef struct dComponentField{
-    char name[32];
-    u32 offset; //offset in struct of Component (so we can modify it)
-    dComponentFieldType type;
-}dComponentField;
 
-//NOTE: dComponentDesc must be zero initialized instead of init'ed, its the same process
-typedef struct dComponentDesc{
-    u32 field_count;
-    dComponentField *fields_buf;
-}dComponentDesc;
-*/
+
 
 //We shouldnt search EACH frame for the description and make the UI, TODO fix
-b32 deditor_ecs_view(void *data, dComponentDesc desc){
+b32 deditor_component_view(void *data, dComponentDesc desc){
 	b32 edited=0;
-	ImGui::Begin("Component_view", NULL, ImGuiWindowFlags_None);
 	for (u32 i = 0; i < desc.field_count; ++i){
 		dComponentField *field = &desc.fields_buf[i];
 		switch (field->type){
@@ -331,8 +319,40 @@ b32 deditor_ecs_view(void *data, dComponentDesc desc){
 				break;
 		}
 	}
-	ImGui::End();
 	return edited;
+}
+
+void deditor_entity_view(dEntity e){
+	//[1]. we display our entity, 
+	char *name = ddebug_name_cm_name(NULL,ddebug_name_cm_lookup(NULL, e));
+	u32 transform_index =  dtransform_cm_lookup(NULL, e); //index of transform component
+	dTransform *local_transform= dtransform_cm_local(NULL,transform_index);
+	if (ImGui::TreeNode(name)){
+		if (ImGui::CollapsingHeader("Transform")){
+		if (deditor_component_view(local_transform, transform_manager.component_desc))
+			dtransform_cm_set_local(NULL, transform_index, *local_transform);
+		}
+		//[2]. then we search for a child, and if we have one, we display that INSIDE our TreeNode
+		u32 child_index = transform_manager.data.first_child[transform_index];
+		if (child_index != DCOMPONENT_NOT_FOUND)
+			deditor_entity_view(transform_manager.data.entity[child_index]);
+
+		ImGui::TreePop();
+	}
+	//[3]. then we see if there is another sibling, and if so, we display it 
+	//(and the sibling will search for another one in its own right)
+	u32 next_sibling_index = transform_manager.data.next_sibling[transform_index];
+		if (next_sibling_index != DCOMPONENT_NOT_FOUND)
+			deditor_entity_view(transform_manager.data.entity[next_sibling_index]);
+}
+
+
+void deditor_scene_view(dEntity root){
+	ImGui::Begin("Scene", NULL, ImGuiWindowFlags_None);
+
+	deditor_entity_view(root);
+
+	ImGui::End();
 }
 
 void deditor_draw(dEditor *editor){
@@ -362,34 +382,18 @@ void deditor_draw(dEditor *editor){
 		ImGui::GetForegroundDrawList()->AddRect( vMin, vMax, IM_COL32( 255, 255, 0, 255 ) );
 		ImGui::Image(comp_desc_set, ImVec2(editor->viewport.z - editor->viewport.x, editor->viewport.w - editor->viewport.y));
 	}
-	ImGui::SetNextWindowPos(ImVec2(win_max.x, 0),0);
-	ImGui::SetNextWindowSize(ImVec2( dd.swap.extent.width-win_max.x, dd.swap.extent.height),0);
+	ImGui::SetNextWindowPos(ImVec2(win_max.x, win_max.y),0);
+	ImGui::SetNextWindowSize(ImVec2( dd.swap.extent.width-win_max.x, dd.swap.extent.height-win_max.y),0);
 	ImGui::End();
 
 	ImGui::Begin("Settings", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-
-	if (ImGui::TreeNode("Hello")){
-		ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
-		ImGui::TreePop();
-		//ImGui::Separator();
-	}
-	if (ImGui::CollapsingHeader("Configuration")){
-		ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
-		ImGui::Checkbox("Grid", (bool*)&dd.grid_active);
-		ImGui::ColorButton("Format", {1,0.2,0.2,1});
-		ImGui::ColorButton("Backup", {0.1,0.2,0.8,1});
-		ImGui::ColorButton("Main", {0.5,0.7,0.2,1});
-		//ImGui::Image({}, {200,200});
-		static vec3 color_pick = v3(0.7,0.8,0.3);
-		//ImGui::ColorPicker3("Color Picker", (float*)&color_pick);
-		
-	}
-	if(ImGui::CollapsingHeader("e0")){
-		if(ImGui::CollapsingHeader("e01")){}
-		if(ImGui::CollapsingHeader("e02")){}
-		if(ImGui::CollapsingHeader("e03"))
-			if(ImGui::CollapsingHeader("e031")){}
-	}
+	ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
+	ImGui::Checkbox("Grid", (bool*)&dd.grid_active);
+	static bool anti_aliasing = false; //TODO add to dgDevice
+	ImGui::Checkbox("AA", (bool*)&anti_aliasing);
+	ImGui::ColorButton("Format", {1,0.2,0.2,1});
+	static vec3 color_pick = v3(0.7,0.8,0.3);
+	//ImGui::ColorPicker3("Color Picker", (float*)&color_pick);
 	ImGui::SetNextWindowPos(ImVec2(0, win_max.y),0);
 	ImGui::SetNextWindowSize(ImVec2(win_max.x, dd.swap.extent.height - win_max.y),0);
 	ImGui::End();
@@ -425,33 +429,14 @@ void deditor_draw(dEditor *editor){
 		static ImU32 some_colors[] = {IM_COL32( 255, 0,0,255 ),IM_COL32( 63, 255,0,255 ),IM_COL32( 0, 122, 254,255 )};
 		ImGui::GetForegroundDrawList()->AddQuadFilled({tl.x,tl.y},{tl.x, br.y-4},{br.x, br.y-4},{br.x,tl.y},some_colors[i % array_count(some_colors)]);
 	}
-	//viewportPanelSize = ImGui::GetContentRegionAvail();
-	//ImGui::Image(def_desc_sets[0], ImVec2{viewportPanelSize.x, viewportPanelSize.y});
-
+	ImGui::SetNextWindowPos(ImVec2(win_max.x, 0),0);
+	ImGui::SetNextWindowSize(ImVec2( dd.swap.extent.width-win_max.x, dd.swap.extent.height - win_max.y),0);
 	ImGui::End();
 
-
-	//Test for ECS based object interactions
-	//We get the particle emitter for some entity -> we make a widget out of its properties
-	//u32 ci = dparticle_emitter_cm_lookup(NULL, e0);
-	//assert(ci != DENTITY_NOT_FOUND);
-	//dParticleEmitter *e = dparticle_emitter_cm_emitter(NULL, ci);
-	//deditor_ecs_view(e, particle_emitter_cm.component_desc);
-
-	u32 debug_name_index = ddebug_name_cm_lookup(NULL, e0);
-	char *entity_name = ddebug_name_cm_name(NULL, debug_name_index);
-	assert(strcmp(entity_name, "e0") == NULL);
-
-	u32 transform_index = dtransform_cm_lookup(&transform_manager, e0);
-	assert(transform_index != DENTITY_NOT_FOUND);
-
-	dTransform *lt = dtransform_cm_local(&transform_manager, transform_index);
-	if (deditor_ecs_view(lt, transform_manager.component_desc))
-	{
-		dtransform_cm_set_local(&transform_manager, transform_index, *lt);
-	}
+	deditor_scene_view(e0);
 
 	//draw e0
+	u32 transform_index = dtransform_cm_lookup(&transform_manager, e0);
 	dTransform *wt = dtransform_cm_world(&transform_manager, transform_index);
 	draw_cube(&dd, dtransform_to_mat4(*wt));
 
@@ -460,7 +445,13 @@ void deditor_draw(dEditor *editor){
 	wt = dtransform_cm_world(&transform_manager, transform_index);
 	draw_cube(&dd, dtransform_to_mat4(*wt));
 	
-	//ImGui::ShowDemoWindow();
+	//draw e2
+	transform_index = dtransform_cm_lookup(&transform_manager, e2);
+	wt = dtransform_cm_world(&transform_manager, transform_index);
+	draw_cube(&dd, dtransform_to_mat4(*wt));
+	
+
+
 
 	ImGui::Render();
 
