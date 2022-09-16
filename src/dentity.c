@@ -149,7 +149,7 @@ void dtransform_cm_init(dTransformCM *manager){
     manager->entity_hash = NULL;
     manager->m = dmutex_create();
     dtransform_cm_allocate(manager, 100);
-    hmdefault(manager->entity_hash, 0xFFFFFFFF);
+    hmdefault(manager->entity_hash, DENTITY_NOT_FOUND); //DENTITY_NOT_FOUND = 0xFFFFFFF (all 1's)
 
     //make the component description
     dComponentField f1 = dcomponent_field_make("Translation", offsetof(dTransform, trans), DCOMPONENT_FIELD_TYPE_VEC3);
@@ -170,26 +170,23 @@ u32 dtransform_cm_add(dTransformCM *manager, dEntity e, dEntity p){
     manager->data.world[component_index] = dtransform_default();
     u32 parent_index = (p.id == DENTITY_NOT_FOUND) ? DENTITY_NOT_FOUND : hmget(manager->entity_hash, p.id);
     manager->data.parent[component_index] = parent_index;
-    manager->data.first_child[component_index] = DENTITY_NOT_FOUND;
-    manager->data.next_sibling[component_index] = DENTITY_NOT_FOUND;
-    manager->data.prev_sibling[component_index] = DENTITY_NOT_FOUND;
+    manager->data.first_child[component_index] = DCOMPONENT_NOT_FOUND;
+    manager->data.next_sibling[component_index] = DCOMPONENT_NOT_FOUND;
+    manager->data.prev_sibling[component_index] = DCOMPONENT_NOT_FOUND;
 
     //if there is a parent, insert current component as a child
-    if (parent_index != DENTITY_NOT_FOUND){
+    if (parent_index != DCOMPONENT_NOT_FOUND){
         //we find the first child of parent
         u32 child_index = manager->data.first_child[parent_index];
-        if (child_index == DENTITY_NOT_FOUND){
+        if (child_index == DCOMPONENT_NOT_FOUND){
             manager->data.first_child[parent_index] = component_index;
         }else{
-            //and search for the last sibling
-            u32 prev_sibling_index= child_index;
-            while(manager->data.next_sibling[child_index] != DENTITY_NOT_FOUND){
-                prev_sibling_index = manager->data.next_sibling[child_index];
+            //and search for the last sibling (the sibling that doesn't have next)
+            while(manager->data.next_sibling[child_index] != DCOMPONENT_NOT_FOUND)
                 child_index = manager->data.next_sibling[child_index];
-            }
             //when we find it we insert our component index as the sibling (which makes it a registered child of parent!)
             manager->data.next_sibling[child_index] = component_index;
-            manager->data.prev_sibling[component_index] = prev_sibling_index;
+            manager->data.prev_sibling[component_index] = child_index;
         }
        
     }
@@ -208,6 +205,8 @@ dTransform *dtransform_cm_local(dTransformCM *manager,u32 index){
     return &manager->data.local[index];
 }
 
+//TODO, we should make this a const pointer because we are not
+//supposed to play with the world transform, its very unsafe
 dTransform *dtransform_cm_world(dTransformCM *manager,u32 index){
     return &manager->data.world[index];
 }
@@ -234,7 +233,7 @@ void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransf
     manager->data.local[component_index] = t;
     u32 parent_index = manager->data.parent[component_index];
     dTransform parent_trans = dtransform_default();
-    if (parent_index != DENTITY_NOT_FOUND)
+    if (parent_index != DCOMPONENT_NOT_FOUND)
         parent_trans = manager->data.world[parent_index];
     dtransform_cm_transform(manager,parent_trans, component_index);
 }
@@ -245,7 +244,7 @@ void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 comp
     manager->data.world[component_index] = mat4_to_dtransform(world);
 
     u32 child_index = manager->data.first_child[component_index];
-    while (child_index != DENTITY_NOT_FOUND) {
+    while (child_index != DCOMPONENT_NOT_FOUND) {
        dtransform_cm_transform(manager, manager->data.world[component_index], child_index);
        child_index = manager->data.next_sibling[child_index];
     }
@@ -255,4 +254,90 @@ void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 comp
 
 u32 dtransform_cm_simulate(dTransformCM *manager){
     //do nothing (maybe do collisions for selection :) )
+}
+
+
+
+dDebugNameCM debug_name_cm;
+void ddebug_name_cm_allocate(dDebugNameCM *manager, u32 size)
+{
+    if (manager == NULL)manager = &debug_name_cm;
+    assert(size > manager->data.n);
+
+    struct dnInstanceData new_data;
+    const u32 bytes = size * (sizeof(dEntity) + sizeof(dDebugName));
+        
+    new_data.buffer = dalloc(bytes);
+    new_data.n = manager->data.n;
+    new_data.allocated = size;
+
+    new_data.entity = (dEntity *)(new_data.buffer);
+    new_data.name = (u8*)(new_data.entity + size);
+
+    if (manager->data.buffer != NULL){ //if we have data from previous allocation, copy.
+        memcpy(new_data.entity, manager->data.entity, manager->data.n * sizeof(dEntity));
+        memcpy(new_data.name, manager->data.name, manager->data.n * sizeof(dDebugName));
+    }
+
+    if (manager->data.buffer != NULL)
+        dfree(manager->data.buffer);
+    manager->data = new_data;
+}
+
+void ddebug_name_cm_init(dDebugNameCM *manager){
+    if (manager == NULL)manager = &debug_name_cm;
+
+    memset(manager, 0, sizeof(dDebugNameCM));
+    manager->entity_hash = NULL;
+    ddebug_name_cm_allocate(manager, 10);
+    hmdefault(manager->entity_hash, 0xFFFFFFFF);
+    dComponentField f1 = dcomponent_field_make("name", offsetof(dDebugName, name), DCOMPONENT_FIELD_TYPE_STRING);
+        memset(&manager->component_desc, 0, sizeof(manager->component_desc));
+    dcomponent_desc_insert(&manager->component_desc, f1);
+}
+
+
+u32 ddebug_name_cm_add(dDebugNameCM *manager, dEntity e){
+    if (manager == NULL)manager = &debug_name_cm;
+
+    //Find the next index available by the manager and create an EntityID -> index relation
+    u32 component_index = manager->data.n;
+    hmput(manager->entity_hash, e.id, component_index);
+
+    //Initialize the component's data in that index
+    manager->data.entity[component_index] = e;
+    memset(manager->data.name[component_index].name, 0, sizeof(dDebugName));
+
+    //return the index and increment the global index of the manager, to be ready for the next insertion
+    return manager->data.n++;
+}
+
+
+//Return value of 0xFFFFFFFF means entity not found
+u32 ddebug_name_cm_lookup(dDebugNameCM *manager, dEntity e){
+    if (manager == NULL)manager = &debug_name_cm;
+    s32 component_index = hmget(manager->entity_hash, e.id);
+    return component_index;
+}
+
+char *ddebug_name_cm_name(dDebugNameCM * manager, u32 component_index){
+    if (manager == NULL)manager = &debug_name_cm;
+    char *name = manager->data.name[component_index].name;
+    return name;
+}
+
+void ddebug_name_cm_del(dDebugNameCM *manager, u32 index){
+    if (manager == NULL)manager = &debug_name_cm;
+    u32 last_component = manager->data.n-1;
+    dEntity e = manager->data.entity[index];
+    dEntity last_entity = manager->data.entity[last_component];
+
+    manager->data.entity[index] = manager->data.entity[last_component];
+    manager->data.name[index] = manager->data.name[last_component];
+
+    hmdel(manager->entity_hash, e.id);
+    hmdel(manager->entity_hash, last_entity.id);
+    hmput(manager->entity_hash, last_entity.id, index);
+
+    manager->data.n--;
 }

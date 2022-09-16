@@ -21,7 +21,11 @@
         "deditor.h": "c",
         "cgltf.h": "c",
         "*.tcc": "cpp",
-        "dparticle.h": "c"
+        "dparticle.h": "c",
+        "array": "c",
+        "string_view": "c",
+        "initializer_list": "c",
+        "utility": "c"
     },
     "C_Cpp.errorSquiggles": "Disabled"
 }

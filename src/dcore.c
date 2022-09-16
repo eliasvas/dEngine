@@ -16,8 +16,6 @@ dEntity parent;
 dEntity child;
 dEntity child2;
 
-dEntity particle_emitter_entity;
-
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -29,6 +27,7 @@ void dcore_init(void)
 
         //Initialize transform manager
     dtransform_cm_init(&transform_manager);
+    ddebug_name_cm_init(NULL);
 
     parent = dentity_create();
     child = dentity_create();
@@ -150,8 +149,6 @@ void dcore_init(void)
     */
     dparticle_emitter_cm_init(NULL);
     //test entity TODO delete :)
-    particle_emitter_entity = dentity_create();
-    u32 ci = dparticle_emitter_cm_add(NULL, particle_emitter_entity);
 
     //Initialize editor
     deditor_init(NULL);

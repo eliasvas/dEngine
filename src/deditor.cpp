@@ -33,7 +33,10 @@ extern  mat4 view, proj;
 //these are just for test, remove after end TODO TODO
 extern dParticleEmitter test_emitter;
 extern dParticleEmitterCM particle_emitter_cm;
-extern dEntity particle_emitter_entity;
+extern dTransformCM transform_manager;
+
+
+dEntity e0,e1,e2;
 
 dEditor main_editor;
 
@@ -225,6 +228,47 @@ void deditor_init(dEditor *editor){
 	for (u32 i = 0; i < 3; ++i)
 		def_desc_sets[i] = ImGui_ImplVulkan_AddTexture(def_rt.color_attachments[i].sampler, def_rt.color_attachments[i].view, def_rt.color_attachments[i].image_layout);
 	comp_desc_set = ImGui_ImplVulkan_AddTexture(composition_rt.color_attachments[0].sampler, composition_rt.color_attachments[0].view, composition_rt.color_attachments[0].image_layout);
+
+	{
+		e0 = dentity_create();
+		//u32 ci = dparticle_emitter_cm_add(NULL, e0);
+		u32 component_index = dtransform_cm_add(&transform_manager, e0, (dEntity){DENTITY_NOT_FOUND});
+		dTransform parent_t = dtransform_default();
+		parent_t.trans = v3(3,0,0);
+		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
+
+		u32 name_index = ddebug_name_cm_add(NULL, e0);
+		char *name = ddebug_name_cm_name(NULL, name_index);
+		sprintf(name, "e0");
+	}
+
+	{
+		e1 = dentity_create();
+		//u32 ci = dparticle_emitter_cm_add(NULL, e1);
+		u32 component_index = dtransform_cm_add(&transform_manager, e1, e0);
+		dTransform parent_t = dtransform_default();
+		parent_t.trans = v3(5,0,0);
+		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
+
+		u32 name_index = ddebug_name_cm_add(NULL, e1);
+		char *name = ddebug_name_cm_name(NULL, name_index);
+		sprintf(name, "e1");
+	}
+
+
+	if (0){
+		e2 = dentity_create();
+		u32 ci = dparticle_emitter_cm_add(NULL, e2);
+		u32 component_index = dtransform_cm_add(&transform_manager, e2, e0);
+		dTransform parent_t = dtransform_default();
+		parent_t.trans = v3(3,0,0);
+		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
+
+		u32 name_index = ddebug_name_cm_add(NULL, e2);
+		char *name = ddebug_name_cm_name(NULL, name_index);
+		sprintf(name, "e2");
+	}
+
 }
 void deditor_update(dEditor *editor, float dt){
 	if (editor == NULL)editor = &main_editor;
@@ -262,32 +306,33 @@ typedef struct dComponentDesc{
 */
 
 //We shouldnt search EACH frame for the description and make the UI, TODO fix
-void deditor_ecs_view(void *data, dComponentDesc desc){
+b32 deditor_ecs_view(void *data, dComponentDesc desc){
+	b32 edited=0;
 	ImGui::Begin("Component_view", NULL, ImGuiWindowFlags_None);
 	for (u32 i = 0; i < desc.field_count; ++i){
 		dComponentField *field = &desc.fields_buf[i];
 		switch (field->type){
 			case DCOMPONENT_FIELD_TYPE_U32:
-				ImGui::SliderInt(field->name, (s32*)(data + field->offset), 0, 100, NULL, 0);
+				if (ImGui::SliderInt(field->name, (s32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_F32:
-				ImGui::SliderFloat(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				if (ImGui::SliderFloat(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC2:
-				ImGui::SliderFloat2(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				if (ImGui::SliderFloat2(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC3:
-				ImGui::SliderFloat3(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				if (ImGui::SliderFloat3(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC4:
-				ImGui::SliderFloat4(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0);
+				if (ImGui::SliderFloat4(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
 				break;
 			default:
 				break;
 		}
 	}
 	ImGui::End();
-
+	return edited;
 }
 
 void deditor_draw(dEditor *editor){
@@ -296,19 +341,6 @@ void deditor_draw(dEditor *editor){
 	ImGui_ImplVulkan_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
 	ImGui::NewFrame();
-
-	if (!editor->editor_open && 0){
-		ImGui::Begin("Viewport",0,ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoTitleBar);
-		ImGui::Image(comp_desc_set, ImVec2(editor->viewport.z - editor->viewport.x, editor->viewport.w - editor->viewport.y));
-		
-		
-		ImGui::Render();
-		ImGui::End();
-		dg_rendering_begin(&dd, NULL, 1, NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
-		ImGui_ImplVulkan_RenderDrawData(ImGui::GetDrawData(), dd.command_buffers[dd.current_frame]);
-		dg_rendering_end(&dd);
-		return;
-	}
 
 	ImGui::Begin("Viewport",0,ImGuiWindowFlags_NoMove);
 	static float sf = 0.4f;
@@ -335,15 +367,29 @@ void deditor_draw(dEditor *editor){
 	ImGui::End();
 
 	ImGui::Begin("Settings", NULL, ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove);
-	ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
-	
-	ImGui::Checkbox("Grid", (bool*)&dd.grid_active);
-	ImGui::ColorButton("Format", {1,0.2,0.2,1});
-	ImGui::ColorButton("Backup", {0.1,0.2,0.8,1});
-	ImGui::ColorButton("Main", {0.5,0.7,0.2,1});
-	//ImGui::Image({}, {200,200});
-	static vec3 color_pick = v3(0.7,0.8,0.3);
-	//ImGui::ColorPicker3("Color Picker", (float*)&color_pick);
+
+	if (ImGui::TreeNode("Hello")){
+		ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
+		ImGui::TreePop();
+		//ImGui::Separator();
+	}
+	if (ImGui::CollapsingHeader("Configuration")){
+		ImGui::Checkbox("Shadows", (bool*)&dd.shadow_pass_active);
+		ImGui::Checkbox("Grid", (bool*)&dd.grid_active);
+		ImGui::ColorButton("Format", {1,0.2,0.2,1});
+		ImGui::ColorButton("Backup", {0.1,0.2,0.8,1});
+		ImGui::ColorButton("Main", {0.5,0.7,0.2,1});
+		//ImGui::Image({}, {200,200});
+		static vec3 color_pick = v3(0.7,0.8,0.3);
+		//ImGui::ColorPicker3("Color Picker", (float*)&color_pick);
+		
+	}
+	if(ImGui::CollapsingHeader("e0")){
+		if(ImGui::CollapsingHeader("e01")){}
+		if(ImGui::CollapsingHeader("e02")){}
+		if(ImGui::CollapsingHeader("e03"))
+			if(ImGui::CollapsingHeader("e031")){}
+	}
 	ImGui::SetNextWindowPos(ImVec2(0, win_max.y),0);
 	ImGui::SetNextWindowSize(ImVec2(win_max.x, dd.swap.extent.height - win_max.y),0);
 	ImGui::End();
@@ -387,13 +433,33 @@ void deditor_draw(dEditor *editor){
 
 	//Test for ECS based object interactions
 	//We get the particle emitter for some entity -> we make a widget out of its properties
-	u32 ci = dparticle_emitter_cm_lookup(NULL, particle_emitter_entity);
-	assert(ci != DENTITY_NOT_FOUND);
-	dParticleEmitter *e = dparticle_emitter_cm_emitter(NULL, ci);
-	deditor_ecs_view(e, particle_emitter_cm.component_desc);
+	//u32 ci = dparticle_emitter_cm_lookup(NULL, e0);
+	//assert(ci != DENTITY_NOT_FOUND);
+	//dParticleEmitter *e = dparticle_emitter_cm_emitter(NULL, ci);
+	//deditor_ecs_view(e, particle_emitter_cm.component_desc);
 
+	u32 debug_name_index = ddebug_name_cm_lookup(NULL, e0);
+	char *entity_name = ddebug_name_cm_name(NULL, debug_name_index);
+	assert(strcmp(entity_name, "e0") == NULL);
+
+	u32 transform_index = dtransform_cm_lookup(&transform_manager, e0);
+	assert(transform_index != DENTITY_NOT_FOUND);
+
+	dTransform *lt = dtransform_cm_local(&transform_manager, transform_index);
+	if (deditor_ecs_view(lt, transform_manager.component_desc))
+	{
+		dtransform_cm_set_local(&transform_manager, transform_index, *lt);
+	}
+
+	//draw e0
+	dTransform *wt = dtransform_cm_world(&transform_manager, transform_index);
+	draw_cube(&dd, dtransform_to_mat4(*wt));
+
+	//draw e1
+	transform_index = dtransform_cm_lookup(&transform_manager, e1);
+	wt = dtransform_cm_world(&transform_manager, transform_index);
+	draw_cube(&dd, dtransform_to_mat4(*wt));
 	
-
 	//ImGui::ShowDemoWindow();
 
 	ImGui::Render();

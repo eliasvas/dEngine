@@ -34,6 +34,7 @@ b32 dentity_alive(dEntity e);
 void dentity_destroy(dEntity e);
 dEntity dentity_create(void);
 #define DENTITY_NOT_FOUND 0xFFFFFFFF
+#define DCOMPONENT_NOT_FOUND 0xFFFFFFFF
 
 //these define a component's editable properties, which are used by the UI system!
 typedef enum dComponentFieldType{
@@ -44,6 +45,7 @@ typedef enum dComponentFieldType{
     DCOMPONENT_FIELD_TYPE_VEC4 = 0x8,
     DCOMPONENT_FIELD_TYPE_MAT4 = 0x10,
     DCOMPONENT_FIELD_TYPE_U32 = 0x20,
+    DCOMPONENT_FIELD_TYPE_STRING = 0x30,
 }dComponentFieldType;
 
 typedef struct dComponentField{
@@ -113,4 +115,36 @@ void dtransform_cm_del(dTransformCM *manager, u32 index);
 
 dComponentField dcomponent_field_make(char *name, u32 offset, dComponentFieldType type);
 void dcomponent_desc_insert(dComponentDesc *d, dComponentField f);
+
+
+
+
+
+
+#define DEBUG_NAME_MAX_CHARS 32
+typedef struct dDebugName{
+    char name[DEBUG_NAME_MAX_CHARS];
+}dDebugName;
+typedef struct dDebugNameCM{
+    struct dnInstanceData {
+        u32 n; // No. of _used_ instances (current)
+        u32 allocated; // No. of allocated instances (max)
+        void *buffer; // Buffer w/ instance Data
+
+        dEntity *entity;
+        dDebugName *name;
+    };
+
+    struct dnInstanceData data;
+    struct {u32 key; u32 value;}*entity_hash;//entity ID -> array index
+
+    dComponentDesc component_desc;
+}dDebugNameCM;
+
+void ddebug_name_cm_init(dDebugNameCM *manager);
+u32 ddebug_name_cm_add(dDebugNameCM *manager, dEntity e);
+u32 ddebug_name_cm_lookup(dDebugNameCM *manager, dEntity e);
+char *ddebug_name_cm_name(dDebugNameCM * manager, u32 component_index);
+void ddebug_name_cm_del(dDebugNameCM *manager, u32 index);
+
 #endif

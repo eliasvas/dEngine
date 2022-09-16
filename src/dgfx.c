@@ -2503,9 +2503,9 @@ extern dEntity child,child2, parent;
 extern dTransformCM transform_manager;
 void draw_cube(dgDevice *ddev, mat4 model)
 {
-    dg_rendering_begin(ddev, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
-    dg_set_viewport(ddev, main_editor.viewport.x,main_editor.viewport.y,main_editor.viewport.z-main_editor.viewport.x, main_editor.viewport.w -main_editor.viewport.y);
-    dg_set_scissor(ddev, 0,0,ddev->swap.extent.width, ddev->swap.extent.height);
+    dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->base_pipe);
     dgBuffer buffers[] = {base_vbo};
     u64 offsets[] = {0,0,0,0};
@@ -2760,7 +2760,6 @@ b32 dg_frame_begin(dgDevice *ddev)
 
 
     
-    //draw the 3d scene in the correct viewport (given by the editor?)
     dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1,NULL, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
     dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);

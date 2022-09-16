@@ -34,7 +34,8 @@ typedef struct dParticleEmitter{
     dParticle p[DPARTICLE_EMITTER_MAX_PARTICLES]; //make dynamic, its static only to test
     u32 particle_count;
     u32 pps; //particles per second
-    vec3 position; //TODO: should be merged with transform components and update pos per frame
+    vec3 local_position; 
+    vec3 world_position; //based on 
 
     vec4 color1; //source color
     vec4 color2; //dest color

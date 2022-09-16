@@ -4,6 +4,8 @@
 #include "dmem.h"
 #include "stb/stb_ds.h"
 
+extern dTransformCM transform_manager;
+
 dParticleEmitter test_emitter;
 
 
@@ -60,7 +62,7 @@ void dparticle_emitter_init(dParticleEmitter *emitter){
     emitter->pps = 70;
     emitter->color1 = v4(0.0,0.0,0.0,1.0);
     emitter->color2 = v4(1.0,1.0,1.0,1.0);
-    emitter->position = v3(0,0,0);
+    emitter->local_position = v3(0,0,0);
 }
 
 extern mat4 view, proj;
@@ -68,7 +70,7 @@ void dparticle_emitter_render(dParticleEmitter *emitter){
     //set desc set 0
     mat4 data[4] = {view, proj, m4d(1.0f),m4d(1.0f)};
     dg_set_desc_set(&dd,&dd.particle_pipe, data, sizeof(data), 0);
-    dg_rendering_begin(&dd, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
+    dg_rendering_begin(&dd, NULL, 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_DEPTH_DISABLE);
     for (u32 i =0; i < emitter->particle_count;++i){
         dparticle_render(&emitter->p[i], emitter->color1, emitter->color2);
     }
@@ -91,7 +93,7 @@ void dparticle_emitter_emit(dParticleEmitter *emitter){
     vec3 vel = v3(dir_x, 1, dir_y);
     vel = vec3_normalize(vel);
     p.vel = vel;
-    p.pos = emitter->position;
+    p.pos = emitter->world_position;
     p.grav_effect = 1;
     p.scale =1.0f;
     p.life_length= 1.0;
@@ -151,11 +153,13 @@ void dparticle_emitter_cm_init(dParticleEmitterCM *manager){
     manager->entity_hash = NULL;
     dparticle_emitter_cm_allocate(manager, 10);
     hmdefault(manager->entity_hash, 0xFFFFFFFF);
-    dComponentField f1 = dcomponent_field_make("position", offsetof(dParticleEmitter, position), DCOMPONENT_FIELD_TYPE_VEC3);
+    dComponentField f1 = dcomponent_field_make("world_position", offsetof(dParticleEmitter, world_position), DCOMPONENT_FIELD_TYPE_VEC3);
+    dComponentField f3 = dcomponent_field_make("local_position", offsetof(dParticleEmitter, local_position), DCOMPONENT_FIELD_TYPE_VEC3);
     dComponentField f2 = dcomponent_field_make("pps", offsetof(dParticleEmitter, pps), DCOMPONENT_FIELD_TYPE_U32);
     memset(&manager->component_desc, 0, sizeof(manager->component_desc));
     dcomponent_desc_insert(&manager->component_desc, f1);
     dcomponent_desc_insert(&manager->component_desc, f2);
+    dcomponent_desc_insert(&manager->component_desc, f3);
 }
 
 
@@ -201,6 +205,8 @@ void dparticle_emitter_cm_del(dParticleEmitterCM *manager, u32 index){
 //we update all the emitters
 u32 dparticle_emitter_cm_simulate(dParticleEmitterCM *manager, f32 dt){
     if (manager == NULL)manager = &particle_emitter_cm;
+
+    
     for (u32 i = 0; i < manager->data.n; ++i){
         dparticle_emitter_update(&manager->data.emitter[i], dt);
     }
@@ -210,7 +216,22 @@ u32 dparticle_emitter_cm_simulate(dParticleEmitterCM *manager, f32 dt){
 //we render all the emitters
 u32 dparticle_emitter_cm_render(dParticleEmitterCM *manager){
     if (manager == NULL)manager = &particle_emitter_cm;
+
+
+    
+
+
     for (u32 i = 0; i < manager->data.n; ++i){
+
+        //if there is a transform component for our entity, add that to the position of the emitter
+        dEntity current_entity = manager->data.entity[i];
+        u32 transform_index = dtransform_cm_lookup(&transform_manager, current_entity);
+        vec3 transform_pos= v3(0,0,0);
+        if(transform_index != DENTITY_NOT_FOUND){
+            dTransform lp = transform_manager.data.world[transform_index]; 
+            transform_pos = lp.trans;
+        }
+        manager->data.emitter[i].world_position = vec3_add(manager->data.emitter[i].local_position, transform_pos);
         dparticle_emitter_render(&manager->data.emitter[i]);
     }
     return TRUE;
