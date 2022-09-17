@@ -13,6 +13,7 @@
 #include "dmodel.h"
 #include "dentity.h" 
 #include "dparticle.h"
+#include "dprofiler.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
@@ -2326,6 +2327,7 @@ void dg_get_frustum_cornersWS(vec4 *corners, mat4 proj, mat4 view)
 
 void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
 { 
+    DPROFILER_START("desc_update");
     //first we get the layout, then we 
     VkDescriptorSet desc_set;
     VkDescriptorSetLayout layout;
@@ -2342,6 +2344,7 @@ void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 
         dg_update_desc_set(ddev, desc_set, data, size);
     }
     vkCmdBindDescriptorSets(ddev->command_buffers[ddev->current_frame], VK_PIPELINE_BIND_POINT_GRAPHICS, pipe->pipeline_layout, set_num,1, &desc_set,0,NULL); 
+    DPROFILER_END();
 }
 
 void dg_bind_pipeline(dgDevice *ddev, dgPipeline *pipe)
@@ -2667,8 +2670,9 @@ b32 dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(8,0,0)), v4(1,0,1,1), v4(1,1,0,1));
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(1,1,1)))));
+    
     draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
-
+    
 
 
 
@@ -2778,10 +2782,9 @@ b32 dg_frame_begin(dgDevice *ddev)
     dg_set_desc_set(ddev,&ddev->composition_pipe, texture_slots, 8, 2);
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
-   
+
     draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
-
-
+        
     //draw the grid ???
     if (ddev->grid_active){
         dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
@@ -2830,9 +2833,11 @@ void dg_frame_end(dgDevice *ddev)
     VkSemaphore signal_semaphores[] = { ddev->render_finished_semaphores[ddev->current_frame] };
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = signal_semaphores;
-
+    
+    DPROFILER_START("render_submit");
     //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
     VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
+    DPROFILER_END();
 
     VkPresentInfoKHR present_info = { 0 };
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;

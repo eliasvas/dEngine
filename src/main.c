@@ -32,14 +32,17 @@ void destroy(void)
 
 extern dProfiler global_profiler;
 f64 dt;
+u64 frame_count;
 
 int main(void)
 {
+    frame_count = 0;
     init();
     frame_start = dtime_now();
     
     while(update(dt))
     {
+        frame_count++;
         dcore_update(dt);//update the state of the engine for each step
         frame_end = dtime_now();
         while (dtime_sec(frame_end) - dtime_sec(frame_start) < 1.0f/60.0f){

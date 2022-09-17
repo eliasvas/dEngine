@@ -13,6 +13,7 @@ typedef struct dInputState dInputState;
 #include "dgfx.h"
 #include "dconfig.h"
 #include "imgui/imgui.h"
+//#include "imgui/implot.h"
 #include "imgui/backends/imgui_impl_glfw.h"
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui/imconfig.h"
@@ -28,7 +29,7 @@ extern dWindow main_window;
 extern dInputState dis;
 extern dProfiler global_profiler;
 extern  mat4 view, proj;
-
+extern u64 frame_count;
 
 //these are just for test, remove after end TODO TODO
 extern dParticleEmitter test_emitter;
@@ -76,6 +77,7 @@ void dui_init(void)
 
 	//this initializes the core structures of imgui
 	ImGui::CreateContext();
+	//ImPlot::CreateContext();
     ImGuiIO& io = ImGui::GetIO();(void)io;
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard;       // Enable Keyboard Controls
 	io.ConfigFlags |= ImGuiConfigFlags_NavEnableSetMousePos;       // Enable Mouse Controls
@@ -270,6 +272,7 @@ void deditor_init(dEditor *editor){
 	}
 
 }
+
 void deditor_update(dEditor *editor, float dt){
 	if (editor == NULL)editor = &main_editor;
 	//TODO resizing the swapchain makes the image descriptor sets invalid and crash
@@ -408,7 +411,7 @@ void deditor_draw(dEditor *editor){
 	vMax.x += ImGui::GetWindowPos().x;
 	vMax.y += ImGui::GetWindowPos().y;
 	
-	ImGui::GetForegroundDrawList()->AddRect( vMin, vMax, IM_COL32( 255, 0, 0, 255 ) );
+	//ImGui::GetForegroundDrawList()->AddRect( vMin, vMax, IM_COL32( 255, 0, 0, 255 ) );
 	/*
 	u64 name_hash= hash_str("UPDATE");
 	u64 sample_index = hmget(global_profiler.name_hash, name_hash); //-1 for some reason
@@ -435,8 +438,16 @@ void deditor_draw(dEditor *editor){
 	for (u32 i = 0; i < global_profiler.tag_count; ++i){
 		//ImGui::Button(global_profiler.tags[i].name);
 		//printf("%f\n", global_profiler.tags[i].samples[0]);
-		static f32 fv = 13.0f;
-		ImGui::SliderFloat(global_profiler.tags[i].name, &global_profiler.tags[i].samples[global_profiler.tags[i].next_sample_to_write % MAX_SAMPLES_PER_NAME], 0.0f, 16.6, NULL, ImGuiSliderFlags_NoInput);
+		//static f32 fv = 13.0f;
+		ImGui::SliderFloat(global_profiler.tags[i].name, &global_profiler.tags[i].samples[frame_count % MAX_SAMPLES_PER_NAME], 0.0f, 16.6, NULL, ImGuiSliderFlags_NoInput);
+		/* //this is for plot
+		if (ImGui::CollapsingHeader(global_profiler.tags[i].name)){
+			ImPlot::BeginPlot(global_profiler.tags[i].name);
+			ImPlot::PlotLine("Line",(float*)time_steps, (float*)&global_profiler.tags[i].samples,  MAX_SAMPLES_PER_NAME);
+			//ImPlot::PlotBars("Line",(float*)&global_profiler.tags[i].samples,  MAX_SAMPLES_PER_NAME);
+			ImPlot::EndPlot();
+		}
+		*/
 	}
 	
 	ImGui::SetNextWindowPos(ImVec2(win_max.x, 0),0);

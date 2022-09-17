@@ -2,6 +2,7 @@
 #define CGLTF_IMPLEMENTATION
 #define CGLTF_WRITE_IMPLEMENTATION
 #include "cgltf/cgltf.h"
+#include "dprofiler.h"
 #include "dlog.h"
 #include "deditor.h"
 //TODO: check if primitive.attributes[weight_index].data->buffer_view->size is too big (it contains everything?)
@@ -217,12 +218,13 @@ dModel dmodel_load_gltf(const char *filename)
 extern dgRT def_rt;
 void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 {
+    DPROFILER_START("model_render");
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     //TODO: animator SHOULDN't be global, also change it to animation controller
     danimator_animate(&animator);
     animator.model_mat = model;
-    dAnimSocket s = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
-    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, s), mat4_scale(v3(10,10,10))));
+    dAnimSocket socket = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
+    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, socket), mat4_scale(v3(10,10,10))));
 
     dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
@@ -260,10 +262,12 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 
     dg_rendering_end(ddev);
+    DPROFILER_END();
 }
 
 void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 {
+    DPROFILER_START("model_render");
     if (!ddev->shadow_pass_active)return;
     
     dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW);
@@ -293,10 +297,12 @@ void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
         
     }
     dg_rendering_end(ddev);
+    DPROFILER_END();
 }
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
+    DPROFILER_START("model_render");
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);
@@ -327,5 +333,6 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     }
 
     dg_rendering_end(ddev);
+    DPROFILER_END();
 
 }

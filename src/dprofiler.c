@@ -1,10 +1,11 @@
 #include "dprofiler.h"
 #include "stb/stb_ds.h"
 //@TODO: use a {string, uint} hashmap not a {hash(string), int} ?? 
+//TODO: have profiling (through macro manipulation?)beswitched off in _release_ builds, they are kinda slow
 
-//TODO make it so that you can call the profiler method many times in the same frame and have cumulative results
-
+extern u64 frame_count;//from main
 dProfiler global_profiler;
+
 
 void dprofiler_init(dProfiler *prof) {
     if (prof == NULL)prof = &global_profiler;
@@ -24,7 +25,14 @@ void dprofiler_add_sample(dProfiler *prof, char *name, f32 val) {
         index = prof->tag_count++;
         hmput(prof->name_hash, name_hash_code, index);
     }
-    prof->tags[index].samples[prof->tags[index].next_sample_to_write++ % MAX_SAMPLES_PER_NAME] = val;
+
+    if(prof->tags[index].frames[frame_count % MAX_SAMPLES_PER_NAME] != frame_count){
+        prof->tags[index].samples[frame_count % MAX_SAMPLES_PER_NAME] = 0;
+        prof->tags[index].frames[frame_count % MAX_SAMPLES_PER_NAME] = frame_count;
+    }
+    
+    prof->tags[index].samples[frame_count % MAX_SAMPLES_PER_NAME] += val;
+
     if (prof->tags[index].name[0] == '\0')//because we set all thos to zero in the beginning
         strcpy(prof->tags[index].name,name);
     //printf("index: %i\n", index);

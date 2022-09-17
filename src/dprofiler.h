@@ -21,9 +21,12 @@ f64 dprofiler_sample_end(dProfilerSample *sample);
 #define MAX_SAMPLES_PER_NAME 8 
 typedef struct {
     char name[64];
-    f32 samples[MAX_SAMPLES_PER_NAME];
-    u32 next_sample_to_write;
+    f32 samples[MAX_SAMPLES_PER_NAME]; //how many millis it took
+    u64 frames[MAX_SAMPLES_PER_NAME]; //for what frame this sample is (without that we cant add to the same sample e.g multiple function invocations)
 }dProfilerTag;
+
+
+static f32 time_steps[MAX_SAMPLES_PER_NAME] = {0,2,4,6,9,12,14,17};
 
 //each name is associated with an index {name, index}, which points to a profilertag that stores data!
 typedef struct {
