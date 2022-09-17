@@ -120,31 +120,40 @@ void dcore_init(void)
 
 
 }
-static frame_ok = TRUE;
+
 void dcore_update(f64 dt)
 {
-
-    //dparticle_emitter_update(&test_emitter, dt);
+    //printf("%f\n", dt);
     dparticle_emitter_cm_simulate(NULL, dt);
-    if (!frame_ok)//something wen't wrong in begin, probably resized swapchain, so we skip
+    
     {
-        frame_ok = TRUE;
-        dg_frame_end(&dd);
-        return;
+        DPROFILER_START("editor_update");
+        deditor_update(NULL, dt);
+        DPROFILER_END();
     }
-    DPROFILER_START("UPDATE");
-    deditor_update(NULL, dt);
     dcamera_update(&cam,dt);
-
-    deditor_draw(NULL);
-
+    
+    {
+        DPROFILER_START("editor_draw");
+        deditor_draw(NULL);
+        DPROFILER_END();
+    
+    }
     dparticle_emitter_cm_render(NULL);
     //dparticle_emitter_render(&test_emitter);
-    dg_frame_end(&dd);
-    dmem_linear_free_all(&temp_alloc);
     
-    frame_ok = dg_frame_begin(&dd);
-    DPROFILER_END();
+    {
+        DPROFILER_START("frame_end");
+        dg_frame_end(&dd);
+        DPROFILER_END();
+        dmem_linear_free_all(&temp_alloc);
+    }
+
+    {
+        DPROFILER_START("frame_begin");
+        dg_frame_begin(&dd);
+        DPROFILER_END();
+    }
 }
 
 void dcore_destroy(void)

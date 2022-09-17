@@ -17,7 +17,7 @@ typedef struct dInputState dInputState;
 #include "imgui/backends/imgui_impl_vulkan.h"
 #include "imgui/imconfig.h"
 
-
+extern f64 dt;//in seconds
 extern dgRT composition_rt;
 extern dgRT def_rt;
 VkDescriptorSet def_desc_sets[DG_MAX_COLOR_ATTACHMENTS];
@@ -272,7 +272,6 @@ void deditor_init(dEditor *editor){
 }
 void deditor_update(dEditor *editor, float dt){
 	if (editor == NULL)editor = &main_editor;
-	if (!editor->editor_open)return;
 	//TODO resizing the swapchain makes the image descriptor sets invalid and crash
 	//one fix would be to make them each frame, but that way the descriptor pool overflows,
 	//look a bit into vulkan descriptors AND the backend.
@@ -410,25 +409,36 @@ void deditor_draw(dEditor *editor){
 	vMax.y += ImGui::GetWindowPos().y;
 	
 	ImGui::GetForegroundDrawList()->AddRect( vMin, vMax, IM_COL32( 255, 0, 0, 255 ) );
-	char *name = "UPDATE";
-	s32 sample_index = hmget(global_profiler.name_hash, name); //-1 for some reason
-	dProfilerTag *tag = &global_profiler.tags[0];
-	f32 ms_max = 0.f;
-	f32 ms_min = FLT_MAX;
-	for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
-		if (tag->samples[i] > ms_max)ms_max = tag->samples[i];
-		if (tag->samples[i] < ms_min)ms_min = tag->samples[i];
+	/*
+	u64 name_hash= hash_str("UPDATE");
+	u64 sample_index = hmget(global_profiler.name_hash, name_hash); //-1 for some reason
+	if (sample_index != HASH_NOT_FOUND&& 0){ //this is for rendering the UPDATE profiler tag
+		dProfilerTag *tag = &global_profiler.tags[sample_index];
+		f32 ms_max = 0.f;
+		f32 ms_min = FLT_MAX;
+		for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
+			if (tag->samples[i] > ms_max)ms_max = tag->samples[i];
+			if (tag->samples[i] < ms_min)ms_min = tag->samples[i];
+		}
+		for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
+			u32 index= (i +tag->next_sample_to_write) % MAX_SAMPLES_PER_NAME;
+			f32 factor = tag->samples[index]/ms_max;
+			vec4 col = {1,factor,1,1};
+			ImVec2 tl = {vMin.x, vMin.y + ((float)(vMax.y - vMin.y)/MAX_SAMPLES_PER_NAME)*i};
+			ImVec2 br = ImVec2(vMax.x * factor*factor*factor,tl.y +10);
+			//ImGui::GetForegroundDrawList()->AddRect( top_left, bot_right, IM_COL32( 255, 255*factor, 255, 255 ) );
+			static ImU32 some_colors[] = {IM_COL32( 255, 0,0,255 ),IM_COL32( 63, 255,0,255 ),IM_COL32( 0, 122, 254,255 )};
+			ImGui::GetForegroundDrawList()->AddQuadFilled({tl.x,tl.y},{tl.x, br.y-4},{br.x, br.y-4},{br.x,tl.y},some_colors[i % array_count(some_colors)]);
+		}
 	}
-	for (u32 i = 0; i < MAX_SAMPLES_PER_NAME; ++i) {
-		u32 index= (i +tag->next_sample_to_write) % MAX_SAMPLES_PER_NAME;
-		f32 factor = tag->samples[index]/ms_max;
-		vec4 col = {1,factor,1,1};
-		ImVec2 tl = {vMin.x, vMin.y + ((float)(vMax.y - vMin.y)/MAX_SAMPLES_PER_NAME)*i};
-		ImVec2 br = ImVec2(vMax.x * factor*factor*factor,tl.y +10);
-		//ImGui::GetForegroundDrawList()->AddRect( top_left, bot_right, IM_COL32( 255, 255*factor, 255, 255 ) );
-		static ImU32 some_colors[] = {IM_COL32( 255, 0,0,255 ),IM_COL32( 63, 255,0,255 ),IM_COL32( 0, 122, 254,255 )};
-		ImGui::GetForegroundDrawList()->AddQuadFilled({tl.x,tl.y},{tl.x, br.y-4},{br.x, br.y-4},{br.x,tl.y},some_colors[i % array_count(some_colors)]);
+	*/
+	for (u32 i = 0; i < global_profiler.tag_count; ++i){
+		//ImGui::Button(global_profiler.tags[i].name);
+		//printf("%f\n", global_profiler.tags[i].samples[0]);
+		static f32 fv = 13.0f;
+		ImGui::SliderFloat(global_profiler.tags[i].name, &global_profiler.tags[i].samples[global_profiler.tags[i].next_sample_to_write % MAX_SAMPLES_PER_NAME], 0.0f, 16.6, NULL, ImGuiSliderFlags_NoInput);
 	}
+	
 	ImGui::SetNextWindowPos(ImVec2(win_max.x, 0),0);
 	ImGui::SetNextWindowSize(ImVec2( dd.swap.extent.width-win_max.x, dd.swap.extent.height - win_max.y),0);
 	ImGui::End();

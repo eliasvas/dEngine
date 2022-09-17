@@ -2937,7 +2937,6 @@ b32 dgfx_init(void)
     for (u32 i = 0; i < 32; ++i){
         noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1);
     }
-
     hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);
@@ -2946,8 +2945,7 @@ b32 dgfx_init(void)
     //noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
-
     water_bottle = dmodel_load_gltf("DamagedHelmet");
     fox = dmodel_load_gltf("untitled");
-	return 1;
+    return 1;
 }
