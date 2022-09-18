@@ -23,6 +23,7 @@ void dprofiler_add_sample(dProfiler *prof, char *name, f32 val) {
     {
         //if tag not found, get next free tag slot, and insert in hashmap {tag's name hash, index of tag array}
         index = prof->tag_count++;
+        assert(prof->tag_count < DPROFILER_MAX_TAGS);
         hmput(prof->name_hash, name_hash_code, index);
     }
 

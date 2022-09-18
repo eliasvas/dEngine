@@ -3,7 +3,7 @@
 #include "tools.h"
 #include "dtime.h"
 #define HASH_NOT_FOUND 0xFFFFFFFF
-
+#define DPROFILER_MAX_TAGS 64
 //@FIX: to use the macros they must be enclosed in curly braces or else the name s can be used multiple times and break the code
 
 typedef struct{
@@ -31,7 +31,7 @@ static f32 time_steps[MAX_SAMPLES_PER_NAME] = {0,2,4,6,9,12,14,17};
 //each name is associated with an index {name, index}, which points to a profilertag that stores data!
 typedef struct {
     struct {u64 key; u64 value;} *name_hash;
-    dProfilerTag tags[64];
+    dProfilerTag tags[DPROFILER_MAX_TAGS];
     u32 tag_count;
 }dProfiler;
 

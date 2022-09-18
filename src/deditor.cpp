@@ -456,6 +456,8 @@ void deditor_draw(dEditor *editor){
 
 	deditor_scene_view(e0);
 
+	draw_sphere(&dd, mat4_translate(v3(-2,5,0)));
+
 	//draw e0
 	u32 transform_index = dtransform_cm_lookup(&transform_manager, e0);
 	dTransform *wt = dtransform_cm_world(&transform_manager, transform_index);

@@ -26,8 +26,11 @@ dgBuffer base_vbo;
 dgBuffer base_pos;
 dgBuffer base_norm;
 dgBuffer base_tex;
-
 dgBuffer base_ibo;
+
+dgBuffer sphere_vbo;
+dgBuffer sphere_ibo;
+
 dgTexture noise_tex;
 dgTexture ssao_tex;
 dgTexture hdr_map;
@@ -110,8 +113,7 @@ u16 cube_indices[] = {
     16,17,18,  18,19,16,    // v7-v4-v3, v3-v2-v7 (bottom)
     20,21,22,  22,23,20     // v4-v7-v6, v6-v5-v4 (back)
 };
-static dgVertex *cube_build_verts(void)
-{
+static dgVertex *cube_build_verts(void){
 	dgVertex *verts = (dgVertex*)dalloc(sizeof(dgVertex) * 24);
 	for (u32 i =0; i < 24; ++i)
 	{
@@ -120,6 +122,80 @@ static dgVertex *cube_build_verts(void)
 		verts[i].tex_coord = cube_tex_coords[i];
 	}
 	return verts;
+}
+
+//for more info: https://www.songho.ca/opengl/gl_sphere.html
+static dgVertex *sphere_build_verts(f32 radius, u32 sector_count, u32 stack_count){
+	dgVertex *verts = (dgVertex*)dalloc(sizeof(dgVertex) * (sector_count+1) * (stack_count+1));
+    u32 vc = 0;
+
+    f32 x, y, z, xy;                              // vertex position
+    f32 nx, ny, nz, length_inv = 1.0f / radius;   // vertex normal
+    f32 s, t;                                     // vertex normal
+
+
+
+    f32 sector_step = 2 * PI / sector_count;
+    f32 stack_step = PI / stack_count;
+    f32 sector_angle, stack_angle;
+
+	for (u32 i =0; i <= stack_count; ++i)
+	{
+        stack_angle = PI / 2 - i * stack_step;
+        xy = radius * cos(stack_angle);
+        z = radius * sin(stack_angle);
+        for (u32 j =0; j <= sector_count; ++j){
+            sector_angle = j * sector_step;
+
+            x = xy * cos(sector_angle);
+            y = xy * sin(sector_angle);
+            verts[vc].pos = v3(x,y,z);
+
+            nx = x * length_inv;
+            ny = y * length_inv;
+            nz = z * length_inv;
+            verts[vc].normal = v3(nx,ny,nz);
+
+            s = (f32)j / sector_count;
+            t = (f32)i / stack_count;
+            verts[vc].tex_coord = v2(s,t);
+        
+            ++vc;    
+        }
+	}
+    //printf("sphere of %i stacks and %i sectors has: %i vertices\n\n\n\n", stack_count, sector_count, vc);
+	return verts;
+}
+
+static u16 *sphere_build_index(u32 sector_count, u32 stack_count){
+
+    u16 *indices = (u16*)dalloc(sizeof(u16) * sector_count * stack_count * 8);
+    
+    u32 idx_count = 0;
+    u16 k1, k2;
+
+    for (u32 i = 0; i < stack_count; ++i){
+        k1 = i * (sector_count + 1);     // beginning of current stack
+        k2 = k1 + sector_count + 1;      // beginning of next stack
+
+
+        for (int j = 0; j < sector_count; ++j, ++k1, ++k2){
+            if (i != 0){
+                indices[idx_count++] = k1;
+                indices[idx_count++] = k2;
+                indices[idx_count++] = k1+1;
+            }
+
+            if (i != (stack_count -1)){
+                indices[idx_count++] = k1+1;
+                indices[idx_count++] = k2;
+                indices[idx_count++] = k2+1;
+            }
+        }
+
+    }
+    printf("sphere of %i stacks and %i sectors has %i indices", sector_count, stack_count, idx_count);
+    return indices;
 }
 
 typedef struct GlobalData
@@ -200,6 +276,8 @@ b32 dg_create_instance(dgDevice *ddev) {
 	//for (u32 i = 0; i < ext_count; ++i)printf("EXT: %s\n", extensions[i].extensionName);
 	ddev->instance = instance;
     assert(instance);
+
+    if (extensions)dfree(extensions);
 
 	return TRUE;
 }
@@ -2524,6 +2602,27 @@ void draw_cube(dgDevice *ddev, mat4 model)
     dg_rendering_end(ddev);
 }
 
+
+void draw_sphere(dgDevice *ddev, mat4 model)
+{
+    dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
+    dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_set_scissor(ddev, 0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
+    dg_bind_pipeline(ddev, &ddev->base_pipe);
+    dgBuffer buffers[] = {sphere_vbo};
+    u64 offsets[] = {0,0,0,0};
+    dg_bind_vertex_buffers(ddev, buffers, offsets, 1);
+    dg_bind_index_buffer(ddev, &sphere_ibo, 0);
+
+    //mat4 data[4] = {0.9,(sin(0.02 * dtime_sec(dtime_now()))),0.2,0.2};
+    //mat4 object_data = mat4_mul(mat4_translate(v3(0,1 * fabs(sin(5 * dtime_sec(dtime_now()))),-15)), mat4_rotate(90 * dtime_sec(dtime_now()), v3(0.2,0.4,0.7)));
+    mat4 object_data[2] = {model, {1.0,1.0,1.0,1.1,0.0,1.0}};
+    dg_set_desc_set(ddev,&ddev->base_pipe, object_data, sizeof(object_data), 1);
+    dg_draw(ddev, 24,sphere_ibo.size/sizeof(u16));
+
+    dg_rendering_end(ddev);
+}
+
 void dg_skybox_prepare(dgDevice *ddev)
 {
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
@@ -2910,6 +3009,21 @@ void dg_device_init(void)
 b32 dgfx_init(void)
 {
 	dg_device_init();
+
+    u32 sector_count = 32;
+    u32 stack_count = 32;
+    dgVertex *sphere_verts = sphere_build_verts(1.0, sector_count, stack_count);
+    u16 *sphere_indices = sphere_build_index(sector_count, stack_count);
+    dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&sphere_vbo, sizeof(dgVertex) * (sector_count + 1) * (stack_count +1), sphere_verts);
+    dg_create_buffer(VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
+	(VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
+	&sphere_ibo, sizeof(sphere_indices[0]) * stack_count * sector_count * 6, sphere_indices);
+
+    dfree(sphere_verts);
+    dfree(sphere_indices);
+
 
     dgVertex *cube_vertices = cube_build_verts();
 	//create vertex buffer @check first param

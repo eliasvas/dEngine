@@ -264,6 +264,8 @@ void dg_rendering_end(dgDevice *ddev);
 VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev);
 void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer);
 void draw_cube(dgDevice *ddev, mat4 model);
+void draw_sphere(dgDevice *ddev, mat4 model);
+
 #ifdef __cplusplus
 }
 #endif
