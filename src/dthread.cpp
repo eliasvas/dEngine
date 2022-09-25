@@ -8,7 +8,7 @@ dThread dthread_create(void *proc, void *params)
 #if  defined(BUILD_WIN)
     t.handle = CreateThread(0,0,proc, params, 0, &t.id);
 #else
-    s32 terr = pthread_create(&t.thread, NULL, proc, params);
+    s32 terr = pthread_create(&t.thread, NULL, (void* (*)(void*))proc, params);
 #endif
     return t;
 }
@@ -69,8 +69,8 @@ b32 dthreads_ok(void)
 {
     u32 i = 4;
     foo_mutex= dmutex_create();
-    dThread t1 = dthread_create(dthread_inc, &i);
-    dThread t2 = dthread_create(dthread_inc, &i);
+    dThread t1 = dthread_create((void*)dthread_inc, &i);
+    dThread t2 = dthread_create((void*)dthread_inc, &i);
 
     //printf("i before thread increment: %i\n", i);
     dthread_wait_end(&t1, INFINITE_MS);

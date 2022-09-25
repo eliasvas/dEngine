@@ -19,7 +19,7 @@ struct dJointInfo{
 #define MAX_JOINT_COUNT 70
 typedef struct dSkeletonInfo
 {
-    struct {u64 key; u32 value}*name_hash;//name -> ID
+    struct {u64 key; u32 value;}*name_hash;//name -> ID
     dJointInfo joint_hierarchy[MAX_JOINT_COUNT];
     u32 joint_count;
 }dSkeletonInfo;

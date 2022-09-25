@@ -8,7 +8,7 @@ extern dTransformCM transform_manager;
 
 dParticleEmitter test_emitter;
 
-
+void dparticle_emitter_init(dParticleEmitter *emitter);
 //Initializes the buffers needed to render and update particles
 void dparticle_system_init(void){
     dparticle_emitter_init(&test_emitter);
@@ -134,7 +134,7 @@ void dparticle_emitter_cm_allocate(dParticleEmitterCM *manager, u32 size)
     new_data.allocated = size;
 
     new_data.entity = (dEntity *)(new_data.buffer);
-    new_data.emitter = (dTransform*)(new_data.entity + size);
+    new_data.emitter = (dParticleEmitter*)(new_data.entity + size);
 
     if (manager->data.buffer != NULL){ //if we have data from previous allocation, copy.
         memcpy(new_data.entity, manager->data.entity, manager->data.n * sizeof(dEntity));

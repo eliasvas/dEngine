@@ -46,7 +46,22 @@ typedef double    f64;
 typedef int32_t   b32;
 typedef char      b8;
 
+#ifdef __cplusplus
 
+//enables using C-strings in C++ by using this macro
+#define C_TEXT( text ) ((char*)std::string( text ).c_str())
+
+///*
+//enables bitwise operations in enums
+template<class T> inline T operator~ (T a) { return (T)~(int)a; }
+template<class T> inline T operator| (T a, T b) { return (T)((int)a | (int)b); }
+template<class T> inline T operator& (T a, T b) { return (T)((int)a & (int)b); }
+template<class T> inline T operator^ (T a, T b) { return (T)((int)a ^ (int)b); }
+template<class T> inline T& operator|= (T& a, T b) { return (T&)((int&)a |= (int)b); }
+template<class T> inline T& operator&= (T& a, T b) { return (T&)((int&)a &= (int)b); }
+template<class T> inline T& operator^= (T& a, T b) { return (T&)((int&)a ^= (int)b); }
+//*/
+#endif
 
 #define INLINE static inline
 
@@ -152,7 +167,7 @@ typedef union vec2
         f32 r,g;
     };
     f32 elements[2];
-#ifdef __cplusplus && 0
+#ifdef __cplusplus
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -173,7 +188,7 @@ typedef union vec3
         f32 r,g,b;
     };
     f32 elements[3];
-#ifdef __cplusplus && 0
+#ifdef __cplusplus
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -198,7 +213,7 @@ typedef union vec4
 #ifdef TOOLS_SSE
     __m128 elements_sse; //because __m128 = 128 = 4 * float = 4*32 = 128 bits
 #endif
-#ifdef __cplusplus && 0
+#ifdef __cplusplus
     inline f32 &operator[](s32 &index)
     {
         return elements[index];
@@ -219,7 +234,7 @@ typedef union mat4
 #ifdef TOOLS_SSE
     __m128 cols[4]; //same as elements (our matrices are column major)
 #endif
-#ifdef __cplusplus && 0
+#ifdef __cplusplus
     inline vec4 operator[](s32 &Index)
     {
         f32* col = elements[Index];
@@ -1673,11 +1688,13 @@ INLINE b32 H32_static_ok(void)
 {
     H32_static h;
     H32_static_init(&h, 20);
-    H32_static_set(&h, hash_str("Alex"), 23);
-    H32_static_set(&h, hash_str("Ilias"), 22);
-    H32_static_set(&h, hash_str("Leo"), 21);
-    b32 res = (H32_static_get(&h, hash_str("Ilis")) == 0)&&
-        (H32_static_get(&h, hash_str("Leo")) == 21);
+    char *s1 = "Alex";
+    char *s2 = "Ilias";
+    char *s3 = "Leo";
+    H32_static_set(&h, hash_str(s3), 21);
+    H32_static_set(&h, hash_str(s2), 22);
+    b32 res = (H32_static_get(&h, hash_str(s2)) == 22)&&
+        (H32_static_get(&h, hash_str(s3)) == 21);
     H32_static_free(&h);
     return res;
 }

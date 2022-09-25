@@ -23,9 +23,9 @@ dModel dmodel_load_gltf(const char *filename)
     char filepath[256];
     sprintf(filepath,"../assets/%s/%s.gltf",filename,filename);
     dlog(NULL, "gltf FILEPATH: %s\n", filepath);
-    dModel model = {0};
+    dModel model = {};
 
-    cgltf_options options = {0};
+    cgltf_options options = {};
     cgltf_data *data = NULL;
     cgltf_result result = cgltf_parse_file(&options, filepath, &data);
 
@@ -61,13 +61,13 @@ dModel dmodel_load_gltf(const char *filename)
 
     for (u32 i = 0; i< meshes_count && i < DMODEL_MAX_MESHES_PER_MODEL; ++i)
     {
-        dMesh mesh = {0};
+        dMesh mesh = {};
         u32 mesh_index = i;
         
         
         for (u32 p= 0; p < data->meshes[mesh_index].primitives_count&& p < DMODEL_MAX_MESH_PRIMITIVES_PER_MESH; ++p){
             cgltf_primitive primitive = data->meshes[mesh_index].primitives[p];
-            dMeshPrimitive prim = {0};
+            dMeshPrimitive prim = {};
             s32 norm_index = -1;
             s32 pos_index = -1;
             s32 tex_index = -1;
@@ -97,7 +97,7 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.m.textures[i] = empty_tex;
             if (primitive.material->has_pbr_metallic_roughness )
             {
-                prim.m.settings |= DMATERIAL_BASE_COLOR | DMATERIAL_ORM;
+                prim.m.settings = (dMaterialSettings)(prim.m.settings |((int)DMATERIAL_BASE_COLOR | (int)DMATERIAL_ORM));
                 if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
                     prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, DG_IMAGE_FORMAT_RGBA8_SRGB));
@@ -106,7 +106,7 @@ dModel dmodel_load_gltf(const char *filename)
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
                     prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
                 }
-                f32 *c = &primitive.material->pbr_metallic_roughness.base_color_factor;
+                f32 *c = (f32*)&primitive.material->pbr_metallic_roughness.base_color_factor;
                 prim.m.col = v4(c[0],c[1],c[2],c[3]);
             }
             if (primitive.material->normal_texture.texture)
@@ -152,9 +152,9 @@ dModel dmodel_load_gltf(const char *filename)
             //TODO: SUUUUUUUUUUUUUPER UGLY FIX ASAP, ALSO MEMLEAKS HERE :)))))))))))
             if (joint_index != -1 && !mesh.joint_buf.active)
             {
-                u8 *j8 = (char*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
+                u8 *j8 = (u8*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
             
-                j32 = dalloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
+                j32 = (u32*)dalloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
                 for (u32 i = 0; i < primitive.attributes[joint_index].data->count*4;++i)
                 {
                     j32[i] = j8[i];
@@ -171,7 +171,8 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.joint_offset = iv2(offset, size);
             }
 
-            if (primitive.indices != -1){
+            //CHECK CHECK CHECK ERRROROROROE ERROR
+            if (primitive.indices){
                 u32 offset = primitive.indices->offset + primitive.indices->buffer_view->offset;
                 u32 size = primitive.indices->count *sizeof(u16);
                 prim.index_offset = iv2(offset, size);
@@ -186,9 +187,9 @@ dModel dmodel_load_gltf(const char *filename)
         model.meshes[model.meshes_count++] = mesh;
 
     }
-    dSkeletonInfo info = {0};
+    dSkeletonInfo info = {};
     if (data->animations_count){
-        mat4 *ibm = data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset;
+        mat4 *ibm = (mat4*)(data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset);
         cgltf_node *root_joint = data->skins[0].joints[0];
         
         //first we fill the name hash so we know what bone has what index
@@ -196,7 +197,8 @@ dModel dmodel_load_gltf(const char *filename)
         {
             cgltf_node *joint = data->skins[0].joints[i];
             u32 joint_index = i;
-            hmput(info.name_hash, hash_str(joint->name), joint_index);
+            u32 hash_name = hash_str(joint->name);
+            hmput(info.name_hash, hash_name, joint_index);
         }
         
         process_joint_info(root_joint,NULL, &info);

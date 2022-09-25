@@ -51,4 +51,11 @@ typedef struct dModel {
 }dModel;
 dModel dmodel_load_gltf(const char *filename);
 
+
+
+void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms);
+void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
+void draw_model(dgDevice *ddev, dModel *m, mat4 model);
+
+
 #endif

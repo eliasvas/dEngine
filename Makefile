@@ -36,7 +36,7 @@ $(BUILD_DIR)/%.c.o: %.c
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
-	$(CXX) -g $(CPPFLAGS) $(CXXFLAGS) -w -I./ext -I./ext/imgui -c $< -o $@
+	$(CXX) -g -w $(CPPFLAGS) $(CXXFLAGS) -I./ext -I./ext/imgui -c $< -o $@
 
 
 .PHONY: clean

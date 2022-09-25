@@ -237,6 +237,8 @@ void dtransform_cm_del(dTransformCM *manager, u32 index){
     manager->data.n--;
 }
 
+void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 component_index);
+
 void dtransform_cm_set_local(dTransformCM *manager, u32 component_index, dTransform t){
     if (manager == NULL)manager = &transform_manager;
     manager->data.local[component_index] = t;
@@ -281,7 +283,7 @@ void ddebug_name_cm_allocate(dDebugNameCM *manager, u32 size){
     new_data.allocated = size;
 
     new_data.entity = (dEntity *)(new_data.buffer);
-    new_data.name = (u8*)(new_data.entity + size);
+    new_data.name = (dDebugName*)(new_data.entity + size);
 
     if (manager->data.buffer != NULL){ //if we have data from previous allocation, copy.
         memcpy(new_data.entity, manager->data.entity, manager->data.n * sizeof(dEntity));

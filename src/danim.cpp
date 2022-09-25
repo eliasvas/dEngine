@@ -38,7 +38,8 @@ void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTra
 dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info)
 {
     if (joint == NULL)return NULL;
-    u32 joint_index = hmget(info->name_hash, hash_str(joint->name));
+    u64 hash_name= hash_str(joint->name);
+    u32 joint_index = hmget(info->name_hash, hash_name);
     info->joint_count++;
     dJointInfo *j = &info->joint_hierarchy[joint_index];
     memset(j, 0, sizeof(dJointInfo));
@@ -69,16 +70,16 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
 
 dAnimation danim_create(dSkeletonInfo skeleton_info,u32 keyframe_count)
 {
-    dAnimation anim = {0};
+    dAnimation anim = {};
     anim.keyframe_count = keyframe_count;
     anim.skeleton_info = skeleton_info;
-    anim.timestamps = malloc(sizeof(f32) * keyframe_count);
+    anim.timestamps = (f32*)dalloc(sizeof(f32) * keyframe_count);
     u32 joint_count = anim.skeleton_info.joint_count;
     anim.joint_count = joint_count;
-    anim.keyframes = malloc(sizeof(dJointTransform*) * joint_count);
+    anim.keyframes = (dJointTransform**)dalloc(sizeof(dJointTransform*) * joint_count);
     for (u32 i = 0; i < joint_count; ++i)
     {
-        anim.keyframes[i] = malloc(sizeof(dJointTransform) * anim.keyframe_count);
+        anim.keyframes[i] = (dJointTransform*)dalloc(sizeof(dJointTransform) * anim.keyframe_count);
         memset(anim.keyframes[i], 0, sizeof(dJointTransform) * anim.keyframe_count);
     }
     return anim;
@@ -88,21 +89,22 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
 {
     dAnimation animation = danim_create(info, anim->channels[0].sampler->input->count);
     //first we copy the time offsets
-    float *time_offsets0 = anim->channels[0].sampler->input->offset + anim->channels[0].sampler->input->buffer_view->buffer->data + anim->channels[0].sampler->input->buffer_view->offset;
+    float *time_offsets0 = (f32*)(anim->channels[0].sampler->input->offset + anim->channels[0].sampler->input->buffer_view->buffer->data + anim->channels[0].sampler->input->buffer_view->offset);
     memcpy(animation.timestamps, time_offsets0, anim->channels[0].sampler->input->count * sizeof(f32));
     animation.timestamps[0] = 0.0f;
     //then all the joint transforms
     for (u32 i = 0; i < anim->channels_count; ++i)
     {
         cgltf_node *node = anim->channels[i].target_node;
-        u32 joint_index = hmget(info.name_hash, hash_str(node->name));
+        u64 name_hash =hash_str(node->name);
+        u32 joint_index = hmget(info.name_hash, name_hash);
 
         cgltf_animation_path_type type = anim->channels[i].target_path;
-        float *time_offsets = anim->channels[i].sampler->input->offset + anim->channels[i].sampler->input->buffer_view->buffer->data + anim->channels[i].sampler->input->buffer_view->offset;
+        float *time_offsets = (f32*)(anim->channels[i].sampler->input->offset + anim->channels[i].sampler->input->buffer_view->buffer->data + anim->channels[i].sampler->input->buffer_view->offset);
                 
-        vec4 *quat_offsets = anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset;
-        vec3 *trans_offsets = anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset;
-        vec3 *scale_offsets = anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset;
+        vec4 *quat_offsets = (vec4*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
+        vec3 *trans_offsets = (vec3*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
+        vec3 *scale_offsets = (vec3*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
 
         u32 anim_keyframe_count = anim->channels[i].sampler->input->count;
         for (u32 i = 0; i < anim_keyframe_count; ++i)
@@ -129,16 +131,16 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
 
 //#include "dmodel.h"
 dAnimator danimator_init(dModel *m, dAnimation *a, mat4 *ibm, u32 anim_length){
-    dAnimator anim = {0};
+    dAnimator anim = {};
     //anim.model = m;
     anim.anim = a;
     anim.current_time = 0;
     anim.start_time = dtime_sec(dtime_now());
     anim.animation_speed = 25.0f;
     u32 joint_count = a->joint_count;
-    anim.ljt = malloc(sizeof(dJointTransform) * joint_count*2);
-    anim.gjm = malloc(sizeof(mat4) * joint_count*2);
-    anim.ibm = malloc(sizeof(mat4) * joint_count*2);
+    anim.ljt = (dJointTransform*)dalloc(sizeof(dJointTransform) * joint_count*2);
+    anim.gjm = (mat4*)dalloc(sizeof(mat4) * joint_count*2);
+    anim.ibm = (mat4*)dalloc(sizeof(mat4) * joint_count*2);
 
     for (u32 i = 0; i < joint_count; ++i){
         anim.ljt[i] = djt_default();
@@ -193,8 +195,9 @@ void danimator_animate(dAnimator *animator)
 
 
 dAnimSocket danimator_make_socket(dAnimator *animator,char *joint_name, mat4 local_transform){
-    dAnimSocket s = {0};
-    u32 joint_index = hmget(animator->anim->skeleton_info.name_hash, hash_str(joint_name));
+    dAnimSocket s = {};
+    u64 name_hash = hash_str(joint_name);
+    u32 joint_index = hmget(animator->anim->skeleton_info.name_hash, name_hash);
     s.joint_id = joint_index;
     s.local_transform = local_transform;
     return s;

@@ -4,6 +4,7 @@
 #include "stb/stb_image.h"
 #include "dtime.h"
 #include "vulkan/shaderc.h"
+#include "glfw/include/GLFW/glfw3.h"
 #include "shaders.inl"
 #include "spirv_reflect/spirv_reflect.h"
 #include "dlog.h"
@@ -208,7 +209,7 @@ typedef struct GlobalData
 b32 dg_create_instance(dgDevice *ddev) {
 	VkInstance instance;
 
-	VkApplicationInfo appinfo = {0};
+	VkApplicationInfo appinfo = {};
 	appinfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
 	appinfo.pApplicationName = "Mk0";
 	appinfo.applicationVersion = VK_MAKE_VERSION(1,0,0);
@@ -217,7 +218,7 @@ b32 dg_create_instance(dgDevice *ddev) {
 	appinfo.apiVersion = VK_API_VERSION_1_3;
     
     
-	VkInstanceCreateInfo create_info = {0};
+	VkInstanceCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
 	create_info.pApplicationInfo = &appinfo;
     
@@ -251,7 +252,7 @@ b32 dg_create_instance(dgDevice *ddev) {
         VK_VALIDATION_FEATURE_DISABLE_OBJECT_LIFETIMES_EXT, VK_VALIDATION_FEATURE_DISABLE_CORE_CHECKS_EXT 
     };
     */
-    VkValidationFeaturesEXT vf = {0};
+    VkValidationFeaturesEXT vf = {};
     vf.sType = VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT;
     vf.disabledValidationFeatureCount = 0;
     vf.enabledValidationFeatureCount = 1;
@@ -286,7 +287,7 @@ static VkFormat dg_to_vk_format(dgImageFormat format)
 {
     //the enums are the same for the vulkan driver, for other implementations 
     //just switch all different formats to correct counterpart
-    return format;
+    return (VkFormat)format;
 }
 typedef struct dgQueueFamilyIndices
 {
@@ -302,7 +303,7 @@ typedef struct dgQueueFamilyIndices
 //@TODO(ilias) vkGetPHysicalDeviceQueueFamilyProperties doesn't work with static queue_families
 static dgQueueFamilyIndices dg_find_queue_families(VkPhysicalDevice device)
 {
-	dgQueueFamilyIndices indices = {0};
+	dgQueueFamilyIndices indices = {};
 
 	u32 queue_family_count = 1;
 	VkQueueFamilyProperties queue_families[DG_QUEUE_FAMILY_MAX];
@@ -373,7 +374,7 @@ static void dg_swapchain_support_details_free(dgSwapChainSupportDetails *s)
 
 static dgSwapChainSupportDetails dg_query_swapchain_support(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    dgSwapChainSupportDetails details = {0};
+    dgSwapChainSupportDetails details = {};
     
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
     
@@ -451,6 +452,11 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 	return TRUE;
 }
 
+
+GLFWAPI VkResult glfwCreateWindowSurface(VkInstance instance,
+                                         GLFWwindow* handle,
+                                         const VkAllocationCallbacks* allocator,
+                                         VkSurfaceKHR* surface);
 //NOTE(ilias): the window must be initialized and have a vulkan compatible surface
 static b32 dg_surface_create(dgDevice *ddev,dWindow *window)
 {
@@ -466,7 +472,7 @@ b32 dg_create_logical_device(dgDevice *ddev)
     dgQueueFamilyIndices indices = dg_find_queue_families(ddev->physical_device);
     
     f32 queue_priority = 1.0f;
-	VkDeviceQueueCreateInfo queue_create_info[2] = {0};
+	VkDeviceQueueCreateInfo queue_create_info[2] = {};
 
     queue_create_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
     queue_create_info[0].queueFamilyIndex = indices.graphics_family;
@@ -477,9 +483,9 @@ b32 dg_create_logical_device(dgDevice *ddev)
     queue_create_info[1].queueFamilyIndex = indices.present_family;
     queue_create_info[1].queueCount = 1;
     queue_create_info[1].pQueuePriorities = &queue_priority;
-    VkPhysicalDeviceFeatures device_features = {0};
+    VkPhysicalDeviceFeatures device_features = {};
     
-    VkDeviceCreateInfo create_info = {0};
+    VkDeviceCreateInfo create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     
     create_info.pQueueCreateInfos = &queue_create_info[0];
@@ -498,18 +504,18 @@ b32 dg_create_logical_device(dgDevice *ddev)
         create_info.enabledLayerCount = 0;
 
 
-    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_state = {0};
+    VkPhysicalDeviceDynamicRenderingFeaturesKHR dynamic_rendering_state = {};
     dynamic_rendering_state.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DYNAMIC_RENDERING_FEATURES_KHR;
     dynamic_rendering_state.pNext = NULL;
     dynamic_rendering_state.dynamicRendering = VK_TRUE;
 
 
-    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state = { 0 };
+    VkPhysicalDeviceExtendedDynamicStateFeaturesEXT extended_dynamic_state = {};
     extended_dynamic_state.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT;
     extended_dynamic_state.pNext = &dynamic_rendering_state;
     extended_dynamic_state.extendedDynamicState = VK_TRUE;
 
-    VkPhysicalDeviceMultiviewFeaturesKHR multiview_features = {0};
+    VkPhysicalDeviceMultiviewFeaturesKHR multiview_features = {};
     multiview_features.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES_KHR;
     multiview_features.multiview = VK_TRUE;
     multiview_features.pNext = &extended_dynamic_state;
@@ -582,7 +588,7 @@ static b32 dg_create_swapchain(dgDevice *ddev)
         image_count = swap_details.capabilities.maxImageCount;
     image_count = minimum(image_count, MAX_SWAP_IMAGE_COUNT);
 
-    VkSwapchainCreateInfoKHR create_info = {0};
+    VkSwapchainCreateInfoKHR create_info = {};
     create_info.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
     create_info.surface = ddev->surface;
 
@@ -652,7 +658,7 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAs
     
 	VkImageView image_view;
 	
-	VkImageViewCreateInfo view_info = {0};
+	VkImageViewCreateInfo view_info = {};
 	view_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 	view_info.image = image;
 	view_info.viewType = view_type;
@@ -668,7 +674,7 @@ static VkImageView dg_create_image_view(VkImage image, VkFormat format,VkImageAs
 
 static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mip_levels, u32 clamp)
 {
-	VkSamplerCreateInfo sampler_info = {0};
+	VkSamplerCreateInfo sampler_info = {};
 	sampler_info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
 	sampler_info.magFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
 	sampler_info.minFilter = VK_FILTER_NEAREST;//VK_FILTER_LINEAR;
@@ -685,7 +691,7 @@ static void dg_create_texture_sampler(dgDevice *ddev, VkSampler *sampler, u32 mi
 
     
 	
-	VkPhysicalDeviceProperties prop = {0};
+	VkPhysicalDeviceProperties prop = {};
 	vkGetPhysicalDeviceProperties(ddev->physical_device, &prop);
 	
 	sampler_info.anisotropyEnable = VK_FALSE;
@@ -717,7 +723,7 @@ extern dConfig engine_config;
 
 VkShaderModule dg_create_shader_module(char *code, u32 size)
 {
-	VkShaderModuleCreateInfo create_info = {0};
+	VkShaderModuleCreateInfo create_info = {};
 	create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
 	create_info.codeSize = size;
 	create_info.pCode = (u32*)code;
@@ -726,28 +732,7 @@ VkShaderModule dg_create_shader_module(char *code, u32 size)
 	return shader_module;
 }
 
-void dg_shader_create(VkDevice device, dgShader *shader, const char *filename, VkShaderStageFlagBits stage)
-{
-    if (str_size(filename) > 128)
-        return dg_shader_create_dynamic_ready(device, shader, filename, stage);
-    char path[128];
-    sprintf(path, "%s%s.spv", engine_config.spirv_path, filename);
-	u32 code_size;
-	u32 *shader_code = NULL;
-	if (read_file(path, &shader_code, &code_size) == -1){
-        //if .SPV not found, create the shader dynamically! (from glsl source file)
-        return dg_shader_create_dynamic(device, shader, filename, stage);
-    }
-	shader->module = dg_create_shader_module((char*)shader_code, code_size);
-	shader->uses_push_constants = FALSE;
-    //shader_reflect(shader_code, code_size, &shader->info);
-	//printf("Shader: %s has %i input variable(s)!\n", filename, shader->info.input_variable_count);
-	shader->stage = stage;
-    spvReflectCreateShaderModule(code_size, shader_code, &shader->info);
-	free(shader_code);
-
-}  
-void dg_shader_create_dynamic_ready(VkDevice device, dgShader *s, const char *filename, VkShaderStageFlagBits stage)
+void dg_shader_create_dynamic_ready(VkDevice device, dgShader *s, char *filename, VkShaderStageFlagBits stage)
 {
     char *glsl_text = filename;
     u32 glsl_size = str_size(glsl_text);
@@ -771,7 +756,7 @@ void dg_shader_create_dynamic_ready(VkDevice device, dgShader *s, const char *fi
 }  
 
 
-void dg_shader_create_dynamic(VkDevice device, dgShader *s, const char *filename, VkShaderStageFlagBits stage)
+void dg_shader_create_dynamic(VkDevice device, dgShader *s, char *filename, VkShaderStageFlagBits stage)
 {
     char path[128];
     sprintf(path, "%s%s", engine_config.shader_path, filename);
@@ -779,7 +764,7 @@ void dg_shader_create_dynamic(VkDevice device, dgShader *s, const char *filename
     u32 glsl_size;
     //this means that either there is no such shader or that we entered a READY glsl 
     //this is slow though so we should probably have a distinct path for ready shaders 
-	if (read_file(path, &glsl_text, &glsl_size) == -1)
+	if (read_file(path, (u32**)&glsl_text, &glsl_size) == -1)
     {
         glsl_text = filename;
         glsl_size = str_size(glsl_text);
@@ -804,6 +789,28 @@ void dg_shader_create_dynamic(VkDevice device, dgShader *s, const char *filename
 }  
 
 
+void dg_shader_create(VkDevice device, dgShader *shader, char *filename, VkShaderStageFlagBits stage)
+{
+    if (str_size(filename) > 128)
+        return dg_shader_create_dynamic_ready(device, shader, filename, stage);
+    char path[128];
+    sprintf(path, "%s%s.spv", engine_config.spirv_path, filename);
+	u32 code_size;
+	u32 *shader_code = NULL;
+	if (read_file(path, &shader_code, &code_size) == -1){
+        //if .SPV not found, create the shader dynamically! (from glsl source file)
+        return dg_shader_create_dynamic(device, shader, filename, stage);
+    }
+	shader->module = dg_create_shader_module((char*)shader_code, code_size);
+	shader->uses_push_constants = FALSE;
+    //shader_reflect(shader_code, code_size, &shader->info);
+	//printf("Shader: %s has %i input variable(s)!\n", filename, shader->info.input_variable_count);
+	shader->stage = stage;
+    spvReflectCreateShaderModule(code_size, shader_code, &shader->info);
+	free(shader_code);
+
+}  
+
 static VkViewport viewport(f32 x, f32 y, f32 w, f32 h)
 {
     VkViewport viewport = { 0 };
@@ -819,7 +826,7 @@ static VkViewport viewport(f32 x, f32 y, f32 w, f32 h)
 
 static VkRect2D scissor(f32 x, f32 y, f32 w, f32 h)
 {
-    VkRect2D scissor = {0};
+    VkRect2D scissor = {};
     scissor.offset.x = x;
 	scissor.offset.y = x;
     scissor.extent = (VkExtent2D){w,h};
@@ -831,7 +838,7 @@ static VkRect2D scissor(f32 x, f32 y, f32 w, f32 h)
 
 VkPipelineDepthStencilStateCreateInfo dg_pipe_depth_stencil_state_create_info_basic(void)
 {
-    VkPipelineDepthStencilStateCreateInfo depth_stencil = {0};
+    VkPipelineDepthStencilStateCreateInfo depth_stencil = {};
 	depth_stencil.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
     depth_stencil.depthTestEnable = VK_TRUE;
 	depth_stencil.depthWriteEnable = VK_TRUE;
@@ -845,7 +852,7 @@ VkPipelineDepthStencilStateCreateInfo dg_pipe_depth_stencil_state_create_info_ba
 VkPipelineShaderStageCreateInfo 
 	dg_pipe_shader_stage_create_info(VkShaderStageFlagBits stage, VkShaderModule shader_module)
 {
-	VkPipelineShaderStageCreateInfo info = {0};
+	VkPipelineShaderStageCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
 	info.pNext = NULL;
 	
@@ -880,7 +887,7 @@ static u32 dg_get_vertex_desc(dgShader *shader, VkVertexInputAttributeDescriptio
                 SpvReflectInterfaceVariable *input_var = shader->info.input_variables[j];
                 memset(&attr_desc[attr_index], 0, sizeof(VkVertexInputAttributeDescription));
                 attr_desc[attr_index].binding = (pack_attribs) ? 0 : attr_index;
-                attr_desc[attr_index].format = input_var->format;
+                attr_desc[attr_index].format = (VkFormat)input_var->format;
                 attr_desc[attr_index].location = input_var->location;
                 //attr_desc[attr_index].offset = (pack_attribs) ? global_offset : input_var->numeric.vector.component_count * sizeof(f32) ;
                 attr_desc[attr_index].offset = (pack_attribs) ? global_offset : 0;
@@ -922,7 +929,7 @@ dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDes
     //fills attribute AND binding descriptions for our pipe's vertices
     u32 binding_count = dg_get_vertex_desc(shader, attr_desc, bind_desc,pack_attribs);
  
-	VkPipelineVertexInputStateCreateInfo info = {0};
+	VkPipelineVertexInputStateCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
 	info.pNext = NULL;
     if (pack_attribs)
@@ -938,7 +945,7 @@ dg_pipe_vertex_input_state_create_info(dgShader *shader, VkVertexInputBindingDes
 
 static VkPipelineInputAssemblyStateCreateInfo dg_pipe_input_assembly_create_info(VkPrimitiveTopology topology)
 {
-	VkPipelineInputAssemblyStateCreateInfo info = {0};
+	VkPipelineInputAssemblyStateCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
 	info.pNext = NULL;
 	
@@ -949,7 +956,7 @@ static VkPipelineInputAssemblyStateCreateInfo dg_pipe_input_assembly_create_info
 
 static VkPipelineRasterizationStateCreateInfo dg_pipe_rasterization_state_create_info(VkPolygonMode polygon_mode)
 {
-	VkPipelineRasterizationStateCreateInfo info = {0};
+	VkPipelineRasterizationStateCreateInfo info = {};
 	info.sType= VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
 	info.pNext = NULL;
 	
@@ -971,7 +978,7 @@ static VkPipelineRasterizationStateCreateInfo dg_pipe_rasterization_state_create
 
 static VkPipelineMultisampleStateCreateInfo dg_pipe_multisampling_state_create_info(void)
 {
-	VkPipelineMultisampleStateCreateInfo info = {0};
+	VkPipelineMultisampleStateCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
 	info.pNext = NULL;
 	
@@ -986,7 +993,7 @@ static VkPipelineMultisampleStateCreateInfo dg_pipe_multisampling_state_create_i
 
 static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(b32 blend_enabled)
 {
-	VkPipelineColorBlendAttachmentState color_blend_attachment = {0};
+	VkPipelineColorBlendAttachmentState color_blend_attachment = {};
 	color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
 		VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
 
@@ -1004,14 +1011,14 @@ static VkPipelineColorBlendAttachmentState dg_pipe_color_blend_attachment_state(
 static VkPipelineColorBlendStateCreateInfo dg_pipe_color_blend_state_create_info(VkPipelineColorBlendAttachmentState *color_blend_attachments, u32 attachment_count)
 {
     //dummy color blending
-	VkPipelineColorBlendStateCreateInfo color_blending = {0};
+	VkPipelineColorBlendStateCreateInfo color_blending = {};
 	color_blending.sType = VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
 	color_blending.pNext = NULL;
 	
 	color_blending.logicOpEnable = VK_FALSE;
 	color_blending.logicOp = VK_LOGIC_OP_COPY;
 	color_blending.attachmentCount = attachment_count;
-	VkAttachmentDescription color_attachment = {0};
+	VkAttachmentDescription color_attachment = {};
     color_attachment.format = dd.swap.image_format;
     color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
     color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_LOAD;
@@ -1027,7 +1034,7 @@ static VkPipelineColorBlendStateCreateInfo dg_pipe_color_blend_state_create_info
 
 static VkPipelineViewportStateCreateInfo dg_pipe_viewport_state_create_info(VkViewport *v, VkRect2D *s)
 {    
-    VkPipelineViewportStateCreateInfo viewport_state = {0};
+    VkPipelineViewportStateCreateInfo viewport_state = {};
 	viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
 	viewport_state.pNext = NULL;
 	viewport_state.viewportCount = 1;
@@ -1088,11 +1095,11 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
         layout_binding_bits |= (1 << current_set.set);
         for  (u32 j=0;j < current_set.binding_count; ++j)
         {
-            VkDescriptorSetLayoutBinding binding ={0};
+            VkDescriptorSetLayoutBinding binding ={};
             binding.binding = current_set.bindings[j]->binding;
             binding.descriptorCount = 1;//current_set.bindings[j]->count;
             binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT | VK_SHADER_STAGE_GEOMETRY_BIT;
-            binding.descriptorType = current_set.bindings[j]->descriptor_type;
+            binding.descriptorType = (VkDescriptorType)current_set.bindings[j]->descriptor_type;
 
             dbf_push(desc_set_layout_bindings, binding);
 
@@ -1107,7 +1114,7 @@ static u32 dg_pipe_descriptor_set_layout(dgDevice *ddev, dgShader*shader, VkDesc
         //if layout not found in cache, we create it and add it to the cache
         if(layouts[current_set.set] == VK_NULL_HANDLE)
         {
-            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
+            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {};
             desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
             desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
             desc_layout_ci.pBindings = desc_set_layout_bindings;
@@ -1140,11 +1147,11 @@ static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShad
         if (current_set.set != set_num)continue;
         for  (u32 j=0;j < current_set.binding_count; ++j)
         {
-            VkDescriptorSetLayoutBinding binding ={0};
+            VkDescriptorSetLayoutBinding binding ={};
             binding.binding = current_set.bindings[j]->binding; 
             binding.descriptorCount = current_set.bindings[j]->count;
             binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
-            binding.descriptorType = current_set.bindings[j]->descriptor_type;
+            binding.descriptorType = (VkDescriptorType)current_set.bindings[j]->descriptor_type;
 
             dbf_push(desc_set_layout_bindings, binding);
 
@@ -1159,7 +1166,7 @@ static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShad
         //if layout not found in cache, we create it and add it to the cache
         if(layout == VK_NULL_HANDLE)
         {
-            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {0};
+            VkDescriptorSetLayoutCreateInfo desc_layout_ci = {};
             desc_layout_ci.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
             desc_layout_ci.bindingCount = dbf_len(desc_set_layout_bindings);
             desc_layout_ci.pBindings = desc_set_layout_bindings;
@@ -1184,7 +1191,7 @@ static VkPipelineLayoutCreateInfo dg_pipe_layout_create_info(VkDescriptorSetLayo
 {
     //maybe for each pipeline layout / descriptor set we should string->int hash the members for fast updates
     
-	VkPipelineLayoutCreateInfo info = {0};
+	VkPipelineLayoutCreateInfo info = {};
 	info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
 	info.pNext = NULL;
 	
@@ -1240,7 +1247,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VkPipelineMultisampleStateCreateInfo multisampling_info = 
     dg_pipe_multisampling_state_create_info();
 
-    VkPipelineDepthStencilStateCreateInfo depth_info = {0};
+    VkPipelineDepthStencilStateCreateInfo depth_info = {};
 
     VkPipelineColorBlendAttachmentState blend_attachment_states[DG_MAX_COLOR_ATTACHMENTS];
     for (u32 i = 0; i < 4; ++i)
@@ -1259,7 +1266,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
         VK_DYNAMIC_STATE_SCISSOR,
         VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT,
     };
-    VkPipelineDynamicStateCreateInfo dynamic_state = { 0 };
+    VkPipelineDynamicStateCreateInfo dynamic_state = {};
     dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic_state.pNext = NULL;
     dynamic_state.dynamicStateCount = array_count(dynamic_state_enables);
@@ -1275,7 +1282,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     VK_CHECK(vkCreatePipelineLayout(ddev->device, &pipe_layout_info, NULL, &pipe->pipeline_layout));
 
 
-    VkGraphicsPipelineCreateInfo pipeCI = {0};
+    VkGraphicsPipelineCreateInfo pipeCI = {};
     pipeCI.sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO;
     pipeCI.stageCount = shader_stages_count;
     pipeCI.pStages = shader_stages;
@@ -1303,7 +1310,7 @@ static b32 dg_create_pipeline(dgDevice *ddev, dgPipeline *pipe, char *vert_name,
     }
  
     // New create info to define color, depth and stencil attachments at pipeline create time
-    VkPipelineRenderingCreateInfoKHR pipe_renderingCI = {0};
+    VkPipelineRenderingCreateInfoKHR pipe_renderingCI = {};
     pipe_renderingCI.sType = VK_STRUCTURE_TYPE_PIPELINE_RENDERING_CREATE_INFO_KHR;
     pipe_renderingCI.colorAttachmentCount = output_var_count;
     pipe_renderingCI.pColorAttachmentFormats = color_formats;
@@ -1333,10 +1340,10 @@ static b32 dg_create_sync_objects(dgDevice *ddev)
     ddev->images_in_flight = (VkFence*)dalloc(sizeof(VkFence) * ddev->swap.image_count);
     for (u32 i = 0; i < ddev->swap.image_count; ++i)ddev->images_in_flight[i] = VK_NULL_HANDLE;
     
-    VkSemaphoreCreateInfo semaphore_info = {0};
+    VkSemaphoreCreateInfo semaphore_info = {};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
     
-    VkFenceCreateInfo fence_info = {0};
+    VkFenceCreateInfo fence_info = {};
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
     
@@ -1353,7 +1360,7 @@ static b32 dg_create_sync_objects(dgDevice *ddev)
 static b32 dg_create_command_pool(dgDevice *ddev)
 {
     dgQueueFamilyIndices queue_family_indices = dg_find_queue_families(ddev->physical_device);
-    VkCommandPoolCreateInfo pool_info = {0};
+    VkCommandPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     pool_info.queueFamilyIndex = queue_family_indices.graphics_family;
     pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -1364,7 +1371,7 @@ static b32 dg_create_command_pool(dgDevice *ddev)
 static b32 dg_create_command_buffers(dgDevice *ddev)
 {
     ddev->command_buffers = (VkCommandBuffer*)dalloc(sizeof(VkCommandBuffer) * ddev->swap.image_count);
-    VkCommandBufferAllocateInfo alloc_info = {0};
+    VkCommandBufferAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = ddev->command_pool; //where to allocate the buffer from
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
@@ -1434,7 +1441,7 @@ static void dg_image_memory_barrier(
 
 static void dg_prepare_command_buffer(dgDevice *ddev, VkCommandBuffer c)
 {
-    VkCommandBufferBeginInfo begin_info = {0};
+    VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.flags = 0;
 	//vkBeginCommandBuffer(command_buffer, &begin_info);
@@ -1494,12 +1501,12 @@ static void dg_flush_command_buffer(dgDevice *ddev, VkCommandBuffer command_buff
 {
     VK_CHECK(vkEndCommandBuffer(command_buffer));
 
-    VkSubmitInfo submitInfo = {0};
+    VkSubmitInfo submitInfo = {};
     submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submitInfo.commandBufferCount = 1;
     submitInfo.pCommandBuffers = &command_buffer;
 
-    VkFenceCreateInfo fenceCI= {0};
+    VkFenceCreateInfo fenceCI= {};
     fenceCI.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fenceCI.flags = 0;
     VkFence fence;
@@ -1560,10 +1567,10 @@ static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32
     VkDescriptorPoolSize *sizes = NULL;
     for (u32 i = 0; i <= 10; ++i)
     {
-        dbf_push(sizes, (VkDescriptorPoolSize){i, count * da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
+        dbf_push(sizes, (VkDescriptorPoolSize){VkDescriptorType(i), count * da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
     }
 
-    VkDescriptorPoolCreateInfo pool_info = {0};
+    VkDescriptorPoolCreateInfo pool_info = {};
     pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
     pool_info.flags = flags | VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT;
     pool_info.maxSets = count;
@@ -1600,7 +1607,7 @@ static b32 dg_descriptor_allocator_allocate(dgDescriptorAllocator *da, VkDescrip
         da->used_pools[da->used_pool_count++] = da->current_pool;
     }
 
-    VkDescriptorSetAllocateInfo alloc_info = {0};
+    VkDescriptorSetAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
     alloc_info.pSetLayouts = &layout;
     alloc_info.descriptorPool = da->current_pool;
@@ -1678,7 +1685,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     }
 
     VkAttachmentLoadOp dload_op = (clear_depth> 0) ? VK_ATTACHMENT_LOAD_OP_CLEAR : VK_ATTACHMENT_LOAD_OP_LOAD;
-    VkRenderingAttachmentInfoKHR depth_attachment = {0};
+    VkRenderingAttachmentInfoKHR depth_attachment = {};
     depth_attachment.sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO_KHR; 
     depth_attachment.pNext = NULL; 
     if (depth_tex == NULL)
@@ -1693,7 +1700,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
 
 
-    VkRenderingInfoKHR rendering_info = {0};
+    VkRenderingInfoKHR rendering_info = {};
     rendering_info.sType = VK_STRUCTURE_TYPE_RENDERING_INFO_KHR;
     if (tex == NULL)
         rendering_info.renderArea = (VkRect2D){0,0, dd.swap.extent.width, dd.swap.extent.height};
@@ -1800,7 +1807,7 @@ void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_
     buf->active = TRUE;
 	
 	//[0]: create buffer handle
-    VkBufferCreateInfo buffer_info = {0};
+    VkBufferCreateInfo buffer_info = {};
     buffer_info.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
     buffer_info.size = size;
     buffer_info.usage = usage;
@@ -1808,10 +1815,10 @@ void dg_create_buffer(VkBufferUsageFlagBits usage, VkMemoryPropertyFlagBits mem_
     VK_CHECK(vkCreateBuffer(dd.device, &buffer_info, NULL, &(buf->buffer) ));
     
 	//[1]: create the memory nacking up the buffer handle
-    VkMemoryRequirements mem_req = {0};
+    VkMemoryRequirements mem_req = {};
     vkGetBufferMemoryRequirements(buf->device, (buf->buffer), &mem_req);
     
-    VkMemoryAllocateInfo alloc_info = {0};
+    VkMemoryAllocateInfo alloc_info = {};
     alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
     alloc_info.allocationSize = mem_req.size;
     alloc_info.memoryTypeIndex = find_mem_type(mem_req.memoryTypeBits, mem_flags);
@@ -1855,7 +1862,7 @@ static VkFormat dg_find_supported_format(dgDevice *ddev, VkFormat *candidates, V
 		}
 	}
 	printf("Couldn't find desired depth buffer format!");
-    return 0;
+    return VK_FORMAT_R8G8B8A8_SRGB;
 }
 
 
@@ -1875,7 +1882,7 @@ static VkFormat dg_find_depth_format(dgDevice *ddev)
 static void dg_create_image(dgDevice *ddev, u32 width, u32 height, VkFormat format,u32 mip_levels, u32 layers, VkImageTiling tiling, 
 VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDeviceMemory *image_memory)
 {
-	VkImageCreateInfo image_info = {0};
+	VkImageCreateInfo image_info = {};
 	image_info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 	image_info.imageType = VK_IMAGE_TYPE_2D;
 	image_info.extent.width = width;
@@ -1895,7 +1902,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 	VkMemoryRequirements mem_req;
 	vkGetImageMemoryRequirements(ddev->device, *image, &mem_req);
 	
-	VkMemoryAllocateInfo alloc_info = {0};
+	VkMemoryAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
 	alloc_info.allocationSize = mem_req.size;
 	alloc_info.memoryTypeIndex = find_mem_type(mem_req.memoryTypeBits, properties);
@@ -1906,7 +1913,7 @@ VkImageUsageFlags usage, VkMemoryPropertyFlags properties, VkImage *image, VkDev
 
 VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
 {
-	VkCommandBufferAllocateInfo alloc_info = {0};
+	VkCommandBufferAllocateInfo alloc_info = {};
 	alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
 	alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
 	alloc_info.commandPool = ddev->command_pool;
@@ -1915,7 +1922,7 @@ VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev)
 	VkCommandBuffer command_buffer;
 	vkAllocateCommandBuffers(ddev->device, &alloc_info, &command_buffer);
 	
-	VkCommandBufferBeginInfo begin_info = {0};
+	VkCommandBufferBeginInfo begin_info = {};
 	begin_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
 	begin_info.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 	vkBeginCommandBuffer(command_buffer, &begin_info);
@@ -1927,7 +1934,7 @@ void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer)
 {
 	vkEndCommandBuffer(command_buffer);
 	
-	VkSubmitInfo submit_info = {0};
+	VkSubmitInfo submit_info = {};
 	submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 	submit_info.commandBufferCount = 1;
 	submit_info.pCommandBuffers = &command_buffer;
@@ -1939,7 +1946,7 @@ void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer)
 
 static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 height, u32 layer_count)
 {
-	dgTexture depth_attachment = {0};
+	dgTexture depth_attachment = {};
 	depth_attachment.format = dg_find_depth_format(ddev);
 	
 	dg_create_image(ddev,width, height, 
@@ -1981,7 +1988,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
     VkCommandBuffer cmd_buf = dg_begin_single_time_commands(&dd);//beginSingleTimeCommands();
 
     ///*
-    VkImageMemoryBarrier barrier = {0};
+    VkImageMemoryBarrier barrier = {};
     barrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
     barrier.image = image;
     barrier.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -2011,7 +2018,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
         );
 
         //blit from previous level (0->1->2,...)
-        VkImageBlit blit = {0};
+        VkImageBlit blit = {};
         blit.srcOffsets[0] = (VkOffset3D){ 0, 0, 0 };
         blit.srcOffsets[1] = (VkOffset3D){ mip_w, mip_h, 1 };
         blit.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -2065,7 +2072,7 @@ static void dg_generate_mips(VkImage image, s32 tex_w, s32 tex_h, u32 mip_levels
 
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels)
 {
-    dgTexture tex;//={0}??
+    dgTexture tex;//={}??
 	dgBuffer idb;
     u32 format_size;
     VkFormat vk_format = dg_to_vk_format(format);
@@ -2100,7 +2107,7 @@ dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32
     //if there is data to be copied, copy it
     if (data != NULL)
     {
-        VkBufferImageCopy region = {0};
+        VkBufferImageCopy region = {};
         region.bufferOffset = 0;
         region.bufferRowLength = 0;
         region.bufferImageHeight = 0;
@@ -2159,7 +2166,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
 	dgTexture tex;
 	//[0]: we read an image and store all the pixels in a pointer
 	s32 tex_w, tex_h, tex_c;
-	stbi_uc *pixels;
+	void *pixels;
     b32 is_hdr = strstr(filename, ".hdr") != NULL;
     if (is_hdr)
         pixels = stbi_loadf(filename, &tex_w, &tex_h, &tex_c, STBI_rgb_alpha);
@@ -2199,7 +2206,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
 
 
 
-    VkBufferImageCopy region = {0};
+    VkBufferImageCopy region = {};
 	region.bufferOffset = 0;
 	region.bufferRowLength = 0;
 	region.bufferImageHeight = 0;
@@ -2285,7 +2292,7 @@ static void dg_rt_init(dgDevice *ddev, dgRT* rt, u32 color_count, b32 depth, u32
     {
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,ddev->swap.image_format);
         //rt->color_attachments[i] = dg_create_texture_image_basic(ddev,width,height,VK_FORMAT_R16G16B16A16_SFLOAT);
-        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height, (color_count > 1) ? DG_IMAGE_FORMAT_RGBA16_SFLOAT: dd.swap.image_format, 1, 1);
+        rt->color_attachments[i] = dg_create_texture_image_wdata(ddev, NULL, width, height, (color_count > 1) ? (dgImageFormat)DG_IMAGE_FORMAT_RGBA16_SFLOAT: (dgImageFormat)dd.swap.image_format, 1, 1);
     }
     if (rt->depth_active)
         rt->depth_attachment = dg_create_depth_attachment(ddev, width,height,1);
@@ -2340,7 +2347,7 @@ static void dg_update_desc_set(dgDevice *ddev, VkDescriptorSet set, void *data, 
     u32 offset = dg_ubo_data_buffer_copy(ddev, &ddev->ubo_buf, data, size);
     VkDescriptorBufferInfo ubo_info = {dg_ubo_data_buffer_get_buf(ddev, &ddev->ubo_buf)->buffer, offset, size};
 
-    VkWriteDescriptorSet set_write = {0};
+    VkWriteDescriptorSet set_write = {};
     set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     set_write.dstBinding = 0;
     set_write.dstSet = set;
@@ -2363,7 +2370,7 @@ static void dg_update_desc_set_image(dgDevice *ddev, VkDescriptorSet set, dgText
         image_infos[i].imageLayout = textures[i]->image_layout;
     }
 
-    VkWriteDescriptorSet set_write = {0};
+    VkWriteDescriptorSet set_write = {};
     set_write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
     set_write.dstBinding = 0;
     set_write.dstSet = set;
@@ -2413,7 +2420,7 @@ void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 
     dg_descriptor_allocator_allocate(&ddev->desc_alloc[ddev->current_frame], &desc_set, layout);
     if(set_num == 2) //because set number 2 is for images
     {
-        dgTexture **tex_data = data;
+        dgTexture **tex_data = (dgTexture**)data;
         u32 tex_count = size;
         dg_update_desc_set_image(ddev, desc_set, tex_data, tex_count);
     }
@@ -2770,7 +2777,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(1,1,1)))));
     
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
+    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
     
 
 
@@ -2787,7 +2794,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     draw_cube_def_shadow(ddev, mat4_translate(v3(16,0,0)), lsm,0);
     //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(100 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(10,10,10)))),lsm);
     //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(1,1,0)),mat4_scale(v3(1,1,1)))),lsm);
-    draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))), lsm);
+    //draw_model_def_shadow(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))), lsm);
 
 
 
@@ -2882,7 +2889,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
-    draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
+    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
         
     //draw the grid ???
     if (ddev->grid_active){
@@ -2918,7 +2925,7 @@ void dg_frame_end(dgDevice *ddev)
 
     dg_end_command_buffer(ddev, ddev->command_buffers[ddev->current_frame]);
 
-    VkSubmitInfo si = {0};
+    VkSubmitInfo si = {};
     si.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
 
     VkSemaphore wait_semaphores[] = {ddev->image_available_semaphores[ddev->current_frame]};
@@ -2938,7 +2945,7 @@ void dg_frame_end(dgDevice *ddev)
     VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
     DPROFILER_END();
 
-    VkPresentInfoKHR present_info = { 0 };
+    VkPresentInfoKHR present_info = {};
     present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
     present_info.waitSemaphoreCount = 1;
     present_info.pWaitSemaphores = signal_semaphores;
@@ -2958,7 +2965,7 @@ void dg_frame_end(dgDevice *ddev)
         dg_recreate_swapchain(ddev);
     }
     else if (res != VK_SUCCESS)
-        dlog(NULL, "Failed to present swapchain image!\n");
+        dlog(NULL, C_TEXT("Failed to present swapchain image!\n"));
 
     ddev->current_frame = (ddev->current_frame + 1) % MAX_FRAMES_IN_FLIGHT;
 
@@ -2973,24 +2980,24 @@ void dg_device_init(void)
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
-    assert(dg_create_pipeline(&dd, &dd.def_pipe,"def.vert", "def.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,"pbr_def.vert", "pbr_def.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,"sm.vert", "sm.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.pbr_shadow_pipe,"sm.vert", "sm.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.grid_pipe,"grid.vert", "grid.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
-    assert(dg_create_pipeline(&dd, &dd.ssao_pipe,"ssao.vert", "ssao.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.blur_pipe,"blur.vert", "blur.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.cubemap_conv_pipe,"cubemap_conv.vert", "cubemap_conv.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.prefilter_map_pipe,"prefilter_map.vert", "prefilter_map.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.skybox_pipe,"skybox.vert", "skybox.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.brdf_lut_pipe,"brdf.vert", "brdf.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.skybox_gen_pipe,"skybox_gen.vert", "skybox_gen.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,"fullscreen.vert", "fullscreen.frag", TRUE));
-    assert(dg_create_pipeline(&dd, &dd.base_pipe,"base.vert", "base.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.particle_pipe,"particle.vert", "particle.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.anim_pipe,"anim.vert", "anim.frag", FALSE));
-    assert(dg_create_pipeline(&dd, &dd.composition_pipe,"composition.vert", "composition.frag", DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
-    assert(dg_create_pipeline(&dd, &dd.dui_pipe,DUI_VERT, DUI_FRAG, DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS| DG_PIPE_OPTION_BLEND | DG_PIPE_OPTION_READY_SHADERS));
+    assert(dg_create_pipeline(&dd, &dd.def_pipe,C_TEXT("def.vert"), C_TEXT("def.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,C_TEXT("pbr_def.vert"), C_TEXT("pbr_def.frag"), DG_PIPE_OPTION_NONE));
+    assert(dg_create_pipeline(&dd, &dd.shadow_pipe,C_TEXT("sm.vert"), C_TEXT("sm.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.pbr_shadow_pipe,C_TEXT("sm.vert"), C_TEXT("sm.frag"), DG_PIPE_OPTION_NONE));
+    assert(dg_create_pipeline(&dd, &dd.grid_pipe,C_TEXT("grid.vert"), C_TEXT("grid.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS | DG_PIPE_OPTION_BLEND));
+    assert(dg_create_pipeline(&dd, &dd.ssao_pipe,C_TEXT("ssao.vert"), C_TEXT("ssao.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.blur_pipe,C_TEXT("blur.vert"), C_TEXT("blur.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.cubemap_conv_pipe,C_TEXT("cubemap_conv.vert"), C_TEXT("cubemap_conv.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.prefilter_map_pipe,C_TEXT("prefilter_map.vert"), C_TEXT("prefilter_map.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.skybox_pipe,C_TEXT("skybox.vert"), C_TEXT("skybox.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.brdf_lut_pipe,C_TEXT("brdf.vert"), C_TEXT("brdf.frag"), DG_PIPE_OPTION_NONE));
+    assert(dg_create_pipeline(&dd, &dd.skybox_gen_pipe,C_TEXT("skybox_gen.vert"), C_TEXT("skybox_gen.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    //assert(dg_create_pipeline(&dd, &dd.fullscreen_pipe,C_TEXT("fullscreen.vert", "fullscreen.frag", TRUE));
+    assert(dg_create_pipeline(&dd, &dd.base_pipe,C_TEXT("base.vert"), C_TEXT("base.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    assert(dg_create_pipeline(&dd, &dd.particle_pipe,C_TEXT("particle.vert"), C_TEXT("particle.frag"), DG_PIPE_OPTION_NONE));
+    assert(dg_create_pipeline(&dd, &dd.anim_pipe,C_TEXT("anim.vert"), C_TEXT("anim.frag"), DG_PIPE_OPTION_NONE));
+    assert(dg_create_pipeline(&dd, &dd.composition_pipe,C_TEXT("composition.vert"), C_TEXT("composition.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
+    //assert(dg_create_pipeline(&dd, &dd.dui_pipe,C_TEXT("dui.vert"), C_TEXT("dui.frag"), DG_PIPE_OPTION_NONE));
     assert(dg_create_command_buffers(&dd));
     assert(dg_create_sync_objects(&dd));
 
@@ -3001,7 +3008,7 @@ void dg_device_init(void)
     dg_ubo_data_buffer_init(&dd, &dd.ubo_buf, sizeof(mat4)*2000);
     dd.shadow_pass_active = FALSE;
     dd.grid_active = FALSE;
-	dlog(NULL, "Vulkan initialized correctly!\n");
+	dlog(NULL, C_TEXT("Vulkan initialized correctly!\n"));
 
     
 }
@@ -3056,7 +3063,7 @@ b32 dgfx_init(void)
     for (u32 i = 0; i < 32; ++i){
         noise_data[i] = v4(r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1, r01() * 2 - 1);
     }
-    hdr_map = dg_create_texture_image(&dd, "../assets/newport_loft.hdr", DG_IMAGE_FORMAT_RGBA32_SFLOAT);
+    hdr_map = dg_create_texture_image(&dd, C_TEXT("../assets/newport_loft.hdr"), DG_IMAGE_FORMAT_RGBA32_SFLOAT);
     cube_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,1);
     ssao_tex = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);
     prefilter_map = dg_create_texture_image_wdata(&dd, NULL, 1024,1024, DG_IMAGE_FORMAT_RGBA32_SFLOAT, 6,4);
@@ -3064,7 +3071,7 @@ b32 dgfx_init(void)
     //noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
-    water_bottle = dmodel_load_gltf("DamagedHelmet");
-    fox = dmodel_load_gltf("untitled");
+    //water_bottle = dmodel_load_gltf(C_TEXT("DamagedHelmet"));
+    //fox = dmodel_load_gltf(C_TEXT("untitled"));
     return 1;
 }

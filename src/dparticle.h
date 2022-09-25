@@ -45,9 +45,7 @@ typedef struct dParticleEmitter{
 void dparticle_emitter_update(dParticleEmitter *emitter, f32 dt);
 void dparticle_emitter_render(dParticleEmitter *emitter);
 
-
-typedef struct dParticleEmitterCM {
-    struct peInstanceData {
+ struct peInstanceData {
         u32 n; // No. of _used_ instances (current)
         u32 allocated; // No. of allocated instances (max)
         void *buffer; // Buffer w/ instance Data
@@ -55,6 +53,8 @@ typedef struct dParticleEmitterCM {
         dEntity *entity;
         dParticleEmitter *emitter;
     };
+typedef struct dParticleEmitterCM {
+   
 
     struct peInstanceData data;
     struct {u32 key; u32 value;}*entity_hash;//entity ID -> array index

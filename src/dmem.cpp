@@ -12,7 +12,7 @@ void dfree(void *alloc_src)
 
 
 void dmem_linear_init(dLinearAllocator *a, void *buf, u64 buf_len){
-    a->buf = buf;
+    a->buf = (u8*)buf;
     a->buf_len = buf_len;
     a->curr_offset = 0;
     a->prev_offset = 0;
@@ -52,7 +52,7 @@ void *dmem_linear_alloc(dLinearAllocator *a, u64 size){
 
 void *dmem_linear_resize_align(dLinearAllocator *a, void *old_memory, u64 old_size, u64 new_size, u64 align){
     assert(is_pow2(align));
-    u8 *old_mem = old_memory;
+    u8 *old_mem = (u8*)old_memory;
 
     if (old_mem == NULL || old_size == 0){
         return dmem_linear_alloc_align(a, new_size, align);

@@ -5,13 +5,7 @@
 
 #include "spirv_reflect/spirv_reflect.h"
 
-#ifdef __cplusplus
-    extern "C" {
-#endif
 #include "volk/volk.h"
-#ifdef __cplusplus
-    }
-#endif
 
 #define DG_PHYSICAL_DEVICE_MAX 10
 #define DG_QUEUE_FAMILY_MAX 32
@@ -98,6 +92,7 @@ typedef struct dgUBODataBuffer
 }dgUBODataBuffer;
 
 typedef enum dgPipeOptions{
+    DG_PIPE_OPTION_NONE = 0,
     DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS = (1 << 0),
     DG_PIPE_OPTION_BLEND = (1 << 1),
     DG_PIPE_OPTION_COMPILE_SHADERS = (1 << 2),
@@ -265,6 +260,7 @@ VkCommandBuffer dg_begin_single_time_commands(dgDevice *ddev);
 void dg_end_single_time_commands(dgDevice *ddev, VkCommandBuffer command_buffer);
 void draw_cube(dgDevice *ddev, mat4 model);
 void draw_sphere(dgDevice *ddev, mat4 model);
+void dg_skybox_prepare(dgDevice *ddev);
 
 #ifdef __cplusplus
 }

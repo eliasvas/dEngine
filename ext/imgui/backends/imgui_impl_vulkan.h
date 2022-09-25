@@ -44,13 +44,9 @@
 #define VK_NO_PROTOTYPES
 #endif
 
-///*
-//#ifdef __cplusplus
-extern "C" {
-//#endif
 #include "volk/volk.h"
-//#ifdef __cplusplus
-}
+
+
 //#endif
 //*/
 //#include <vulkan/vulkan.h>

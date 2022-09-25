@@ -71,8 +71,7 @@ dTransform dtransform_default(void);
 mat4 dtransform_to_mat4(dTransform t);
 dTransform mat4_to_dtransform(mat4 m);
 
-typedef struct dTransformCM{
-    struct InstanceData{
+struct InstanceData{
         u32 n; //no. of instances
         u32 allocated; //bytes allocated
         void *buffer; //where data is
@@ -86,6 +85,8 @@ typedef struct dTransformCM{
         u32 *next_sibling;
         u32 *prev_sibling;
     };
+typedef struct dTransformCM{
+    
     struct InstanceData data;
     dComponentDesc component_desc;
 
@@ -125,8 +126,8 @@ void dcomponent_desc_insert(dComponentDesc *d, dComponentField f);
 typedef struct dDebugName{
     char name[DEBUG_NAME_MAX_CHARS];
 }dDebugName;
-typedef struct dDebugNameCM{
-    struct dnInstanceData {
+
+struct dnInstanceData {
         u32 n; // No. of _used_ instances (current)
         u32 allocated; // No. of allocated instances (max)
         void *buffer; // Buffer w/ instance Data
@@ -134,6 +135,8 @@ typedef struct dDebugNameCM{
         dEntity *entity;
         dDebugName *name;
     };
+typedef struct dDebugNameCM{
+    
 
     struct dnInstanceData data;
     struct {u32 key; u32 value;}*entity_hash;//entity ID -> array index

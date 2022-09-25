@@ -1,6 +1,7 @@
 #ifndef __DMATERIAL__
 #define  __DMATERIAL__
 #include "tools.h"
+#include "stb/stb_ds.h"
 #include "dgfx.h"
 
 typedef enum dMaterialSettings
@@ -28,8 +29,6 @@ typedef struct dMaterial
 
 
 static dMaterial dmaterial_basic(void);
-
-#include "stb/stb_ds.h"
 #define DTEXTURE_MANAGER_MAX_TEXTURES 100
 #define DTEXTURE_NOT_FOUND 0xFFFFFFFF
 
@@ -38,14 +37,11 @@ typedef struct dTextureManager{
     u32 ref_count[DTEXTURE_MANAGER_MAX_TEXTURES];
     u32 textures_count;
 
-    struct {u64 key; u32 value}*texture_hash;//maps texture's name hash to index in textures array
+    struct {u64 key; u32 value;}*texture_hash;//maps texture's name hash to index in textures array
 }dTextureManager;
 
 void dtexture_manager_init(dTextureManager *tm);
-//TODO: No more VkFormats!! this is not vulkan code!!!!!
 dgTexture* dtexture_manager_add_tex(dTextureManager *tm, char *name, dgImageFormat f);
 void dtexture_manager_del_tex(dTextureManager *tm, char *name);
-
-
 
 #endif

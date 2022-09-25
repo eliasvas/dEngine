@@ -8,8 +8,8 @@ extern dWindow main_window;
 //The input state of the engine for the current frame (its a singleton!)
 typedef struct dInputState
 {
-    dKey keys[DK_MAX];
-    dKey prev_keys[DK_MAX];
+    b32 keys[DK_MAX];
+    b32 prev_keys[DK_MAX];
 
     f32 mouse_pos_x, mouse_pos_y;
     f32 mouse_delta_x, mouse_delta_y;
