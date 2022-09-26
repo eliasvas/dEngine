@@ -8,7 +8,7 @@
 #define DMODEL_MAX_MESHES_PER_MODEL 10
 #define DMODEL_MAX_MESH_PRIMITIVES_PER_MESH 104
 
-typedef struct dMeshPrimitive{
+struct dMeshPrimitive{
     //offsets encode the [start, finish] within the 
     //component's buffer where the vertex data are for the primitive
     ivec2 pos_offset;
@@ -24,9 +24,9 @@ typedef struct dMeshPrimitive{
     dMaterial m;
 
     u32 primitive_type;
-}dMeshPrimitive;
+};
 
-typedef struct dMesh {
+struct dMesh {
     dgBuffer joint_buf; //GPU buffer storing per-vertex joint IDs
     
 
@@ -34,10 +34,10 @@ typedef struct dMesh {
     u32 primitives_count;
 
     dSkeletonInfo skeleton_info;
-}dMesh;
+};
 
 
-typedef struct dModel {
+struct dModel {
     //dgBuffer vertex_buffer;
     dgBuffer gpu_buf;
     dMesh meshes[DMODEL_MAX_MESHES_PER_MODEL];
@@ -48,7 +48,7 @@ typedef struct dModel {
 
     b32 finished_loading; //maybe this should be a thing in the asset pipeline
     dMaterial material;
-}dModel;
+};
 dModel dmodel_load_gltf(const char *filename);
 
 

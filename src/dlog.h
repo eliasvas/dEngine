@@ -3,14 +3,12 @@
 #include "tools.h"
 #include "dthread.h"
 
-typedef struct dLogMessage dLogMessage;
 struct dLogMessage{
     char msg[128];
     u32 msg_len; 
 };
 
 #define MAX_LOGS 8 
-typedef struct dLogger dLogger;
 struct dLogger{
     dLogMessage logs[MAX_LOGS];
     u32 current_log;

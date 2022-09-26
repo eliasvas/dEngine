@@ -271,84 +271,81 @@ u32 dtransform_cm_simulate(dTransformCM *manager){
 
 
 dDebugNameCM debug_name_cm;
-void ddebug_name_cm_allocate(dDebugNameCM *manager, u32 size){
-    if (manager == NULL)manager = &debug_name_cm;
-    assert(size > manager->data.n);
 
-    struct dnInstanceData new_data;
+
+void dDebugNameCM::allocate(u32 size){
+    assert(size > this->data.n);
+
+    InstanceData new_data;
     const u32 bytes = size * (sizeof(dEntity) + sizeof(dDebugName));
         
     new_data.buffer = dalloc(bytes);
-    new_data.n = manager->data.n;
+    new_data.n = this->data.n;
     new_data.allocated = size;
 
     new_data.entity = (dEntity *)(new_data.buffer);
     new_data.name = (dDebugName*)(new_data.entity + size);
 
-    if (manager->data.buffer != NULL){ //if we have data from previous allocation, copy.
-        memcpy(new_data.entity, manager->data.entity, manager->data.n * sizeof(dEntity));
-        memcpy(new_data.name, manager->data.name, manager->data.n * sizeof(dDebugName));
+    if (this->data.buffer != NULL){ //if we have data from previous allocation, copy.
+        memcpy(new_data.entity, this->data.entity, this->data.n * sizeof(dEntity));
+        memcpy(new_data.name, this->data.name, this->data.n * sizeof(dDebugName));
     }
 
-    if (manager->data.buffer != NULL)
-        dfree(manager->data.buffer);
-    manager->data = new_data;
+    if (this->data.buffer != NULL)
+        dfree(this->data.buffer);
+    this->data = new_data;
 }
 
-void ddebug_name_cm_init(dDebugNameCM *manager){
-    if (manager == NULL)manager = &debug_name_cm;
+void dDebugNameCM::init(void){
+    memset(this, 0, sizeof(dDebugNameCM));
 
-    memset(manager, 0, sizeof(dDebugNameCM));
-    manager->entity_hash = NULL;
-    ddebug_name_cm_allocate(manager, 10);
-    hmdefault(manager->entity_hash, 0xFFFFFFFF);
+    entity_hash = NULL;
+    this->allocate(10);
+    hmdefault(entity_hash, 0xFFFFFFFF);
     dComponentField f1 = dcomponent_field_make("name", offsetof(dDebugName, name), DCOMPONENT_FIELD_TYPE_STRING);
-        memset(&manager->component_desc, 0, sizeof(manager->component_desc));
-    dcomponent_desc_insert(&manager->component_desc, f1);
+    memset(&this->component_desc, 0, sizeof(this->component_desc));
+    dcomponent_desc_insert(&this->component_desc, f1);
 }
 
 
-u32 ddebug_name_cm_add(dDebugNameCM *manager, dEntity e){
-    if (manager == NULL)manager = &debug_name_cm;
+u32 dDebugNameCM::add(dEntity e){
 
     //Find the next index available by the manager and create an EntityID -> index relation
-    u32 component_index = manager->data.n;
-    hmput(manager->entity_hash, e.id, component_index);
+    u32 component_index = this->data.n;
+    hmput(this->entity_hash, e.id, component_index);
 
     //Initialize the component's data in that index
-    manager->data.entity[component_index] = e;
-    memset(manager->data.name[component_index].name, 0, sizeof(dDebugName));
+    this->data.entity[component_index] = e;
+    memset(this->data.name[component_index].name, 0, sizeof(dDebugName));
 
     //return the index and increment the global index of the manager, to be ready for the next insertion
-    return manager->data.n++;
+    return this->data.n++;
 }
 
 
 //Return value of 0xFFFFFFFF means entity not found
-u32 ddebug_name_cm_lookup(dDebugNameCM *manager, dEntity e){
-    if (manager == NULL)manager = &debug_name_cm;
-    s32 component_index = hmget(manager->entity_hash, e.id);
+u32 dDebugNameCM::lookup(dEntity e){
+    s32 component_index = hmget(this->entity_hash, e.id);
     return component_index;
 }
 
-char *ddebug_name_cm_name(dDebugNameCM * manager, u32 component_index){
-    if (manager == NULL)manager = &debug_name_cm;
-    char *name = manager->data.name[component_index].name;
+char *dDebugNameCM::name(u32 component_index){
+    char *name = this->data.name[component_index].name;
     return name;
 }
 
-void ddebug_name_cm_del(dDebugNameCM *manager, u32 index){
-    if (manager == NULL)manager = &debug_name_cm;
-    u32 last_component = manager->data.n-1;
-    dEntity e = manager->data.entity[index];
-    dEntity last_entity = manager->data.entity[last_component];
+void dDebugNameCM::del(u32 component_index){
+    
+    u32 last_component = this->data.n-1;
+    dEntity e = this->data.entity[component_index];
+    dEntity last_entity = this->data.entity[last_component];
 
-    manager->data.entity[index] = manager->data.entity[last_component];
-    manager->data.name[index] = manager->data.name[last_component];
+    this->data.entity[component_index] = this->data.entity[last_component];
+    this->data.name[component_index] = this->data.name[last_component];
 
-    hmdel(manager->entity_hash, e.id);
-    hmdel(manager->entity_hash, last_entity.id);
-    hmput(manager->entity_hash, last_entity.id, index);
+    hmdel(this->entity_hash, e.id);
+    hmdel(this->entity_hash, last_entity.id);
+    hmput(this->entity_hash, last_entity.id, component_index);
 
-    manager->data.n--;
+    this->data.n--;
 }

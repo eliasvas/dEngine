@@ -2,21 +2,21 @@
 #define __DCONFIG__
 #include "tools.h"
 
-typedef enum dgAPI
+enum dgAPI
 {
     DG_VULKAN = 1,
     DG_OPENGL = 2,
     DG_SOFTWARE = 3,
     DG_MAX_API,
-}dgAPI;
+};
 
-typedef struct dConfig
+struct dConfig
 {
     dgAPI graphics_api;
     vec2 default_resolution;
     char shader_path[64];
     char spirv_path[64];
-}dConfig;
+};
 
 //Fills the (single) engine config struct
 //NOTE(ilias): path to dconfig is source dir

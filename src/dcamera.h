@@ -21,6 +21,10 @@ typedef struct dCamera
     f32 roll;
     f32 yaw;
     dCameraMode mode;
+
+    void init(void);
+    void update(f64 dt);
+    mat4 getViewMatrix(void);
 }dCamera;
 
 void dcamera_init(dCamera *camera);

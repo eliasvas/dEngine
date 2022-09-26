@@ -2759,7 +2759,7 @@ b32 dg_frame_begin(dgDevice *ddev)
 
 
     
-    view = dcamera_get_view_matrix(&cam);
+    view = cam.getViewMatrix();
     proj = perspective_proj(60.0f,(main_editor.viewport.z-main_editor.viewport.x)/(main_editor.viewport.w -main_editor.viewport.y), 0.01, 100);
 
 

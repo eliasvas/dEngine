@@ -10,6 +10,8 @@ dWindow main_window;
 dCamera cam;
  
 extern dConfig engine_config;
+extern dDebugNameCM debug_name_cm;
+extern dProfiler global_profiler;
 
 dEntity parent;
 dEntity child;
@@ -26,7 +28,7 @@ void dcore_init(void)
 
         //Initialize transform manager
     dtransform_cm_init(NULL);
-    ddebug_name_cm_init(NULL);
+    debug_name_cm.init();
 
     //Initialize basic engine allocators 
     dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
@@ -73,7 +75,7 @@ void dcore_init(void)
     */
 
     //Initialize the main camera
-    dcamera_init(&cam);
+    cam.init();
 
 
     //stbds_unit_tests();
@@ -89,7 +91,7 @@ void dcore_init(void)
     printf("\n");
     */
     //Initialize the profiler
-    dprofiler_init(NULL);
+    global_profiler.init();
     dg_frame_begin(&dd);
     dg_skybox_prepare(&dd);
 
@@ -131,7 +133,7 @@ void dcore_update(f64 dt)
         deditor_update(NULL, dt);
         DPROFILER_END();
     }
-    dcamera_update(&cam,dt);
+    cam.update(dt);
     
     {
         DPROFILER_START("editor_draw");

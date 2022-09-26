@@ -51,11 +51,12 @@ void dconfig_save(void)
     if (config == NULL){
         dlog(NULL, "Couldn't find config file, starting engine with default settings!\n");
     }
+    defer(fclose(config));
+
     fprintf(config, "set dgAPI DG_VULKAN\n");
     fprintf(config, "set spirv_path %s\n", engine_config.spirv_path);
     fprintf(config, "set shader_path %s\n", engine_config.shader_path);
     fprintf(config, "set default_resolution %i %i\n", (int)engine_config.default_resolution.x, (int)engine_config.default_resolution.y);
-    fclose(config);
 }
 
 void dconfig_default(void)

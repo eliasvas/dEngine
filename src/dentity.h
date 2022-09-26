@@ -127,7 +127,10 @@ typedef struct dDebugName{
     char name[DEBUG_NAME_MAX_CHARS];
 }dDebugName;
 
-struct dnInstanceData {
+
+typedef struct dDebugNameCM{
+    
+    struct InstanceData {
         u32 n; // No. of _used_ instances (current)
         u32 allocated; // No. of allocated instances (max)
         void *buffer; // Buffer w/ instance Data
@@ -135,13 +138,17 @@ struct dnInstanceData {
         dEntity *entity;
         dDebugName *name;
     };
-typedef struct dDebugNameCM{
-    
-
-    struct dnInstanceData data;
+    struct InstanceData data;
     struct {u32 key; u32 value;}*entity_hash;//entity ID -> array index
 
     dComponentDesc component_desc;
+
+    void allocate(u32 size);
+    void init(void);
+    u32 add(dEntity e);
+    u32 lookup(dEntity e);
+    char *name(u32 component_index);
+    void del(u32 component_index);
 }dDebugNameCM;
 
 void ddebug_name_cm_init(dDebugNameCM *manager);

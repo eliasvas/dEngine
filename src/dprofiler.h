@@ -33,6 +33,9 @@ typedef struct {
     struct {u64 key; u64 value;} *name_hash;
     dProfilerTag tags[DPROFILER_MAX_TAGS];
     u32 tag_count;
+
+    void init(void);
+    void addSample(char *name, f32 val);
 }dProfiler;
 
 void dprofiler_init(dProfiler *prof);

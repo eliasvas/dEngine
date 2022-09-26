@@ -104,6 +104,7 @@ typedef enum dKey
     DK_MMB,
 
     DK_MAX
+
 }dKey;
 
 //maybe we need button up/down for mouse?? or a separate get mouse state thing?

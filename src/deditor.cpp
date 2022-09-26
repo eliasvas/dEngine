@@ -25,6 +25,7 @@ extern dgDevice dd;
 extern dConfig engine_config;
 extern dWindow main_window;
 extern dInputState dis;
+extern dDebugNameCM debug_name_cm;
 extern dProfiler global_profiler;
 extern  mat4 view, proj;
 extern u64 frame_count;
@@ -237,8 +238,8 @@ void deditor_init(dEditor *editor){
 		parent_t.trans = v3(3,0,0);
 		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
 
-		u32 name_index = ddebug_name_cm_add(NULL, e0);
-		char *name = ddebug_name_cm_name(NULL, name_index);
+		u32 name_index = debug_name_cm.add(e0);
+		char *name = debug_name_cm.name(name_index);
 		sprintf(name, "e0");
 	}
 
@@ -250,8 +251,8 @@ void deditor_init(dEditor *editor){
 		parent_t.trans = v3(5,0,0);
 		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
 
-		u32 name_index = ddebug_name_cm_add(NULL, e1);
-		char *name = ddebug_name_cm_name(NULL, name_index);
+		u32 name_index = debug_name_cm.add( e1);
+		char *name = debug_name_cm.name(name_index);
 		sprintf(name, "e1");
 	}
 
@@ -264,8 +265,8 @@ void deditor_init(dEditor *editor){
 		parent_t.trans = v3(4,3,0);
 		dtransform_cm_set_local(&transform_manager, component_index, parent_t);
 
-		u32 name_index = ddebug_name_cm_add(NULL, e2);
-		char *name = ddebug_name_cm_name(NULL, name_index);
+		u32 name_index = debug_name_cm.add(e2);
+		char *name = debug_name_cm.name(name_index);
 		sprintf(name, "e2");
 	}
 
@@ -325,7 +326,7 @@ b32 deditor_component_view(void *data, dComponentDesc desc){
 
 void deditor_entity_view(dEntity e){
 	//[1]. we display our entity, 
-	char *name = ddebug_name_cm_name(NULL,ddebug_name_cm_lookup(NULL, e));
+	char *name = debug_name_cm.name(debug_name_cm.lookup(e));
 	u32 transform_index =  dtransform_cm_lookup(NULL, e); //index of transform component
 	dTransform *local_transform= dtransform_cm_local(NULL,transform_index);
 	if (ImGui::TreeNode(name)){
