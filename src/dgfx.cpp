@@ -3,7 +3,6 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb/stb_image.h"
 #include "dtime.h"
-#include "vulkan/shaderc.h"
 #include "glfw/include/GLFW/glfw3.h"
 #include "shaders.inl"
 #include "spirv_reflect/spirv_reflect.h"
@@ -15,6 +14,10 @@
 #include "dentity.h" 
 #include "dparticle.h"
 #include "dprofiler.h"
+#include "glslang/glslang/Include/glslang_c_interface.h"
+#include "glslang/glslang/Include/glslang_c_shader_types.h"
+#include "glslang/glslang/Include/ResourceLimits.h"
+#include "glslang/SPIRV/GlslangToSpv.h"
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
@@ -731,69 +734,287 @@ VkShaderModule dg_create_shader_module(char *code, u32 size)
 	VK_CHECK(vkCreateShaderModule(dd.device, &create_info, NULL, &shader_module));
 	return shader_module;
 }
-
-void dg_shader_create_dynamic_ready(VkDevice device, dgShader *s, char *filename, VkShaderStageFlagBits stage)
+static void InitResources(TBuiltInResource &Resources) {
+		Resources.maxLights = 32;
+		Resources.maxClipPlanes = 6;
+		Resources.maxTextureUnits = 32;
+		Resources.maxTextureCoords = 32;
+		Resources.maxVertexAttribs = 64;
+		Resources.maxVertexUniformComponents = 4096;
+		Resources.maxVaryingFloats = 64;
+		Resources.maxVertexTextureImageUnits = 32;
+		Resources.maxCombinedTextureImageUnits = 80;
+		Resources.maxTextureImageUnits = 32;
+		Resources.maxFragmentUniformComponents = 4096;
+		Resources.maxDrawBuffers = 32;
+		Resources.maxVertexUniformVectors = 128;
+		Resources.maxVaryingVectors = 8;
+		Resources.maxFragmentUniformVectors = 16;
+		Resources.maxVertexOutputVectors = 16;
+		Resources.maxFragmentInputVectors = 15;
+		Resources.minProgramTexelOffset = -8;
+		Resources.maxProgramTexelOffset = 7;
+		Resources.maxClipDistances = 8;
+		Resources.maxComputeWorkGroupCountX = 65535;
+		Resources.maxComputeWorkGroupCountY = 65535;
+		Resources.maxComputeWorkGroupCountZ = 65535;
+		Resources.maxComputeWorkGroupSizeX = 1024;
+		Resources.maxComputeWorkGroupSizeY = 1024;
+		Resources.maxComputeWorkGroupSizeZ = 64;
+		Resources.maxComputeUniformComponents = 1024;
+		Resources.maxComputeTextureImageUnits = 16;
+		Resources.maxComputeImageUniforms = 8;
+		Resources.maxComputeAtomicCounters = 8;
+		Resources.maxComputeAtomicCounterBuffers = 1;
+		Resources.maxVaryingComponents = 60;
+		Resources.maxVertexOutputComponents = 64;
+		Resources.maxGeometryInputComponents = 64;
+		Resources.maxGeometryOutputComponents = 128;
+		Resources.maxFragmentInputComponents = 128;
+		Resources.maxImageUnits = 8;
+		Resources.maxCombinedImageUnitsAndFragmentOutputs = 8;
+		Resources.maxCombinedShaderOutputResources = 8;
+		Resources.maxImageSamples = 0;
+		Resources.maxVertexImageUniforms = 0;
+		Resources.maxTessControlImageUniforms = 0;
+		Resources.maxTessEvaluationImageUniforms = 0;
+		Resources.maxGeometryImageUniforms = 0;
+		Resources.maxFragmentImageUniforms = 8;
+		Resources.maxCombinedImageUniforms = 8;
+		Resources.maxGeometryTextureImageUnits = 16;
+		Resources.maxGeometryOutputVertices = 256;
+		Resources.maxGeometryTotalOutputComponents = 1024;
+		Resources.maxGeometryUniformComponents = 1024;
+		Resources.maxGeometryVaryingComponents = 64;
+		Resources.maxTessControlInputComponents = 128;
+		Resources.maxTessControlOutputComponents = 128;
+		Resources.maxTessControlTextureImageUnits = 16;
+		Resources.maxTessControlUniformComponents = 1024;
+		Resources.maxTessControlTotalOutputComponents = 4096;
+		Resources.maxTessEvaluationInputComponents = 128;
+		Resources.maxTessEvaluationOutputComponents = 128;
+		Resources.maxTessEvaluationTextureImageUnits = 16;
+		Resources.maxTessEvaluationUniformComponents = 1024;
+		Resources.maxTessPatchComponents = 120;
+		Resources.maxPatchVertices = 32;
+		Resources.maxTessGenLevel = 64;
+		Resources.maxViewports = 16;
+		Resources.maxVertexAtomicCounters = 0;
+		Resources.maxTessControlAtomicCounters = 0;
+		Resources.maxTessEvaluationAtomicCounters = 0;
+		Resources.maxGeometryAtomicCounters = 0;
+		Resources.maxFragmentAtomicCounters = 8;
+		Resources.maxCombinedAtomicCounters = 8;
+		Resources.maxAtomicCounterBindings = 1;
+		Resources.maxVertexAtomicCounterBuffers = 0;
+		Resources.maxTessControlAtomicCounterBuffers = 0;
+		Resources.maxTessEvaluationAtomicCounterBuffers = 0;
+		Resources.maxGeometryAtomicCounterBuffers = 0;
+		Resources.maxFragmentAtomicCounterBuffers = 1;
+		Resources.maxCombinedAtomicCounterBuffers = 1;
+		Resources.maxAtomicCounterBufferSize = 16384;
+		Resources.maxTransformFeedbackBuffers = 4;
+		Resources.maxTransformFeedbackInterleavedComponents = 64;
+		Resources.maxCullDistances = 8;
+		Resources.maxCombinedClipAndCullDistances = 8;
+		Resources.maxSamples = 4;
+		Resources.maxMeshOutputVerticesNV = 256;
+		Resources.maxMeshOutputPrimitivesNV = 512;
+		Resources.maxMeshWorkGroupSizeX_NV = 32;
+		Resources.maxMeshWorkGroupSizeY_NV = 1;
+		Resources.maxMeshWorkGroupSizeZ_NV = 1;
+		Resources.maxTaskWorkGroupSizeX_NV = 32;
+		Resources.maxTaskWorkGroupSizeY_NV = 1;
+		Resources.maxTaskWorkGroupSizeZ_NV = 1;
+		Resources.maxMeshViewCountNV = 4;
+		Resources.limits.nonInductiveForLoops = 1;
+		Resources.limits.whileLoops = 1;
+		Resources.limits.doWhileLoops = 1;
+		Resources.limits.generalUniformIndexing = 1;
+		Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+		Resources.limits.generalVaryingIndexing = 1;
+		Resources.limits.generalSamplerIndexing = 1;
+		Resources.limits.generalVariableIndexing = 1;
+		Resources.limits.generalConstantMatrixVectorIndexing = 1;
+	}
+/*
+const glslang_resource_t* glslang_default_resource(void)
 {
-    char *glsl_text = filename;
-    u32 glsl_size = str_size(glsl_text);
+    return reinterpret_cast<const glslang_resource_t*>(&glslang::DefaultTBuiltInResource);
+}
+*/
+static TBuiltInResource InitResources()
+{
+    TBuiltInResource Resources;
 
-    shaderc_compiler_t compiler = shaderc_compiler_initialize();
-    shaderc_shader_kind shader_kind = (stage & VK_SHADER_STAGE_VERTEX_BIT) ? shaderc_glsl_vertex_shader : shaderc_glsl_fragment_shader;
-    shaderc_compilation_result_t result = shaderc_compile_into_spv(compiler, glsl_text, glsl_size,
-                                         shader_kind, "file",
-                                         "main", NULL);
+    Resources.maxLights                                 = 32;
+    Resources.maxClipPlanes                             = 6;
+    Resources.maxTextureUnits                           = 32;
+    Resources.maxTextureCoords                          = 32;
+    Resources.maxVertexAttribs                          = 64;
+    Resources.maxVertexUniformComponents                = 4096;
+    Resources.maxVaryingFloats                          = 64;
+    Resources.maxVertexTextureImageUnits                = 32;
+    Resources.maxCombinedTextureImageUnits              = 80;
+    Resources.maxTextureImageUnits                      = 32;
+    Resources.maxFragmentUniformComponents              = 4096;
+    Resources.maxDrawBuffers                            = 32;
+    Resources.maxVertexUniformVectors                   = 128;
+    Resources.maxVaryingVectors                         = 8;
+    Resources.maxFragmentUniformVectors                 = 16;
+    Resources.maxVertexOutputVectors                    = 16;
+    Resources.maxFragmentInputVectors                   = 15;
+    Resources.minProgramTexelOffset                     = -8;
+    Resources.maxProgramTexelOffset                     = 7;
+    Resources.maxClipDistances                          = 8;
+    Resources.maxComputeWorkGroupCountX                 = 65535;
+    Resources.maxComputeWorkGroupCountY                 = 65535;
+    Resources.maxComputeWorkGroupCountZ                 = 65535;
+    Resources.maxComputeWorkGroupSizeX                  = 1024;
+    Resources.maxComputeWorkGroupSizeY                  = 1024;
+    Resources.maxComputeWorkGroupSizeZ                  = 64;
+    Resources.maxComputeUniformComponents               = 1024;
+    Resources.maxComputeTextureImageUnits               = 16;
+    Resources.maxComputeImageUniforms                   = 8;
+    Resources.maxComputeAtomicCounters                  = 8;
+    Resources.maxComputeAtomicCounterBuffers            = 1;
+    Resources.maxVaryingComponents                      = 60;
+    Resources.maxVertexOutputComponents                 = 64;
+    Resources.maxGeometryInputComponents                = 64;
+    Resources.maxGeometryOutputComponents               = 128;
+    Resources.maxFragmentInputComponents                = 128;
+    Resources.maxImageUnits                             = 8;
+    Resources.maxCombinedImageUnitsAndFragmentOutputs   = 8;
+    Resources.maxCombinedShaderOutputResources          = 8;
+    Resources.maxImageSamples                           = 0;
+    Resources.maxVertexImageUniforms                    = 0;
+    Resources.maxTessControlImageUniforms               = 0;
+    Resources.maxTessEvaluationImageUniforms            = 0;
+    Resources.maxGeometryImageUniforms                  = 0;
+    Resources.maxFragmentImageUniforms                  = 8;
+    Resources.maxCombinedImageUniforms                  = 8;
+    Resources.maxGeometryTextureImageUnits              = 16;
+    Resources.maxGeometryOutputVertices                 = 256;
+    Resources.maxGeometryTotalOutputComponents          = 1024;
+    Resources.maxGeometryUniformComponents              = 1024;
+    Resources.maxGeometryVaryingComponents              = 64;
+    Resources.maxTessControlInputComponents             = 128;
+    Resources.maxTessControlOutputComponents            = 128;
+    Resources.maxTessControlTextureImageUnits           = 16;
+    Resources.maxTessControlUniformComponents           = 1024;
+    Resources.maxTessControlTotalOutputComponents       = 4096;
+    Resources.maxTessEvaluationInputComponents          = 128;
+    Resources.maxTessEvaluationOutputComponents         = 128;
+    Resources.maxTessEvaluationTextureImageUnits        = 16;
+    Resources.maxTessEvaluationUniformComponents        = 1024;
+    Resources.maxTessPatchComponents                    = 120;
+    Resources.maxPatchVertices                          = 32;
+    Resources.maxTessGenLevel                           = 64;
+    Resources.maxViewports                              = 16;
+    Resources.maxVertexAtomicCounters                   = 0;
+    Resources.maxTessControlAtomicCounters              = 0;
+    Resources.maxTessEvaluationAtomicCounters           = 0;
+    Resources.maxGeometryAtomicCounters                 = 0;
+    Resources.maxFragmentAtomicCounters                 = 8;
+    Resources.maxCombinedAtomicCounters                 = 8;
+    Resources.maxAtomicCounterBindings                  = 1;
+    Resources.maxVertexAtomicCounterBuffers             = 0;
+    Resources.maxTessControlAtomicCounterBuffers        = 0;
+    Resources.maxTessEvaluationAtomicCounterBuffers     = 0;
+    Resources.maxGeometryAtomicCounterBuffers           = 0;
+    Resources.maxFragmentAtomicCounterBuffers           = 1;
+    Resources.maxCombinedAtomicCounterBuffers           = 1;
+    Resources.maxAtomicCounterBufferSize                = 16384;
+    Resources.maxTransformFeedbackBuffers               = 4;
+    Resources.maxTransformFeedbackInterleavedComponents = 64;
+    Resources.maxCullDistances                          = 8;
+    Resources.maxCombinedClipAndCullDistances           = 8;
+    Resources.maxSamples                                = 4;
+    Resources.maxMeshOutputVerticesNV                   = 256;
+    Resources.maxMeshOutputPrimitivesNV                 = 512;
+    Resources.maxMeshWorkGroupSizeX_NV                  = 32;
+    Resources.maxMeshWorkGroupSizeY_NV                  = 1;
+    Resources.maxMeshWorkGroupSizeZ_NV                  = 1;
+    Resources.maxTaskWorkGroupSizeX_NV                  = 32;
+    Resources.maxTaskWorkGroupSizeY_NV                  = 1;
+    Resources.maxTaskWorkGroupSizeZ_NV                  = 1;
+    Resources.maxMeshViewCountNV                        = 4;
 
+    Resources.limits.nonInductiveForLoops                 = 1;
+    Resources.limits.whileLoops                           = 1;
+    Resources.limits.doWhileLoops                         = 1;
+    Resources.limits.generalUniformIndexing               = 1;
+    Resources.limits.generalAttributeMatrixVectorIndexing = 1;
+    Resources.limits.generalVaryingIndexing               = 1;
+    Resources.limits.generalSamplerIndexing               = 1;
+    Resources.limits.generalVariableIndexing              = 1;
+    Resources.limits.generalConstantMatrixVectorIndexing  = 1;
 
-    assert(shaderc_result_get_compilation_status(result)== shaderc_compilation_status_success);
-
-	s->module = dg_create_shader_module((char*)shaderc_result_get_bytes(result), shaderc_result_get_length(result));
-	s->uses_push_constants = FALSE;
-	s->stage = stage;
-    spvReflectCreateShaderModule(shaderc_result_get_length(result), shaderc_result_get_bytes(result), &s->info);
-	//free(glsl_text);
-    shaderc_result_release(result);
-    shaderc_compiler_release(compiler);
-}  
-
-
+    return Resources;
+}
 void dg_shader_create_dynamic(VkDevice device, dgShader *s, char *filename, VkShaderStageFlagBits stage)
 {
-    char path[128];
+    char path[256];
     sprintf(path, "%s%s", engine_config.shader_path, filename);
     char *glsl_text;
     u32 glsl_size;
     //this means that either there is no such shader or that we entered a READY glsl 
     //this is slow though so we should probably have a distinct path for ready shaders 
-	if (read_file(path, (u32**)&glsl_text, &glsl_size) == -1)
+    int res = read_file(path, (u32**)&glsl_text, &glsl_size);
+
+    //glsl_text = read_whole_file_binary(path, &glsl_size);
+	if (res == -1)
     {
         glsl_text = filename;
         glsl_size = str_size(glsl_text);
     }
+    glsl_text[glsl_size] = 0;
 
-    shaderc_compiler_t compiler = shaderc_compiler_initialize();
-    shaderc_shader_kind shader_kind = (stage & VK_SHADER_STAGE_VERTEX_BIT) ? shaderc_glsl_vertex_shader : shaderc_glsl_fragment_shader;
-    shaderc_compilation_result_t result = shaderc_compile_into_spv(compiler, glsl_text, glsl_size,
-                                         shader_kind, "file",
-                                         "main", NULL);
+    EShLanguage lstage = (stage &VK_SHADER_STAGE_VERTEX_BIT ) ? EShLangVertex : EShLangFragment;
+    glslang::TShader shader(lstage);
+    shader.setEnvInput(glslang::EShSourceGlsl, lstage, glslang::EShClientVulkan,1);
+    shader.setEnvClient(glslang::EShClientVulkan, glslang::EShTargetVulkan_1_3);
+    shader.setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_6);
+    
+    glslang::TProgram program;
+    const char *shaderStrings[1];
+    TBuiltInResource Resources = InitResources();
+    //InitResources(Resources);
 
+    // Enable SPIR-V and Vulkan rules when parsing GLSL
+    EShMessages messages = (EShMessages)(EShMsgSpvRules | EShMsgVulkanRules);
 
-    assert(shaderc_result_get_compilation_status(result)== shaderc_compilation_status_success);
+    shaderStrings[0] = glsl_text;
+    shader.setStrings(shaderStrings, 1);
 
-	s->module = dg_create_shader_module((char*)shaderc_result_get_bytes(result), shaderc_result_get_length(result));
+    if (!shader.parse(&Resources, 100, false, messages)) {
+        printf("filename: %s\n", filename);
+        puts(shader.getInfoLog());
+        puts(shader.getInfoDebugLog());
+        exit(1);  // something didn't work
+    }
+
+    program.addShader(&shader);
+    if (!program.link(messages)) {
+        puts(shader.getInfoLog());
+        puts(shader.getInfoDebugLog());
+        fflush(stdout);
+        exit(1);
+    }
+
+    std::vector<unsigned int> spirv{};
+    glslang::GlslangToSpv(*program.getIntermediate(lstage), spirv);
+
+    s->module = dg_create_shader_module((char*)spirv.data(), spirv.size() * sizeof(u32));
 	s->uses_push_constants = FALSE;
 	s->stage = stage;
-    spvReflectCreateShaderModule(shaderc_result_get_length(result), shaderc_result_get_bytes(result), &s->info);
-	//free(glsl_text);
-    shaderc_result_release(result);
-    shaderc_compiler_release(compiler);
+    spvReflectCreateShaderModule(spirv.size() * sizeof(u32), (char*)spirv.data(), &s->info);
 }  
 
 
 void dg_shader_create(VkDevice device, dgShader *shader, char *filename, VkShaderStageFlagBits stage)
 {
-    if (str_size(filename) > 128)
-        return dg_shader_create_dynamic_ready(device, shader, filename, stage);
-    char path[128];
+    char path[256];
     sprintf(path, "%s%s.spv", engine_config.spirv_path, filename);
 	u32 code_size;
 	u32 *shader_code = NULL;
@@ -2777,7 +2998,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(1,1,1)))));
     
-    //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
+    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
     
 
 
@@ -2979,6 +3200,11 @@ void dg_device_init(void)
     assert(dg_create_command_pool(&dd));
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
+
+
+
+    glslang_initialize_process();
+
     dg_descriptor_set_layout_cache_init(&dd.desc_layout_cache); //the cache needs to be ready before pipeline creation
     assert(dg_create_pipeline(&dd, &dd.def_pipe,C_TEXT("def.vert"), C_TEXT("def.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     assert(dg_create_pipeline(&dd, &dd.pbr_def_pipe,C_TEXT("pbr_def.vert"), C_TEXT("pbr_def.frag"), DG_PIPE_OPTION_NONE));
@@ -3010,7 +3236,6 @@ void dg_device_init(void)
     dd.grid_active = FALSE;
 	dlog(NULL, C_TEXT("Vulkan initialized correctly!\n"));
 
-    
 }
 
 b32 dgfx_init(void)
@@ -3071,7 +3296,7 @@ b32 dgfx_init(void)
     //noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
-    //water_bottle = dmodel_load_gltf(C_TEXT("DamagedHelmet"));
+    water_bottle = dmodel_load_gltf(C_TEXT("DamagedHelmet"));
     //fox = dmodel_load_gltf(C_TEXT("untitled"));
     return 1;
 }

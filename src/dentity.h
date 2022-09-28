@@ -150,11 +150,4 @@ typedef struct dDebugNameCM{
     char *name(u32 component_index);
     void del(u32 component_index);
 }dDebugNameCM;
-
-void ddebug_name_cm_init(dDebugNameCM *manager);
-u32 ddebug_name_cm_add(dDebugNameCM *manager, dEntity e);
-u32 ddebug_name_cm_lookup(dDebugNameCM *manager, dEntity e);
-char *ddebug_name_cm_name(dDebugNameCM * manager, u32 component_index);
-void ddebug_name_cm_del(dDebugNameCM *manager, u32 index);
-
 #endif

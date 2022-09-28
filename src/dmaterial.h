@@ -38,6 +38,11 @@ struct dTextureManager{
     u32 textures_count;
 
     struct {u64 key; u32 value;}*texture_hash;//maps texture's name hash to index in textures array
+
+    void init();
+    dgTexture * addTex(char *name, dgImageFormat f);
+    void delTex(char *name);
+    void deinit();
 };
 
 void dtexture_manager_init(dTextureManager *tm);

@@ -14,6 +14,8 @@ static dAnimation animation;
 static dAnimator animator;
 extern dEditor main_editor;
 
+extern dTextureManager tex_manager;
+
 
 extern dgRT csm_rt;//TODO: fix all these externs
 extern dgRT composition_rt;
@@ -100,11 +102,11 @@ dModel dmodel_load_gltf(const char *filename)
                 prim.m.settings = (dMaterialSettings)(prim.m.settings |((int)DMATERIAL_BASE_COLOR | (int)DMATERIAL_ORM));
                 if (primitive.material->pbr_metallic_roughness.base_color_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.base_color_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(dtexture_manager_add_tex(NULL, filepath, DG_IMAGE_FORMAT_RGBA8_SRGB));
+                    prim.m.textures[DMATERIAL_BASE_COLOR_INDEX] = *(tex_manager.addTex(filepath, DG_IMAGE_FORMAT_RGBA8_SRGB));
                 }
                 if (primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture){
                     sprintf(filepath, "../assets/%s/%s", filename,primitive.material->pbr_metallic_roughness.metallic_roughness_texture.texture->image->uri);
-                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
+                    prim.m.textures[DMATERIAL_ORM_INDEX] = *(tex_manager.addTex(filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
                 }
                 f32 *c = (f32*)&primitive.material->pbr_metallic_roughness.base_color_factor;
                 prim.m.col = v4(c[0],c[1],c[2],c[3]);
@@ -113,7 +115,7 @@ dModel dmodel_load_gltf(const char *filename)
             {
                 prim.m.settings |= DMATERIAL_NORMAL;
                 sprintf(filepath, "../assets/%s/%s", filename,primitive.material->normal_texture.texture->image->uri);
-                prim.m.textures[DMATERIAL_NORMAL_INDEX] = *(dtexture_manager_add_tex(NULL, filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
+                prim.m.textures[DMATERIAL_NORMAL_INDEX] = *(tex_manager.addTex(filepath,DG_IMAGE_FORMAT_RGBA8_UNORM));
             }
 
 

@@ -12,6 +12,7 @@ dCamera cam;
 extern dConfig engine_config;
 extern dDebugNameCM debug_name_cm;
 extern dProfiler global_profiler;
+extern dTextureManager tex_manager;
 
 dEntity parent;
 dEntity child;
@@ -54,7 +55,7 @@ void dcore_init(void)
 
     
     //Initialize the Graphics Driver
-    dtexture_manager_init(NULL);
+    tex_manager.init();
     dgfx_init();
     dparticle_system_init(); //depends on dgfx_init because the vert/index buffers have to be created
     

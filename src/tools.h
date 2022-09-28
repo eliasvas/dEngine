@@ -116,7 +116,7 @@ privDefer<F> defer_func(F f) {
 #define maximum(a, b) ((a) > (b) ? (a) : (b))
 #define minimum(a, b) ((a) < (b) ? (a) : (b))
 #define step(threshold, value) ((value) < (threshold) ? 0 : 1) 
-#define clamp(x, a, b)  (maximum(a, minimum(x, b)))
+#define dclamp(x, a, b)  (maximum(a, minimum(x, b)))
 #define array_count(a) (sizeof(a) / sizeof((a)[0]))
 
 
