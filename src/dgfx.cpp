@@ -69,12 +69,7 @@ extern dAnimator animator;
 		}                                                           \
 	} while (0);
 
-static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
-    VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
-    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
-    VK_KHR_MULTIVIEW_EXTENSION_NAME,
-    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
-};
+
 
 static const char *validation_layers[]= {
     "VK_LAYER_KHRONOS_validation"
@@ -198,18 +193,16 @@ static u16 *sphere_build_index(u32 sector_count, u32 stack_count){
         }
 
     }
-    printf("sphere of %i stacks and %i sectors has %i indices", sector_count, stack_count, idx_count);
+    //printf("sphere of %i stacks and %i sectors has %i indices", sector_count, stack_count, idx_count);
     return indices;
 }
 
-typedef struct GlobalData
-{
-    mat4 view;
-    mat4 proj;
-    mat4 viewproj;
-}GlobalData;
 
-b32 dg_create_instance(dgDevice *ddev) {
+
+//------------------------------DVK, C-Interface Vulkan Layer used by dgfx------------------------------
+
+//DOC: creates a valid VkInstance 
+static VkInstance dvk_instance_create(void) {
 	VkInstance instance;
 
 	VkApplicationInfo appinfo = {};
@@ -271,64 +264,39 @@ b32 dg_create_instance(dgDevice *ddev) {
 	VK_CHECK(vkCreateInstance(&create_info, NULL, &instance));
     volkLoadInstance(instance);
 
+#if 0
 	//(OPTIONAL): extension support TODO memleak fix
 	u32 ext_count = 0;
 	vkEnumerateInstanceExtensionProperties(NULL, &ext_count, NULL);
 	VkExtensionProperties *extensions = (VkExtensionProperties*)dalloc(sizeof(VkExtensionProperties) * ext_count);
 	vkEnumerateInstanceExtensionProperties(NULL, &ext_count, extensions);
-
-	//for (u32 i = 0; i < ext_count; ++i)printf("EXT: %s\n", extensions[i].extensionName);
-	ddev->instance = instance;
-    assert(instance);
-
+	for (u32 i = 0; i < ext_count; ++i)printf("EXT: %s\n", extensions[i].extensionName);
     if (extensions)dfree(extensions);
+#endif
 
-	return TRUE;
+    assert(instance);
+    return instance;
 }
 
-static VkFormat dg_to_vk_format(dgImageFormat format)
+//DOC: creates a valid VKSurfaceKHR
+static VkSurfaceKHR dvk_surface_create(VkInstance instance, dWindow *window)
 {
-    //the enums are the same for the vulkan driver, for other implementations 
-    //just switch all different formats to correct counterpart
-    return (VkFormat)format;
-}
-typedef struct dgQueueFamilyIndices
-{
-    u32 graphics_family;
-    //because we cant ifer whether the vfalue was initialized correctly or is garbage
-    u32 graphics_family_found;
-    
-    u32 present_family;
-    u32 present_family_found;
-}dgQueueFamilyIndices;
-
-
-//@TODO(ilias) vkGetPHysicalDeviceQueueFamilyProperties doesn't work with static queue_families
-static dgQueueFamilyIndices dg_find_queue_families(VkPhysicalDevice device)
-{
-	dgQueueFamilyIndices indices = {};
-
-	u32 queue_family_count = 1;
-	VkQueueFamilyProperties queue_families[DG_QUEUE_FAMILY_MAX];
-	vkGetPhysicalDeviceQueueFamilyProperties(device, &queue_family_count, queue_families);
-	//queue_family_count = minimum(queue_family_count, DG_QUEUE_FAMILY_MAX);
-	VkBool32 present_support = VK_FALSE;
-	//@FIX(ilias): WHY is queue_family_count 0???????????????????? goddamn! linux 
-	for (u32 i = 0; i < queue_family_count; ++i)
-	{
-		vkGetPhysicalDeviceSurfaceSupportKHR(device, i, dd.surface, &present_support);
-		if (present_support){indices.present_family = i; indices.present_family_found = TRUE;}
-
-		if (queue_families[i].queueFlags  & VK_QUEUE_GRAPHICS_BIT)
-		{
-			indices.graphics_family = i;
-			indices.graphics_family_found = TRUE;
-		}
-	}
-	return indices;
+    VkSurfaceKHR surface;
+	//VkResult res = SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
+    VkResult res = glfwCreateWindowSurface(instance, window->gwindow, NULL, &surface);
+	assert (surface != VK_NULL_HANDLE);
+    return surface;
 }
 
-static u32 dg_check_device_extension_support(VkPhysicalDevice device)
+
+static const char* device_extensions[] = { VK_KHR_SWAPCHAIN_EXTENSION_NAME, 
+    VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME,
+    VK_KHR_DYNAMIC_RENDERING_EXTENSION_NAME,
+    VK_KHR_MULTIVIEW_EXTENSION_NAME,
+    VK_KHR_SHADER_NON_SEMANTIC_INFO_EXTENSION_NAME,
+};
+//DOC: checks if the physical device supports all device extensions we need
+static b32 dvk_check_device_extension_support(VkPhysicalDevice device)
 {
     u32 ext_count;
     vkEnumerateDeviceExtensionProperties(device, NULL, &ext_count, NULL);
@@ -357,75 +325,108 @@ static u32 dg_check_device_extension_support(VkPhysicalDevice device)
 			return FALSE;
 		};
     }
-	free(available_extensions);
+	dfree(available_extensions);
     return TRUE;
 }
-typedef struct dgSwapChainSupportDetails
+
+#define DVK_FAMILY_NOT_FOUND 0xFFFFFFFF
+//DOC: finds suitable graphics and present family indices
+static void dvk_queue_families_find(VkPhysicalDevice pd, VkSurfaceKHR surface, u32 *graphics_family, u32 *present_family)
+{
+    *graphics_family = DVK_FAMILY_NOT_FOUND;
+    *present_family = DVK_FAMILY_NOT_FOUND;
+
+	u32 queue_family_count;
+	VkQueueFamilyProperties queue_families[32];
+	vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, NULL);
+	queue_family_count = (queue_family_count > 32) ? 32 : queue_family_count;
+    vkGetPhysicalDeviceQueueFamilyProperties(pd, &queue_family_count, queue_families);
+
+	
+    VkBool32 present_support = VK_FALSE; 
+	for (u32 i = 0; i < queue_family_count; ++i) //TODO stop on the first families you see
+	{
+		vkGetPhysicalDeviceSurfaceSupportKHR(pd, i, surface, &present_support);
+		if (present_support)
+            *present_family = i;
+
+		if (queue_families[i].queueFlags  & VK_QUEUE_GRAPHICS_BIT)
+			*graphics_family = i;
+	}
+
+    //assert(*present_family != DVK_FAMILY_NOT_FOUND&& *graphics_family != DVK_FAMILY_NOT_FOUND);
+}
+
+
+typedef struct dvkSwapChainSupportDetails
 {
     VkSurfaceCapabilitiesKHR capabilities;
     VkSurfaceFormatKHR *formats;
     u32 format_count;
     VkPresentModeKHR *present_modes;
     u32 present_mode_count;
-}dgSwapChainSupportDetails;
-
-static void dg_swapchain_support_details_free(dgSwapChainSupportDetails *s)
+}dvkSwapChainSupportDetails;
+//DOC: finds details about the swap so we can e.g have that info to pick a suitable physical device
+static dvkSwapChainSupportDetails dvk_swapchain_support(VkPhysicalDevice device, VkSurfaceKHR surface)
 {
-    if (s->present_modes)free(s->present_modes);
-    if (s->formats)free(s->formats);
-}
-
-static dgSwapChainSupportDetails dg_query_swapchain_support(VkPhysicalDevice device, VkSurfaceKHR surface)
-{
-    dgSwapChainSupportDetails details = {};
+    dvkSwapChainSupportDetails details;
     
     vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
     
-    u32 format_count;
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, NULL);
-    details.format_count = format_count;
-    
-    if (format_count != 0)
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &details.format_count, NULL); 
+    if (details.format_count)
     {
-        details.formats = (VkSurfaceFormatKHR*)dalloc(sizeof(VkSurfaceFormatKHR) * format_count);
-        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &format_count, details.formats);
+        details.formats = (VkSurfaceFormatKHR*)dalloc(sizeof(VkSurfaceFormatKHR) * details.format_count);
+        vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &details.format_count, details.formats);
     }
-    u32 present_mode_count;
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, NULL);
-    details.present_mode_count = present_mode_count;
-    
-    if (present_mode_count != 0)
+
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &details.present_mode_count, NULL);
+    if (details.present_mode_count)
     {
-        details.present_modes = (VkPresentModeKHR*)dalloc(sizeof(VkPresentModeKHR) * present_mode_count);
-        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &present_mode_count, details.present_modes);
+        details.present_modes = (VkPresentModeKHR*)dalloc(sizeof(VkPresentModeKHR) * details.present_mode_count);
+        vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &details.present_mode_count, details.present_modes);
     }
-    
-    
+
     return details;
 }
-static u32 is_device_suitable(VkPhysicalDevice device, VkSurfaceKHR surface)
+static void dvk_swapchain_support_free(dvkSwapChainSupportDetails *s)
 {
-	dgQueueFamilyIndices indices = dg_find_queue_families(device);
+    if (s->present_modes)dfree(s->present_modes);
+    if (s->formats)dfree(s->formats);
+}
+
+//DOC: checks if the physical device is gud
+static b32 dvk_is_physical_device_suitable(VkPhysicalDevice pd, VkSurfaceKHR surface)
+{
+    VkPhysicalDeviceProperties p;
+	vkGetPhysicalDeviceProperties(pd, &p);
+	//dlog(NULL, "VULKAN: checking physical device: %s\n", p.deviceName);
+
+    u32 graphics_family, present_family;
+	dvk_queue_families_find(pd, surface, &graphics_family, &present_family);
     
     VkPhysicalDeviceProperties device_properties;
     VkPhysicalDeviceFeatures device_features;
-    vkGetPhysicalDeviceProperties(device, &device_properties);
-    vkGetPhysicalDeviceFeatures(device, &device_features);
+    vkGetPhysicalDeviceProperties(pd, &device_properties);
+    vkGetPhysicalDeviceFeatures(pd, &device_features);
     
-    u32 extensions_supported = dg_check_device_extension_support(device);
-    if (extensions_supported == 0) dlog(NULL, "GRAPHICS DRIVER: some device extension not supported!!\n");
+    b32 extensions_supported = dvk_check_device_extension_support(pd);
+    if (!extensions_supported) 
+        dlog(NULL, "DVK: some device extension not supported!!\n");
     
-    dgSwapChainSupportDetails swapchain_support = dg_query_swapchain_support(device, surface);
+    dvkSwapChainSupportDetails swapchain_support = dvk_swapchain_support(pd, surface);
     
     //here we can add more requirements for physical device selection
-    return indices.graphics_family_found && extensions_supported && indices.present_family_found
+    return (graphics_family!=DVK_FAMILY_NOT_FOUND) &&  (present_family!=DVK_FAMILY_NOT_FOUND) && extensions_supported
     &&(swapchain_support.format_count > 0) && (swapchain_support.present_mode_count > 0);	
 }
-
-b32 dg_pick_physical_device(dgDevice *ddev)
+//DOC: picks a suitable physical device
+static VkPhysicalDevice dvk_physical_device_pick(VkInstance instance, VkSurfaceKHR surface)
 {
+    VkPhysicalDevice pd;
+
 	u32 device_count = 0;
-    vkEnumeratePhysicalDevices(ddev->instance, &device_count, NULL);
+    vkEnumeratePhysicalDevices(instance, &device_count, NULL);
 
     if (device_count == 0)
 	{
@@ -434,56 +435,45 @@ b32 dg_pick_physical_device(dgDevice *ddev)
 	}
     
     VkPhysicalDevice devices[DG_PHYSICAL_DEVICE_MAX];
-    vkEnumeratePhysicalDevices(ddev->instance, &device_count, devices);
+    vkEnumeratePhysicalDevices(instance, &device_count, devices);
 	//@FIX(ilias): this is 1 here because llvmpipe is 0 and we don't want that! no vulkan 1.3!!
 #ifdef BUILD_UNIX
     for (u32 i = 0; i < device_count; ++i)
 #else
     for (u32 i = 0; i < device_count; ++i)
 #endif
-        if (is_device_suitable(devices[i], ddev->surface))
+        if (dvk_is_physical_device_suitable(devices[i], surface))
 			{
-				ddev->physical_device = devices[i];
+				pd = devices[i];
 
 				VkPhysicalDeviceProperties p;
-				vkGetPhysicalDeviceProperties(ddev->physical_device, &p);
+				vkGetPhysicalDeviceProperties(pd, &p);
                 if (strstr(p.deviceName,"pipe")!=NULL)continue;
 				dlog(NULL, "VULKAN: physical device picked: %s\n", p.deviceName);
 				break;
 			}
-	
-	return TRUE;
+    
+	assert(pd != VK_NULL_HANDLE);
+	return pd;
 }
 
-
-GLFWAPI VkResult glfwCreateWindowSurface(VkInstance instance,
-                                         GLFWwindow* handle,
-                                         const VkAllocationCallbacks* allocator,
-                                         VkSurfaceKHR* surface);
-//NOTE(ilias): the window must be initialized and have a vulkan compatible surface
-static b32 dg_surface_create(dgDevice *ddev,dWindow *window)
+//DOC: creates a suitable logical device and initializes the graphics and present queues (TODO maybe split this part?)
+static VkDevice dvk_logical_device_create(VkPhysicalDevice pd, VkSurfaceKHR surface, VkQueue *gq, VkQueue*pq)
 {
-	//VK_STRUCTURE_TYPE_DISPLAY_SURFACE_CREATE_INFO_KHR
-	//VkResult res = SDL_Vulkan_CreateSurface(window->window, ddev->instance, &ddev->surface);
-    VkResult res = glfwCreateWindowSurface(ddev->instance, window->gwindow, NULL, &ddev->surface);
-    assert(ddev->surface);
-	return TRUE;
-}
-
-b32 dg_create_logical_device(dgDevice *ddev)
-{
-    dgQueueFamilyIndices indices = dg_find_queue_families(ddev->physical_device);
+    VkDevice device = VK_NULL_HANDLE;
+    u32 gf, pf;
+    dvk_queue_families_find(pd, surface, &gf, &pf);
     
     f32 queue_priority = 1.0f;
 	VkDeviceQueueCreateInfo queue_create_info[2] = {};
 
     queue_create_info[0].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info[0].queueFamilyIndex = indices.graphics_family;
+    queue_create_info[0].queueFamilyIndex = gf;
     queue_create_info[0].queueCount = 1;
     queue_create_info[0].pQueuePriorities = &queue_priority;
 
     queue_create_info[1].sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-    queue_create_info[1].queueFamilyIndex = indices.present_family;
+    queue_create_info[1].queueFamilyIndex = pf;
     queue_create_info[1].queueCount = 1;
     queue_create_info[1].pQueuePriorities = &queue_priority;
     VkPhysicalDeviceFeatures device_features = {};
@@ -492,12 +482,11 @@ b32 dg_create_logical_device(dgDevice *ddev)
     create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
     
     create_info.pQueueCreateInfos = &queue_create_info[0];
-    create_info.queueCreateInfoCount = (indices.graphics_family != indices.present_family) ? 2 : 1;
+    create_info.queueCreateInfoCount = (gf != pf) ? 2 : 1;
     create_info.pEnabledFeatures = &device_features;
     create_info.enabledExtensionCount = array_count(device_extensions);
     create_info.ppEnabledExtensionNames = &device_extensions[0];
-    //printf("graphics fam: %i, present fam: %i, createinfocount: %i\n", 
-    //       indices.graphics_family, indices.present_family, create_info.queueCreateInfoCount);
+
     if(TRUE)//if (enable_validation_layers)
     {
         create_info.enabledLayerCount = array_count(validation_layers);
@@ -525,16 +514,74 @@ b32 dg_create_logical_device(dgDevice *ddev)
 
     create_info.pNext = &multiview_features;
 
-    VK_CHECK(vkCreateDevice(ddev->physical_device, &create_info, NULL, &ddev->device));
+    VK_CHECK(vkCreateDevice(pd, &create_info, NULL, &device));
 
     
-    vkGetDeviceQueue(ddev->device, indices.graphics_family, 0, &ddev->graphics_queue);
-    vkGetDeviceQueue(ddev->device, indices.present_family, 0, &ddev->present_queue);
+    vkGetDeviceQueue(device, gf, 0, gq);
+    vkGetDeviceQueue(device, pf, 0, pq);
 
-	return TRUE;
+	return device;
 }
 
-static VkSurfaceFormatKHR dg_choose_swap_surface_format(dgSwapChainSupportDetails details)
+//DOC: makes a valid command pool for a given surface and physical device
+static VkCommandPool dvk_command_pool_create(VkDevice device, VkPhysicalDevice pd, VkSurfaceKHR surface)
+{
+    VkCommandPool pool;
+    u32 gf, pf;
+    dvk_queue_families_find(pd, surface, &gf, &pf);
+    VkCommandPoolCreateInfo pool_info = {};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.queueFamilyIndex = gf;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    VK_CHECK(vkCreateCommandPool(device, &pool_info, NULL, &pool));
+    return pool;
+}
+
+//DOC: creates cmd_buffer_count command buffers from the given command pool
+static VkCommandBuffer *dvk_command_buffers_create(VkDevice device, VkCommandPool pool, u32 cmd_buffer_count)
+{
+    VkCommandBuffer *command_buffers = (VkCommandBuffer*)dalloc(sizeof(VkCommandBuffer) * cmd_buffer_count);//ddev->swap.image_count);
+    VkCommandBufferAllocateInfo alloc_info = {};
+    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+    alloc_info.commandPool = pool; //where to allocate the buffer from
+    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+    alloc_info.commandBufferCount = cmd_buffer_count;//ddev->swap.image_count;
+    VK_CHECK(vkAllocateCommandBuffers(device, &alloc_info, command_buffers));
+    return command_buffers;
+}
+//DOC: destroys (the memory of) the command_buffers, because the command_buffers don't need Destroy because they are freed along with the pool
+static void dvk_command_buffers_destroy(VkCommandBuffer *command_buffers){
+    if (command_buffers != NULL)
+        dfree(command_buffers);
+}
+
+
+//------------------------------------------------------------------------------------------------------
+
+
+
+
+
+
+
+typedef struct GlobalData
+{
+    mat4 view;
+    mat4 proj;
+    mat4 viewproj;
+}GlobalData;
+
+
+static VkFormat dg_to_vk_format(dgImageFormat format)
+{
+    //the enums are the same for the vulkan driver, for other implementations 
+    //just switch all different formats to correct counterpart
+    return (VkFormat)format;
+}
+
+
+
+static VkSurfaceFormatKHR dg_choose_swap_surface_format(dvkSwapChainSupportDetails details)
 {
     for (u32 i = 0; i < details.format_count; ++i)
     {
@@ -548,13 +595,13 @@ static VkSurfaceFormatKHR dg_choose_swap_surface_format(dgSwapChainSupportDetail
     return details.formats[0];
 }
 
-static VkPresentModeKHR dg_choose_swap_present_mode(dgSwapChainSupportDetails details)
+static VkPresentModeKHR dg_choose_swap_present_mode(dvkSwapChainSupportDetails details)
 {
     return VK_PRESENT_MODE_FIFO_KHR;
     //return VK_PRESENT_MODE_IMMEDIATE_KHR;
 }
 
-static VkExtent2D dg_choose_swap_extent(dgSwapChainSupportDetails details)
+static VkExtent2D dg_choose_swap_extent(dvkSwapChainSupportDetails details)
 {
     if (details.capabilities.currentExtent.width != UINT32_MAX)
     {
@@ -580,7 +627,7 @@ static dgTexture dg_create_depth_attachment(dgDevice *ddev, u32 width, u32 heigh
 static b32 dg_create_swapchain(dgDevice *ddev)
 {
 
-    dgSwapChainSupportDetails swap_details = dg_query_swapchain_support(ddev->physical_device, ddev->surface);
+    dvkSwapChainSupportDetails swap_details = dvk_swapchain_support(ddev->physical_device, ddev->surface);
 
     VkSurfaceFormatKHR surface_format = dg_choose_swap_surface_format(swap_details);
     VkPresentModeKHR present_mode = dg_choose_swap_present_mode(swap_details);
@@ -602,12 +649,13 @@ static b32 dg_create_swapchain(dgDevice *ddev)
     create_info.imageArrayLayers = 1;
     create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
 
-    dgQueueFamilyIndices indices = dg_find_queue_families(ddev->physical_device);
-    u32 queue_family_indices[] = {indices.graphics_family, indices.present_family};
+    u32 gf,pf;
+    dvk_queue_families_find(ddev->physical_device, ddev->surface, &gf, &pf);
+    u32 queue_family_indices[] = {gf,pf};
     
-    if (indices.graphics_family != indices.present_family)
+    if (gf != pf)
     {
-        create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
         create_info.queueFamilyIndexCount = 2;
         create_info.pQueueFamilyIndices = queue_family_indices;
     }
@@ -1578,28 +1626,8 @@ static b32 dg_create_sync_objects(dgDevice *ddev)
     return DSUCCESS;
 }
 
-static b32 dg_create_command_pool(dgDevice *ddev)
-{
-    dgQueueFamilyIndices queue_family_indices = dg_find_queue_families(ddev->physical_device);
-    VkCommandPoolCreateInfo pool_info = {};
-    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-    pool_info.queueFamilyIndex = queue_family_indices.graphics_family;
-    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-    VK_CHECK(vkCreateCommandPool(ddev->device, &pool_info, NULL, &ddev->command_pool));
-    return DSUCCESS;
-}
 
-static b32 dg_create_command_buffers(dgDevice *ddev)
-{
-    ddev->command_buffers = (VkCommandBuffer*)dalloc(sizeof(VkCommandBuffer) * ddev->swap.image_count);
-    VkCommandBufferAllocateInfo alloc_info = {};
-    alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-    alloc_info.commandPool = ddev->command_pool; //where to allocate the buffer from
-    alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = ddev->swap.image_count;
-    VK_CHECK(vkAllocateCommandBuffers(ddev->device, &alloc_info, ddev->command_buffers));
-    return DSUCCESS;
-}
+
 void dg_wait_idle(dgDevice *ddev)
 {
     vkDeviceWaitIdle(ddev->device);
@@ -1626,7 +1654,8 @@ static void dg_recreate_swapchain(dgDevice *ddev)
     dg_rt_init(&dd, &composition_rt, 1, TRUE, ddev->swap.extent.width, ddev->swap.extent.height);
 
     
-    dg_create_command_buffers(ddev);
+    //dg_create_command_buffers(ddev);
+    dd.command_buffers = dvk_command_buffers_create(ddev->device, ddev->command_pool, ddev->swap.image_count);
 }
 
 
@@ -1641,7 +1670,8 @@ static void dg_image_memory_barrier(
 			VkPipelineStageFlags dstStageMask,
 			VkImageSubresourceRange subresourceRange)
 		{
-			VkImageMemoryBarrier imageMemoryBarrier = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+			VkImageMemoryBarrier imageMemoryBarrier = {};
+            imageMemoryBarrier.sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER;
 			imageMemoryBarrier.srcAccessMask = srcAccessMask;
 			imageMemoryBarrier.dstAccessMask = dstAccessMask;
 			imageMemoryBarrier.oldLayout = oldImageLayout;
@@ -3193,11 +3223,11 @@ void dg_frame_end(dgDevice *ddev)
 }
 void dg_device_init(void)
 {
-	assert(dg_create_instance(&dd));
-	assert(dg_surface_create(&dd,&main_window));
-	assert(dg_pick_physical_device(&dd));
-	assert(dg_create_logical_device(&dd));
-    assert(dg_create_command_pool(&dd));
+    dd.instance = dvk_instance_create();
+    dd.surface = dvk_surface_create(dd.instance, &main_window);
+    dd.physical_device = dvk_physical_device_pick(dd.instance, dd.surface);
+	dd.device = dvk_logical_device_create(dd.physical_device, dd.surface, &dd.graphics_queue, &dd.present_queue);
+    dd.command_pool = dvk_command_pool_create(dd.device, dd.physical_device, dd.surface);
     assert(dg_create_swapchain(&dd));
     assert(dg_create_swapchain_image_views(&dd));
 
@@ -3224,7 +3254,8 @@ void dg_device_init(void)
     assert(dg_create_pipeline(&dd, &dd.anim_pipe,C_TEXT("anim.vert"), C_TEXT("anim.frag"), DG_PIPE_OPTION_NONE));
     assert(dg_create_pipeline(&dd, &dd.composition_pipe,C_TEXT("composition.vert"), C_TEXT("composition.frag"), DG_PIPE_OPTION_PACK_VERTEX_ATTRIBS));
     //assert(dg_create_pipeline(&dd, &dd.dui_pipe,C_TEXT("dui.vert"), C_TEXT("dui.frag"), DG_PIPE_OPTION_NONE));
-    assert(dg_create_command_buffers(&dd));
+    dd.command_buffers = dvk_command_buffers_create(dd.device, dd.command_pool, dd.swap.image_count);
+
     assert(dg_create_sync_objects(&dd));
 
     for (u32 i = 0; i < MAX_FRAMES_IN_FLIGHT; ++i)
