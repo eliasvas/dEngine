@@ -4,7 +4,7 @@
 #define STB_DS_IMPLEMENTATION
 #include "stb/stb_ds.h"
 extern dgDevice dd;
-extern dParticleEmitter test_emitter;
+
 
 dWindow main_window;
 dCamera cam;
@@ -13,6 +13,7 @@ extern dConfig engine_config;
 extern dDebugNameCM debug_name_cm;
 extern dProfiler global_profiler;
 extern dTextureManager tex_manager;
+extern dParticleEmitterCM particle_emitter_cm;
 
 dEntity parent;
 dEntity child;
@@ -57,8 +58,6 @@ void dcore_init(void)
     //Initialize the Graphics Driver
     tex_manager.init();
     dgfx_init();
-    dparticle_system_init(); //depends on dgfx_init because the vert/index buffers have to be created
-    
 
     //Initialize input system
     dinput_init();
@@ -114,7 +113,7 @@ void dcore_init(void)
         dlog(NULL, "entity id: %u \n", e.id);
     }
     */
-    dparticle_emitter_cm_init(NULL);
+    particle_emitter_cm.init();
     //test entity TODO delete :)
 
     //Initialize editor
@@ -127,7 +126,7 @@ void dcore_init(void)
 void dcore_update(f64 dt)
 {
     //printf("%f\n", dt);
-    dparticle_emitter_cm_simulate(NULL, dt);
+    particle_emitter_cm.simulate(dt);
     
     {
         DPROFILER_START("editor_update");
@@ -142,8 +141,7 @@ void dcore_update(f64 dt)
         DPROFILER_END();
     
     }
-    dparticle_emitter_cm_render(NULL);
-    //dparticle_emitter_render(&test_emitter);
+    particle_emitter_cm.render();
     
     {
         DPROFILER_START("frame_end");

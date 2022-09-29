@@ -31,7 +31,6 @@ extern  mat4 view, proj;
 extern u64 frame_count;
 
 //these are just for test, remove after end TODO TODO
-extern dParticleEmitter test_emitter;
 extern dParticleEmitterCM particle_emitter_cm;
 extern dTransformCM transform_manager;
 
@@ -232,7 +231,7 @@ void deditor_init(dEditor *editor){
 
 	{
 		e0 = dentity_create();
-		//u32 ci = dparticle_emitter_cm_add(NULL, e0);
+		u32 ci = particle_emitter_cm.add(e0);
 		u32 component_index = dtransform_cm_add(&transform_manager, e0, (dEntity){DENTITY_NOT_FOUND});
 		dTransform parent_t = dtransform_default();
 		parent_t.trans = v3(3,0,0);
