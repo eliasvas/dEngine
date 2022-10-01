@@ -149,7 +149,6 @@ void dtransform_cm_allocate(dTransformCM *manager, u32 size)
 void dtransform_cm_init(dTransformCM *manager){
     if (manager == NULL)manager = &transform_manager;
     memset(manager, 0, sizeof(dTransformCM));
-    dmem_linear_init(&manager->data_allocator, malloc(10), 10);
     manager->entity_hash = NULL;
     manager->m = dmutex_create();
     dtransform_cm_allocate(manager, 100);

@@ -19,6 +19,7 @@ dEntity parent;
 dEntity child;
 dEntity child2;
 
+
 //This is the core of the Engine, all engine subsystems (Audio, Rendering, Physics etc...) are managed here
 void dcore_init(void)
 {
@@ -31,12 +32,53 @@ void dcore_init(void)
         //Initialize transform manager
     dtransform_cm_init(NULL);
     debug_name_cm.init();
+    
+    //Initialize Time
+    dtime_init();
 
     //Initialize basic engine allocators 
-    dmem_linear_init(&scratch_alloc, dalloc(megabytes(2)), megabytes(2));
-    dmem_linear_init(&temp_alloc, dalloc(megabytes(2)), megabytes(2));
+    scratch_alloc.init(dalloc(megabytes(2)), megabytes(2));
+    temp_alloc.init(dalloc(megabytes(2)), megabytes(2));
     //dmem_linear_alloc(&temp_alloc, 64);
     //assert(temp_alloc.curr_offset == 64 && temp_alloc.prev_offset == 0);
+
+
+
+
+
+
+    //TEST START
+    dLinearAllocator test;
+    u32 sum = 0;
+    test.init(dalloc(1000*sizeof(int)), 1000*sizeof(int));
+    char *mem = (char*)test.alloc(50*sizeof(int));
+    //char *mem2 = (char*)test.alloc(50*sizeof(int));
+    char *prev_mem = mem;
+
+    mem = (char*)test.resize(mem, 50*sizeof(int), 60*sizeof(int));
+
+    assert(mem == prev_mem);
+
+
+    void *pool_mem = dalloc(sizeof(mat4) * 100);
+    dPoolAllocator pool;
+    pool.init(pool_mem, 100*sizeof(mat4), sizeof(mat4)*10, sizeof(mat4));
+    mat4 *pm = (mat4*)pool.alloc();
+    for (u32 i = 0; i < 10; ++i)
+    {
+        pm[i] = m4d(i);
+    }
+    printf("OK\n");
+
+    exit(1);
+    //TEST FINISH
+
+
+
+
+
+
+
 
     //Read engine Config file
     dconfig_default();
@@ -47,8 +89,6 @@ void dcore_init(void)
     dwindow_create(&main_window, "Main Window", engine_config.default_resolution.x, engine_config.default_resolution.y, DWINDOW_OPT_VULKAN | DWINDOW_OPT_RESIZABLE);
 
 
-    //Initialize Time
-    dtime_init();
 
 
     //Threading Initialization (none needed) + Testing
@@ -147,7 +187,7 @@ void dcore_update(f64 dt)
         DPROFILER_START("frame_end");
         dg_frame_end(&dd);
         DPROFILER_END();
-        dmem_linear_free_all(&temp_alloc);
+        temp_alloc.freeAll();
     }
 
     {
@@ -160,7 +200,5 @@ void dcore_update(f64 dt)
 void dcore_destroy(void)
 {
 
-    dmem_linear_free(&temp_alloc);
-    dmem_linear_free(&scratch_alloc);
 }
 

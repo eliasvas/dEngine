@@ -53,7 +53,7 @@ struct dParticleEmitter{
 };
 
  
-typedef struct dParticleEmitterCM {
+struct dParticleEmitterCM {
     struct InstanceData {
         u32 n; // No. of _used_ instances (current)
         u32 allocated; // No. of allocated instances (max)
@@ -84,15 +84,5 @@ typedef struct dParticleEmitterCM {
 
     //allocates more emitter slots in the manager
     void allocate(u32 size);
-}dParticleEmitterCM;
-
-void dparticle_emitter_cm_init(dParticleEmitterCM *manager);
-u32 dparticle_emitter_cm_simulate(dParticleEmitterCM *manager, f32 dt);
-u32 dparticle_emitter_cm_render(dParticleEmitterCM *manager);
-u32 dparticle_emitter_cm_add(dParticleEmitterCM *manager, dEntity e);
-u32 dparticle_emitter_cm_lookup(dParticleEmitterCM *manager, dEntity e);
-void dparticle_emitter_cm_del(dParticleEmitterCM *manager, u32 index);
-dParticleEmitter *dparticle_emitter_cm_emitter(dParticleEmitterCM *manager,u32 index);
-
-
+};
 #endif
