@@ -36,16 +36,19 @@ struct dLinearAllocator {
     void *resizeAligned(void *old_memory, u64 old_size, u64 new_size, u64 align);
 };
 
+//if the chunk is free, the first 2*sizeof(void) bytes of each element are filled with the
+//dPoolFreeNode, pointing to the next free node, if its filled, we just have data there, no pointer, it isn't needed!
 struct dPoolFreeNode{
     dPoolFreeNode *next;
 };
+
 struct dPoolAllocator {
     u8 *buf;
     u32 buf_len;
     u32 chunk_size;
 
     //head of linked list containing next free chunk, for allocation
-    dPoolFreeNode *head;
+    dPoolFreeNode *head; 
 
     void init(void *buf, u32 buf_len, u32 chunk_size, u32 chunk_alignment);
     void init(u32 buf_len, u32 chunk_size, u32 chunk_alignment);

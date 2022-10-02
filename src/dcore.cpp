@@ -5,6 +5,7 @@
 #include "stb/stb_ds.h"
 extern dgDevice dd;
 
+dLinearAllocator frame_alloc, scratch_alloc;  
 
 dWindow main_window;
 dCamera cam;
@@ -38,7 +39,7 @@ void dcore_init(void)
 
     //Initialize basic engine allocators 
     scratch_alloc.init(dalloc(megabytes(2)), megabytes(2));
-    temp_alloc.init(dalloc(megabytes(2)), megabytes(2));
+    frame_alloc.init(dalloc(megabytes(2)), megabytes(2));
     //dmem_linear_alloc(&temp_alloc, 64);
     //assert(temp_alloc.curr_offset == 64 && temp_alloc.prev_offset == 0);
 
@@ -68,8 +69,23 @@ void dcore_init(void)
     {
         pm[i] = m4d(i);
     }
-    printf("OK\n");
 
+    //DYNAMIC ARRAY TEST
+    dArray<int> arr;
+    arr.init(10);
+    for (u32 i = 1; i <= 20; ++i)
+        arr.push_back(i);
+    u32 ss = 0;
+    for (u32 i = 0; i < 20; ++i)
+        ss+=arr[i];
+    assert(ss == 210);
+    arr.pop_back();
+    ss = 0;
+    for (u32 i = 0; i < arr.size(); ++i)
+        ss+=arr[i];
+    assert(ss == 210 - 20);
+
+    printf("OK\n");
     exit(1);
     //TEST FINISH
 
@@ -187,7 +203,7 @@ void dcore_update(f64 dt)
         DPROFILER_START("frame_end");
         dg_frame_end(&dd);
         DPROFILER_END();
-        temp_alloc.freeAll();
+        frame_alloc.freeAll();
     }
 
     {

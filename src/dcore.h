@@ -13,6 +13,7 @@
 #include "dgfx.h"
 #include "dprofiler.h"
 #include "dlog.h"
+#include "darray.h"
 
 #include "stb/stb_ds.h"
 #include "dentity.h"
@@ -29,7 +30,5 @@ void dcore_update(f64 dt);
 
 void dcore_destroy(void);
 
-//static Arena temp_arena, main_arena;
-static dLinearAllocator temp_alloc, scratch_alloc;  
 
 #endif
