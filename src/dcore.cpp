@@ -6,6 +6,7 @@
 extern dgDevice dd;
 
 dLinearAllocator frame_alloc, scratch_alloc;  
+dMallocAllocator basic_alloc;
 
 dWindow main_window;
 dCamera cam;
@@ -38,63 +39,9 @@ void dcore_init(void)
     dtime_init();
 
     //Initialize basic engine allocators 
+    basic_alloc.init();
     scratch_alloc.init(dalloc(megabytes(2)), megabytes(2));
     frame_alloc.init(dalloc(megabytes(2)), megabytes(2));
-    //dmem_linear_alloc(&temp_alloc, 64);
-    //assert(temp_alloc.curr_offset == 64 && temp_alloc.prev_offset == 0);
-
-
-
-
-
-
-    //TEST START
-    dLinearAllocator test;
-    u32 sum = 0;
-    test.init(dalloc(1000*sizeof(int)), 1000*sizeof(int));
-    char *mem = (char*)test.alloc(50*sizeof(int));
-    //char *mem2 = (char*)test.alloc(50*sizeof(int));
-    char *prev_mem = mem;
-
-    mem = (char*)test.resize(mem, 50*sizeof(int), 60*sizeof(int));
-
-    assert(mem == prev_mem);
-
-
-    void *pool_mem = dalloc(sizeof(mat4) * 100);
-    dPoolAllocator pool;
-    pool.init(pool_mem, 100*sizeof(mat4), sizeof(mat4)*10, sizeof(mat4));
-    mat4 *pm = (mat4*)pool.alloc();
-    for (u32 i = 0; i < 10; ++i)
-    {
-        pm[i] = m4d(i);
-    }
-
-    //DYNAMIC ARRAY TEST
-    dArray<int> arr;
-    arr.init(10);
-    for (u32 i = 1; i <= 20; ++i)
-        arr.push_back(i);
-    u32 ss = 0;
-    for (u32 i = 0; i < 20; ++i)
-        ss+=arr[i];
-    assert(ss == 210);
-    arr.pop_back();
-    ss = 0;
-    for (u32 i = 0; i < arr.size(); ++i)
-        ss+=arr[i];
-    assert(ss == 210 - 20);
-
-    printf("OK\n");
-    exit(1);
-    //TEST FINISH
-
-
-
-
-
-
-
 
     //Read engine Config file
     dconfig_default();

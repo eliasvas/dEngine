@@ -57,4 +57,40 @@ struct dPoolAllocator {
     void freeAll(void);
 };
 
+//DOC: Stored at beginning of allocation to indicate size  
+//HDR | PAD | PAD |---| PAD | data[0] | data[1] |---------------| data[n]
+//the header contains the size of data
+#define DALLOC_HEADER_PAD_VALUE 0xffffffff
+struct dAllocHeader {
+    u32 size;
+};
+inline dAllocHeader* get_header(void *data)
+{
+    uint32_t *p = (uint32_t *)data;
+    while (p[-1] == DALLOC_HEADER_PAD_VALUE)
+        --p;
+    return (dAllocHeader *)p - 1;
+}
+inline void fill_header(dAllocHeader *header, void *data, u32 size){
+    header->size = size;
+    u32 *p = (u32*)(header + 1);
+    while (p < data)*p++ = DALLOC_HEADER_PAD_VALUE;
+}
+
+//DOC: A memory allocator that just uses malloc. Generally not the best, opt for a custom allocator
+struct dMallocAllocator {
+    u32 total_allocated; // Total memory that has been allocated
+    //DOC initializes the allocator
+    void init(void);
+    //DOC: just allocates memory, via malloc, in the alignment we want
+    void *alloc(u32 size, u32 align = 0);
+    //DOC: frees allocated memory
+    void free(void *ptr);
+    //DOC: returns the size of some allocation
+    u32 alloc_size(void *ptr);
+    //DOC: return the overall allocation size
+    u32 alloc_total(void);
+};
+
+
 #endif

@@ -6,7 +6,7 @@
 //pretty much this: https://github.com/niklas-ourmachinery/bitsquid-foundation/blob/master/array.h
 
 template<typename T> struct dArray {
-    dLinearAllocator *_allocator;
+    dMallocAllocator *_allocator;
     u32 _size; //number of used elements
     u32 _capacity; //total number of elements
     T *_data;
@@ -39,11 +39,11 @@ inline u32 dArray<T>::size(void){
 }
 
 extern dLinearAllocator scratch_alloc;
+extern dMallocAllocator basic_alloc;
 
 template <typename T>
 void dArray<T>::init(u32 size){
-    //this->_allocator.init(size * sizeof(T) * 32); //this is for test
-    this->_allocator = &scratch_alloc;
+    this->_allocator = &basic_alloc;
     this->_size = 0;
     this->_capacity = 0;
     darray_set_capacity(this, size);
@@ -81,11 +81,11 @@ template<typename T> void darray_set_capacity(dArray<T> *a, uint32_t new_capacit
 
     T *new_data = NULL;
     if (new_capacity > 0) {
-        new_data = (T *)a->_allocator->allocAligned(sizeof(T)*new_capacity, alignof(T));
+        new_data = (T *)a->_allocator->alloc(sizeof(T)*new_capacity, alignof(T));
         memcpy(new_data, a->_data, sizeof(T)*a->_size);
     }
 
-    //a->_allocator->free(a->_data);
+    a->_allocator->free(a->_data);
     a->_data = new_data;
     a->_capacity = new_capacity;
 }

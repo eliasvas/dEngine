@@ -179,3 +179,39 @@ void dPoolAllocator::freeAll(void){
         this->head = node;
     }
 }
+
+
+
+
+
+
+
+
+void dMallocAllocator::init(void){
+    memset(this, 0, sizeof(dMallocAllocator));
+}
+
+void *dMallocAllocator::alloc(u32 size, u32 align) {
+    u32 ts = size + align + sizeof(dAllocHeader);
+    dAllocHeader *h = (dAllocHeader*)dalloc(ts);
+    void *data = (void*)align_fwd((u64)h+sizeof(h),align);
+    fill_header(h, data, ts);
+    this->total_allocated += ts;
+    return data;
+}
+
+void dMallocAllocator::free(void *ptr){
+    if (ptr == NULL)return;
+
+    dAllocHeader *header = get_header(ptr);
+    this->total_allocated -= header->size;
+    dfree(header);
+}
+
+u32 dMallocAllocator::alloc_size(void *ptr) {
+    return get_header(ptr)->size;
+}
+
+u32 dMallocAllocator::alloc_total(void) {
+    return this->total_allocated;
+}
