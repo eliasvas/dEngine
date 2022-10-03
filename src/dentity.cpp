@@ -59,7 +59,7 @@ dEntity dentity_create(void){
 
 dComponentField dcomponent_field_make(char *name, u32 offset, dComponentFieldType type){
     dComponentField f = {0};
-    sprintf(f.name, name);
+    sprintf(f.name,"%s", name);
     f.type = type;
     f.offset = offset;
     return f;
@@ -265,6 +265,7 @@ void dtransform_cm_transform(dTransformCM *manager, dTransform  parent, u32 comp
 u32 dtransform_cm_simulate(dTransformCM *manager){
     if (manager == NULL)manager = &transform_manager;
     //do nothing (maybe do collisions for selection :) )
+    return TRUE;
 }
 
 

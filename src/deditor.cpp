@@ -301,20 +301,20 @@ b32 deditor_component_view(void *data, dComponentDesc desc){
 		dComponentField *field = &desc.fields_buf[i];
 		switch (field->type){
 			case DCOMPONENT_FIELD_TYPE_U32:
-				if (ImGui::InputInt(field->name, (s32*)(data + field->offset), 0))edited =  TRUE;
+				if (ImGui::InputInt(field->name, (s32*)((u64)data + field->offset), 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_F32:
-				if (ImGui::InputFloat(field->name, (f32*)(data + field->offset), 0))edited =  TRUE;
+				if (ImGui::InputFloat(field->name, (f32*)((u64)data + field->offset), 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC2:
-				if (ImGui::InputFloat2(field->name, (f32*)(data + field->offset), 0))edited =  TRUE;
+				if (ImGui::InputFloat2(field->name, (f32*)((u64)data + field->offset), 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC3:
 				//if (ImGui::SliderFloat3(field->name, (f32*)(data + field->offset), 0, 100, NULL, 0))edited =  TRUE;
-				if (ImGui::InputFloat3(field->name, (f32*)(data + field->offset), 0))edited =  TRUE;
+				if (ImGui::InputFloat3(field->name, (f32*)((u64)data + field->offset), 0))edited =  TRUE;
 				break;
 			case DCOMPONENT_FIELD_TYPE_VEC4:
-				if (ImGui::InputFloat3(field->name, (f32*)(data + field->offset), 0))edited =  TRUE;
+				if (ImGui::InputFloat3(field->name, (f32*)((u64)data + field->offset), 0))edited =  TRUE;
 				break;
 			default:
 				break;

@@ -271,6 +271,28 @@ typedef union mat4
 }mat4;
 
 
+typedef union uvec2
+{
+    struct
+    {
+        u32 x,y;
+    };
+    struct
+    {
+        u32 r,g;
+    };
+    u32 elements[2];
+}uvec2;
+INLINE uvec2 uv2(u32 x, u32 y)
+{
+    uvec2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
+
+
+
 typedef union ivec3
 {
     struct

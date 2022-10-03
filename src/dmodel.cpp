@@ -130,31 +130,31 @@ void dmodel_load_gltf(const char *filename, dModel *m){
             if (pos_index != -1){
                 u32 offset = primitive.attributes[pos_index].data->offset+ primitive.attributes[pos_index].data->buffer_view->offset;
                 u32 size = primitive.attributes[pos_index].data->count * sizeof(vec3);
-                prim.pos_offset = iv2(offset, size);
+                prim.pos_offset = uv2(offset, size);
             }
             
             if (tex_index != -1){
                 u32 offset = primitive.attributes[tex_index].data->offset+ primitive.attributes[tex_index].data->buffer_view->offset;
                 u32 size = primitive.attributes[tex_index].data->count * sizeof(vec2);
-                prim.tex_offset = iv2(offset, size);
+                prim.tex_offset = uv2(offset, size);
             }
 
             if (norm_index != -1){
                 u32 offset = primitive.attributes[norm_index].data->offset+ primitive.attributes[norm_index].data->buffer_view->offset;
                 u32 size = primitive.attributes[norm_index].data->count * sizeof(vec3);
-                prim.norm_offset = iv2(offset, size);
+                prim.norm_offset = uv2(offset, size);
             }
 
             if (tangent_index != -1){
                 u32 offset = primitive.attributes[tangent_index].data->offset+ primitive.attributes[tangent_index].data->buffer_view->offset;
                 u32 size = primitive.attributes[tangent_index].data->count * sizeof(vec4);
-                prim.tang_offset = iv2(offset, size);
+                prim.tang_offset = uv2(offset, size);
             }
 
             if (weight_index != -1){
                 u32 offset = primitive.attributes[weight_index].data->offset + primitive.attributes[weight_index].data->buffer_view->offset;
                 u32 size = primitive.attributes[weight_index].data->count * sizeof(vec4);
-                prim.weight_offset = iv2(offset, size);
+                prim.weight_offset = uv2(offset, size);
             }
             
 
@@ -178,14 +178,14 @@ void dmodel_load_gltf(const char *filename, dModel *m){
             if (joint_index != -1){
                 u32 offset = 0;//primitive.attributes[joint_index].data->offset;
                 u32 size = primitive.attributes[joint_index].data->count * sizeof(vec4);
-                prim.joint_offset = iv2(offset, size);
+                prim.joint_offset = uv2(offset, size);
             }
 
             //CHECK CHECK CHECK ERRROROROROE ERROR
             if (primitive.indices){
                 u32 offset = primitive.indices->offset + primitive.indices->buffer_view->offset;
                 u32 size = primitive.indices->count *sizeof(u16);
-                prim.index_offset = iv2(offset, size);
+                prim.index_offset = uv2(offset, size);
             }
             mesh.primitives.push_back(prim);
         }
@@ -202,7 +202,7 @@ void dmodel_load_gltf(const char *filename, dModel *m){
         animator = (dAnimator*)malloc(sizeof(dAnimator));
         memset(animator, 0, sizeof(dAnimator));
 
-        mat4 *ibm = (mat4*)(data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset);
+        mat4 *ibm = (mat4*)((char*)data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset);
         cgltf_node *root_joint = data->skins[0].joints[0];
         
         //first we fill the name hash so we know what bone has what index
@@ -315,7 +315,7 @@ void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 
 void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
 {
-    DPROFILER_START("model_render");
+    DPROFILER_START(C_TEXT("model_render"));
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     dg_rendering_begin(ddev, def_rt.color_attachments, 3, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev, 0,0,def_rt.color_attachments[0].width, def_rt.color_attachments[0].height);

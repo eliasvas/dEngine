@@ -27,6 +27,8 @@ b32 dlog(dLogger *logger, char *format, ...)
     msg->msg_len = str_size(msg->msg);
 
     if (logger->console_log)
-        printf(msg->msg);
+        printf(C_TEXT(msg->msg));
     dmutex_unlock(&logger->log_mutex);
+
+    return TRUE;
 }

@@ -10,15 +10,15 @@
 struct dMeshPrimitive{
     //offsets encode the [start, finish] within the 
     //component's buffer where the vertex data are for the primitive
-    ivec2 pos_offset;
-    ivec2 norm_offset;
-    ivec2 tex_offset;
-    ivec2 tang_offset;
-    ivec2 col_offset;
-    ivec2 joint_offset;
-    ivec2 weight_offset;
+    uvec2 pos_offset;
+    uvec2 norm_offset;
+    uvec2 tex_offset;
+    uvec2 tang_offset;
+    uvec2 col_offset;
+    uvec2 joint_offset;
+    uvec2 weight_offset;
 
-    ivec2 index_offset;
+    uvec2 index_offset;
 
     dMaterial m;
 

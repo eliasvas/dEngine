@@ -430,7 +430,7 @@ static VkPhysicalDevice dvk_physical_device_pick(VkInstance instance, VkSurfaceK
 
     if (device_count == 0)
 	{
-        dlog(NULL, "Failed to find GPUs with Vulkan support!");
+        dlog(NULL, C_TEXT("Failed to find GPUs with Vulkan support!"));
 		return FALSE;
 	}
     
@@ -1097,8 +1097,8 @@ static VkRect2D scissor(f32 x, f32 y, f32 w, f32 h)
 {
     VkRect2D scissor = {};
     scissor.offset.x = x;
-	scissor.offset.y = x;
-    scissor.extent = (VkExtent2D){w,h};
+	scissor.offset.y = y;
+    scissor.extent = (VkExtent2D){(u32)w,(u32)h};
     //scissor.extent.height *= fabs(sin(get_time()));
 	
     return scissor;
@@ -1443,7 +1443,7 @@ static VkDescriptorSetLayout dg_get_descriptor_set_layout(dgDevice *ddev, dgShad
             VK_CHECK(vkCreateDescriptorSetLayout(ddev->device, &desc_layout_ci, NULL, &layout));
             dg_descriptor_set_layout_cache_add(&ddev->desc_layout_cache, 
                 (dgDescriptorSetLayoutInfo){total_hash, desc_set_layout_bindings}, layout);
-            dlog(NULL, "Created (another) DSL!! :( \n");
+            dlog(NULL, C_TEXT("Created (another) DSL!! :( \n"));
         }
         else
         {
@@ -1818,7 +1818,7 @@ static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32
     VkDescriptorPoolSize *sizes = NULL;
     for (u32 i = 0; i <= 10; ++i)
     {
-        dbf_push(sizes, (VkDescriptorPoolSize){VkDescriptorType(i), count * da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
+        dbf_push(sizes, (VkDescriptorPoolSize){VkDescriptorType(i), count * (u32)da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
     }
 
     VkDescriptorPoolCreateInfo pool_info = {};
@@ -2048,7 +2048,7 @@ static u32 find_mem_type(u32 type_filter, VkMemoryPropertyFlags properties)
             (mem_properties.memoryTypes[i].propertyFlags & properties) == properties)
             return i;
     }
-    dlog(NULL, "Failed to find suitable memory type!");
+    dlog(NULL, C_TEXT("Failed to find suitable memory type!"));
     return 0;
 }
 
@@ -2468,8 +2468,8 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
 	region.imageSubresource.layerCount = 1;
 	region.imageOffset = (VkOffset3D){0, 0, 0};
 	region.imageExtent = (VkExtent3D){
-		tex_w,
-		tex_h,
+		(u32)tex_w,
+		(u32)tex_h,
 		1
 	};
 	vkCmdCopyBufferToImage(
@@ -2520,7 +2520,7 @@ dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat 
     tex.format = dg_to_vk_format(format);
     tex.image_layout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
 	dg_create_texture_sampler(ddev, &tex.sampler, tex.mip_levels,0);
-	sprintf(tex.name, filename);
+	sprintf(&tex.name[0], "%s", filename);
 	return tex;
 }
 
@@ -2663,7 +2663,7 @@ void dg_get_frustum_cornersWS(vec4 *corners, mat4 proj, mat4 view)
 
 void dg_set_desc_set(dgDevice *ddev,dgPipeline *pipe, void *data, u32 size, u32 set_num)
 { 
-    DPROFILER_START("desc_update");
+    DPROFILER_START(C_TEXT("desc_update"));
     //first we get the layout, then we 
     VkDescriptorSet desc_set;
     VkDescriptorSetLayout layout;
@@ -3190,7 +3190,7 @@ void dg_frame_end(dgDevice *ddev)
     si.signalSemaphoreCount = 1;
     si.pSignalSemaphores = signal_semaphores;
     
-    DPROFILER_START("render_submit");
+    DPROFILER_START(C_TEXT("render_submit"));
     //vkResetFences(ddev->device, 1, &ddev->in_flight_fences[0]);
     VK_CHECK(vkQueueSubmit(ddev->graphics_queue, 1, &si, ddev->in_flight_fences[ddev->current_frame]));
     DPROFILER_END();
@@ -3331,6 +3331,6 @@ b32 dgfx_init(void)
     dmodel_load_gltf(C_TEXT("DamagedHelmet"), water_bottle);
     
     fox = (dModel*)malloc(sizeof(dModel));
-    dmodel_load_gltf(C_TEXT("untitled"), fox);
+    dmodel_load_gltf(C_TEXT("YBot"), fox);
     return 1;
 }

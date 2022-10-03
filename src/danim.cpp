@@ -93,7 +93,7 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo *info)
 {
     dAnimation animation = danim_create(info, anim->channels[0].sampler->input->count);
     //first we copy the time offsets
-    float *time_offsets0 = (f32*)(anim->channels[0].sampler->input->offset + anim->channels[0].sampler->input->buffer_view->buffer->data + anim->channels[0].sampler->input->buffer_view->offset);
+    float *time_offsets0 = (f32*)(anim->channels[0].sampler->input->offset + (u64)anim->channels[0].sampler->input->buffer_view->buffer->data + anim->channels[0].sampler->input->buffer_view->offset);
     memcpy(animation.timestamps, time_offsets0, anim->channels[0].sampler->input->count * sizeof(f32));
     animation.timestamps[0] = 0.0f;
     //then all the joint transforms
@@ -104,11 +104,11 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo *info)
         u32 joint_index = hmget(info->name_hash, name_hash);
 
         cgltf_animation_path_type type = anim->channels[i].target_path;
-        float *time_offsets = (f32*)(anim->channels[i].sampler->input->offset + anim->channels[i].sampler->input->buffer_view->buffer->data + anim->channels[i].sampler->input->buffer_view->offset);
+        float *time_offsets = (f32*)((u64)anim->channels[i].sampler->input->offset + (u64)anim->channels[i].sampler->input->buffer_view->buffer->data + anim->channels[i].sampler->input->buffer_view->offset);
                 
-        vec4 *quat_offsets = (vec4*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
-        vec3 *trans_offsets = (vec3*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
-        vec3 *scale_offsets = (vec3*)(anim->channels[i].sampler->output->offset + anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
+        vec4 *quat_offsets = (vec4*)((u64)anim->channels[i].sampler->output->offset + (u64)anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
+        vec3 *trans_offsets = (vec3*)((u64)anim->channels[i].sampler->output->offset +(u64) anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
+        vec3 *scale_offsets = (vec3*)((u64)anim->channels[i].sampler->output->offset + (u64)anim->channels[i].sampler->output->buffer_view->buffer->data + anim->channels[i].sampler->output->buffer_view->offset);
 
         u32 anim_keyframe_count = anim->channels[i].sampler->input->count;
         for (u32 i = 0; i < anim_keyframe_count; ++i)
