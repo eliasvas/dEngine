@@ -10,8 +10,9 @@
 
 extern dgDevice dd;
 
-static dAnimation animation;
-static dAnimator animator;
+dAnimation *animation;
+dAnimator *animator;
+dSkeletonInfo info;
 extern dEditor main_editor;
 
 extern dTextureManager tex_manager;
@@ -20,12 +21,15 @@ extern dTextureManager tex_manager;
 extern dgRT csm_rt;//TODO: fix all these externs
 extern dgRT composition_rt;
 
-dModel dmodel_load_gltf(const char *filename)
-{
+void dmodel_load_gltf(const char *filename, dModel *m){
+    dModel *model = m;
+    memset(model, 0, sizeof(dModel));
+
+
     char filepath[256];
     sprintf(filepath,"../assets/%s/%s.gltf",filename,filename);
     dlog(NULL, "gltf FILEPATH: %s\n", filepath);
-    dModel model = {};
+    
 
     cgltf_options options = {};
     cgltf_data *data = NULL;
@@ -37,19 +41,19 @@ dModel dmodel_load_gltf(const char *filename)
     //sprintf(filepath,"../assets/%s/%s.bin",filename,filename);
     if (cgltf_load_buffers(&options, data, filepath) != cgltf_result_success)
     {
-        model.finished_loading = 0;
+        model->finished_loading = 0;
         dlog(NULL, "couldnt load gltf data\n");
-        return model;
+        return;
     }
     if (result != cgltf_result_success)
     {
-        model.finished_loading = 0;
-        return model;
+        model->finished_loading = 0;
+        return;
     }
     //printf("Attr[0] = %s\n",data->meshes[0].primitives[0].attributes[0].name);
 
     //first load all the textures!
-    model.textures_count= data->textures_count;
+    model->textures_count= data->textures_count;
 
     dgTexture empty_tex = dg_create_texture_image_wdata(&dd,NULL, 64,64, DG_IMAGE_FORMAT_RGBA8_SRGB,1,1);
     u32 meshes_count = data->meshes_count;
@@ -58,16 +62,19 @@ dModel dmodel_load_gltf(const char *filename)
 
     dg_create_buffer(VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_INDEX_BUFFER_BIT, 
                 (VkMemoryPropertyFlagBits)(VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT), 
-                &model.gpu_buf,primitive.attributes[0].data->buffer_view->buffer->size,(char*)primitive.attributes[0].data->buffer_view->buffer->data);
-                
+                &model->gpu_buf,primitive.attributes[0].data->buffer_view->buffer->size,(char*)primitive.attributes[0].data->buffer_view->buffer->data);
 
-    for (u32 i = 0; i< meshes_count && i < DMODEL_MAX_MESHES_PER_MODEL; ++i)
+
+    model->meshes.init(meshes_count);
+    for (u32 i = 0; i< meshes_count; ++i)
     {
         dMesh mesh = {};
         u32 mesh_index = i;
         
+        u32 primitives_count = data->meshes[mesh_index].primitives_count;
+        mesh.primitives.init(primitives_count);
         
-        for (u32 p= 0; p < data->meshes[mesh_index].primitives_count&& p < DMODEL_MAX_MESH_PRIMITIVES_PER_MESH; ++p){
+        for (u32 p= 0; p < primitives_count; ++p){
             cgltf_primitive primitive = data->meshes[mesh_index].primitives[p];
             dMeshPrimitive prim = {};
             s32 norm_index = -1;
@@ -97,6 +104,7 @@ dModel dmodel_load_gltf(const char *filename)
 
             for  (u32 i = 0; i < 4; ++i)
                 prim.m.textures[i] = empty_tex;
+            
             if (primitive.material->has_pbr_metallic_roughness )
             {
                 prim.m.settings = (dMaterialSettings)(prim.m.settings |((int)DMATERIAL_BASE_COLOR | (int)DMATERIAL_ORM));
@@ -156,7 +164,7 @@ dModel dmodel_load_gltf(const char *filename)
             {
                 u8 *j8 = (u8*)primitive.attributes[joint_index].data->buffer_view->buffer->data + primitive.attributes[joint_index].data->buffer_view->offset + primitive.attributes[joint_index].data->offset;
             
-                j32 = (u32*)dalloc(primitive.attributes[joint_index].data->count * sizeof(vec4));
+                j32 = (u32*)dalloc(primitive.attributes[joint_index].data->count * sizeof(vec4)*4);
                 for (u32 i = 0; i < primitive.attributes[joint_index].data->count*4;++i)
                 {
                     j32[i] = j8[i];
@@ -179,18 +187,21 @@ dModel dmodel_load_gltf(const char *filename)
                 u32 size = primitive.indices->count *sizeof(u16);
                 prim.index_offset = iv2(offset, size);
             }
-            mesh.primitives[mesh.primitives_count++] = prim;
+            mesh.primitives.push_back(prim);
         }
         
-
-        
-        
-
-        model.meshes[model.meshes_count++] = mesh;
-
+        assert(model->meshes.size() == i);
+        model->meshes.push_back(mesh);
     }
-    dSkeletonInfo info = {};
+    memset(&info, 0, sizeof(dSkeletonInfo));
+    hmdefault(info.name_hash, 0xffffffff);
     if (data->animations_count){
+
+        animation = (dAnimation*)malloc(sizeof(dAnimation));
+        memset(animation, 0, sizeof(dAnimation));
+        animator = (dAnimator*)malloc(sizeof(dAnimator));
+        memset(animator, 0, sizeof(dAnimator));
+
         mat4 *ibm = (mat4*)(data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset);
         cgltf_node *root_joint = data->skins[0].joints[0];
         
@@ -199,7 +210,7 @@ dModel dmodel_load_gltf(const char *filename)
         {
             cgltf_node *joint = data->skins[0].joints[i];
             u32 joint_index = i;
-            u32 hash_name = hash_str(joint->name);
+            u64 hash_name = hash_str(joint->name);
             hmput(info.name_hash, hash_name, joint_index);
         }
         
@@ -207,15 +218,13 @@ dModel dmodel_load_gltf(const char *filename)
 
         cgltf_animation anim = data->animations[0];
 
-
-        animation = danim_load(&anim, info);
-        animator = danimator_init(NULL, &animation, ibm, 1);
+        *animation = danim_load(&anim, &info);
+        *animator = danimator_init(NULL, animation, ibm, 1);
                                                                                         
         
     }
 
     cgltf_free(data);
-    return model;
 }
 
 
@@ -225,10 +234,10 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     DPROFILER_START("model_render");
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     //TODO: animator SHOULDN't be global, also change it to animation controller
-    danimator_animate(&animator);
-    animator.model_mat = model;
-    dAnimSocket socket = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
-    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, socket), mat4_scale(v3(10,10,10))));
+    danimator_animate(animator);
+    animator->model_mat = model;
+    dAnimSocket socket = danimator_make_socket(animator,"mixamorig:LeftHand", m4d(1.0));
+    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(animator, socket), mat4_scale(v3(5,5,5))));
 
     dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
@@ -237,14 +246,14 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     
 
     
-    for (u32 i = 0; i< m->meshes_count;++i)
+    for (u32 i = 0; i< m->meshes.size();++i)
     {
         dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->meshes[i].joint_buf, m->gpu_buf};
-        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        for (u32 j = 0; j < m->meshes[i].primitives.size(); ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
             mat4 object_data[MAX_JOINT_COUNT+1] = {model};
-            memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info.joint_count);
+            memcpy(&object_data[1], animator->gjm, sizeof(mat4)*animator->anim->skeleton_info->joint_count);
             memcpy(&object_data[MAX_JOINT_COUNT], &p->m.col, sizeof(vec4));
             
             dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);
@@ -271,7 +280,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
 
 void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
 {
-    DPROFILER_START("model_render");
+    DPROFILER_START(C_TEXT("model_render"));
     if (!ddev->shadow_pass_active)return;
     
     dg_rendering_begin(ddev, &csm_rt.color_attachments[0], 0, &csm_rt.depth_attachment, DG_RENDERING_SETTINGS_MULTIVIEW);
@@ -279,10 +288,10 @@ void draw_model_def_shadow(dgDevice *ddev, dModel *m, mat4 model, mat4 *lsms)
     dg_set_scissor(ddev, 0,0,csm_rt.color_attachments[0].width, csm_rt.color_attachments[0].height);
     dg_bind_pipeline(ddev, &ddev->pbr_shadow_pipe);
 
-    for (u32 i = 0; i< m->meshes_count;++i)
+    for (u32 i = 0; i< m->meshes.size();++i)
     {
         dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf};
-        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        for (u32 j = 0; j < m->meshes[i].primitives.size(); ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
             u64 offsets[] = {p->pos_offset.x,p->norm_offset.x,p->tex_offset.x};
@@ -315,10 +324,10 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     mat4 object_data[2] = {model, {1.0,1.0,1.0,1.0,1.0,1.0}};
     dg_set_desc_set(ddev,&ddev->pbr_def_pipe, object_data, sizeof(object_data), 1);
     
-    for (u32 i = 0; i< m->meshes_count;++i)
+    for (u32 i = 0; i< m->meshes.size();++i)
     {
         dgBuffer buffers[] = {m->gpu_buf,m->gpu_buf,m->gpu_buf,m->gpu_buf};
-        for (u32 j = 0; j < m->meshes[i].primitives_count; ++j)
+        for (u32 j = 0; j < m->meshes[i].primitives.size(); ++j)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
             texture_slots[0] = &p->m.textures[0];

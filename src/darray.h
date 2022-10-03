@@ -22,7 +22,7 @@ template<typename T> struct dArray {
     u32 size(void);
 
     //DOC: pushes an element in the back of the Array
-    void push_back(T v);
+    void push_back(T& v);
     //DOC: Pops the last element of the Array
     void pop_back(void);
 };
@@ -47,6 +47,7 @@ void dArray<T>::init(u32 size){
     this->_size = 0;
     this->_capacity = 0;
     darray_set_capacity(this, size);
+    assert(this->_capacity == size);
 }
 
 template <typename T>
@@ -90,7 +91,7 @@ template<typename T> void darray_set_capacity(dArray<T> *a, uint32_t new_capacit
     a->_capacity = new_capacity;
 }
 
-template<typename T> inline void dArray<T>::push_back(T v){
+template<typename T> inline void dArray<T>::push_back(T& v){
     if (this->_size + 1 > this->_capacity)
         darray_grow(this);
     this->_data[this->_size++] = v;

@@ -22,7 +22,7 @@ typedef enum dMaterialSettings
 #define DMATERIAL_MAX_TEXTURES 8
 struct dMaterial
 {
-    dgTexture textures[DMATERIAL_MAX_TEXTURES];
+    dgTexture textures[DMATERIAL_MAX_TEXTURES]; //These should become texture handles
     vec4 col;
     dMaterialSettings settings;
 };

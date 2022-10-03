@@ -35,9 +35,11 @@ void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTra
     }
 }
 
+//the problem is in the hash hmget
 dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info)
 {
-    if (joint == NULL)return NULL;
+    if (joint == NULL)
+        return NULL;
     u64 hash_name= hash_str(joint->name);
     u32 joint_index = hmget(info->name_hash, hash_name);
     info->joint_count++;
@@ -60,6 +62,7 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
     j->ibm = mat4_inv(calc_joint_matrix(jt));
 
     for (u32 i = 0; i < joint->children_count; ++i){
+        assert(j->children_count < 8);
         j->children[j->children_count++] = process_joint_info(joint->children[i],j, info);
     }
     return j;
@@ -68,13 +71,14 @@ dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonI
 
 
 
-dAnimation danim_create(dSkeletonInfo skeleton_info,u32 keyframe_count)
+dAnimation danim_create(dSkeletonInfo *skeleton_info,u32 keyframe_count)
 {
     dAnimation anim = {};
     anim.keyframe_count = keyframe_count;
     anim.skeleton_info = skeleton_info;
+    //hmdefault(anim.skeleton_info.name_hash, 0xFFFFFFFF);
     anim.timestamps = (f32*)dalloc(sizeof(f32) * keyframe_count);
-    u32 joint_count = anim.skeleton_info.joint_count;
+    u32 joint_count = anim.skeleton_info->joint_count;
     anim.joint_count = joint_count;
     anim.keyframes = (dJointTransform**)dalloc(sizeof(dJointTransform*) * joint_count);
     for (u32 i = 0; i < joint_count; ++i)
@@ -85,7 +89,7 @@ dAnimation danim_create(dSkeletonInfo skeleton_info,u32 keyframe_count)
     return anim;
 }
 
-dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
+dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo *info)
 {
     dAnimation animation = danim_create(info, anim->channels[0].sampler->input->count);
     //first we copy the time offsets
@@ -97,7 +101,7 @@ dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info)
     {
         cgltf_node *node = anim->channels[i].target_node;
         u64 name_hash =hash_str(node->name);
-        u32 joint_index = hmget(info.name_hash, name_hash);
+        u32 joint_index = hmget(info->name_hash, name_hash);
 
         cgltf_animation_path_type type = anim->channels[i].target_path;
         float *time_offsets = (f32*)(anim->channels[i].sampler->input->offset + anim->channels[i].sampler->input->buffer_view->buffer->data + anim->channels[i].sampler->input->buffer_view->offset);
@@ -161,9 +165,9 @@ void danimator_animate(dAnimator *animator)
     
     u32 kf0 = (u32)animator->current_time % animator->anim->keyframe_count;
     u32 kf1 = (kf0+1)  % animator->anim->keyframe_count;
-    for (u32 i = 0; i < animator->anim->skeleton_info.joint_count;++i)
+    for (u32 i = 0; i < animator->anim->skeleton_info->joint_count;++i)
     {
-        u32 joint_index = animator->anim->skeleton_info.joint_hierarchy[i].id;
+        u32 joint_index = animator->anim->skeleton_info->joint_hierarchy[i].id;
         dJointTransform tkf0 = animator->anim->keyframes[joint_index][kf0];
         dJointTransform tkf1 = animator->anim->keyframes[joint_index][kf1];
         tkf0.rot = quat_normalize(tkf0.rot);
@@ -181,9 +185,9 @@ void danimator_animate(dAnimator *animator)
     
     //*/
     
-    calc_global_joint_transforms(&animator->anim->skeleton_info.joint_hierarchy[0], m4d(1.0f), animator->ljt, animator->gjm);
+    calc_global_joint_transforms(&animator->anim->skeleton_info->joint_hierarchy[0], m4d(1.0f), animator->ljt, animator->gjm);
     for (u32 i = 0; i < animator->anim->joint_count; ++i){
-        dJointInfo *j = &animator->anim->skeleton_info.joint_hierarchy[i];
+        dJointInfo *j = &animator->anim->skeleton_info->joint_hierarchy[i];
         u32 joint_index = j->id;
         animator->gjm[j->id] = mat4_mul(animator->gjm[j->id], animator->ibm[j->id]);
         //animator->gjm[j->id] = m4d(1.0f);
@@ -197,7 +201,7 @@ void danimator_animate(dAnimator *animator)
 dAnimSocket danimator_make_socket(dAnimator *animator,char *joint_name, mat4 local_transform){
     dAnimSocket s = {};
     u64 name_hash = hash_str(joint_name);
-    u32 joint_index = hmget(animator->anim->skeleton_info.name_hash, name_hash);
+    u32 joint_index = hmget(animator->anim->skeleton_info->name_hash, name_hash);
     s.joint_id = joint_index;
     s.local_transform = local_transform;
     return s;

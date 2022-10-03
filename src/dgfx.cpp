@@ -21,8 +21,8 @@
 
 extern void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 extern void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
-dModel water_bottle;
-dModel fox;
+dModel *water_bottle;
+dModel *fox;
 
 dgDevice dd;
 dgBuffer base_vbo;
@@ -1948,7 +1948,7 @@ void dg_rendering_begin(dgDevice *ddev, dgTexture *tex, u32 attachment_count, dg
     //depth_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
     depth_attachment.loadOp = dload_op;
     depth_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0.0f};
+    depth_attachment.clearValue.depthStencil = (VkClearDepthStencilValue){1.0f, 0};
 
 
     VkRenderingInfoKHR rendering_info = {};
@@ -3028,7 +3028,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     draw_cube_def(ddev, mat4_translate(v3(16,0,0)), v4(1,1,0,1), v4(0,1,1,1));
     //draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(0 * dtime_sec(dtime_now()) / 8.0f, v3(0,1,0)),mat4_scale(v3(1,1,1)))));
     
-    draw_model_def(ddev, &water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
+    draw_model_def(ddev, water_bottle,mat4_mul(mat4_translate(v3(0,3,0)), mat4_mul(mat4_rotate(-90 * dtime_sec(dtime_now()) / 20.f, v3(0,1,0.2)),mat4_mul(mat4_rotate(90, v3(1,0,0)),mat4_scale(v3(2,2,2))))));
     
 
 
@@ -3140,8 +3140,7 @@ b32 dg_frame_begin(dgDevice *ddev)
     dg_draw(ddev, 3,0);
     dg_rendering_end(ddev);
 
-    //draw_model(ddev, &fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));
-        
+    draw_model(ddev, fox,mat4_mul(mat4_translate(v3(10,0,0)), mat4_mul(mat4_mul(mat4_rotate(0,v3(0,-1,0)),mat4_rotate(90, v3(1,0,0))),mat4_scale(v3(0.05,0.05,0.05)))));        
     //draw the grid ???
     if (ddev->grid_active){
         dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
@@ -3327,7 +3326,11 @@ b32 dgfx_init(void)
     //noise_tex = dg_create_texture_image_wdata(&dd,(float*)noise_data, 4,4,DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1,1);//dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_SRGB); //TODO, we should auto generate dis
     //noise_tex = dg_create_texture_image(&dd, "../assets/noise.png", DG_IMAGE_FORMAT_RGBA8_UNORM); //TODO, we should auto generate dis
     brdfLUT = dg_create_texture_image_wdata(&dd, NULL, 128, 128, DG_IMAGE_FORMAT_RGBA16_SFLOAT, 1, 1);
-    water_bottle = dmodel_load_gltf(C_TEXT("DamagedHelmet"));
-    //fox = dmodel_load_gltf(C_TEXT("untitled"));
+    
+    water_bottle = (dModel*)malloc(sizeof(dModel));
+    dmodel_load_gltf(C_TEXT("DamagedHelmet"), water_bottle);
+    
+    fox = (dModel*)malloc(sizeof(dModel));
+    dmodel_load_gltf(C_TEXT("untitled"), fox);
     return 1;
 }

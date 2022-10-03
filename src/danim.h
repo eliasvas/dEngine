@@ -8,7 +8,6 @@
 
 typedef dTransform dJointTransform;
 
-typedef struct dJointInfo dJointInfo;
 struct dJointInfo{
     u32 id;
     dJointInfo *parent;
@@ -17,12 +16,13 @@ struct dJointInfo{
     mat4 ibm;
 };
 #define MAX_JOINT_COUNT 70
-typedef struct dSkeletonInfo
+
+struct dSkeletonInfo
 {
     struct {u64 key; u32 value;}*name_hash;//name -> ID
     dJointInfo joint_hierarchy[MAX_JOINT_COUNT];
     u32 joint_count;
-}dSkeletonInfo;
+};
 
 
 
@@ -37,7 +37,7 @@ typedef enum DANIM_INTERP_TYPE{
 //▼index  └─► count
 
 typedef struct dAnimation{
-    dSkeletonInfo skeleton_info;
+    dSkeletonInfo *skeleton_info;
     f32 *timestamps;
     dJointTransform **keyframes;
     u32 keyframe_count;
@@ -58,7 +58,7 @@ void calc_global_joint_transforms(dJointInfo *j, mat4 parent_transform,dJointTra
 dJointInfo *process_joint_info(cgltf_node *joint, dJointInfo *parent, dSkeletonInfo *info);
 
 
-dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo info);
+dAnimation danim_load(cgltf_animation *anim, dSkeletonInfo *info);
 
 
 typedef struct dModel dModel;

@@ -66,7 +66,7 @@ void dcore_init(void)
     dinput_init();
 
     //Basic static hashmap testing
-    assert(H32_static_ok());
+    //assert(H32_static_ok());
 
     
     /*

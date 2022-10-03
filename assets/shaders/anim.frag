@@ -38,5 +38,5 @@ void main() {
 
 	vec3 light_color = vec3(0.9,0.9,0.9);	
 
-	out_color= f_color* max(dot(-normalize(light_dir), normalize(f_normal)),0.0)* 0.8 + f_color * 0.2;
+	out_color= f_color* max(dot(normalize(light_dir), normalize(-f_normal)),0.0)* 0.8 + f_color * 0.2;
 }

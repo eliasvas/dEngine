@@ -231,7 +231,7 @@ void deditor_init(dEditor *editor){
 
 	{
 		e0 = dentity_create();
-		u32 ci = particle_emitter_cm.add(e0);
+		//u32 ci = particle_emitter_cm.add(e0);
 		u32 component_index = dtransform_cm_add(&transform_manager, e0, (dEntity){DENTITY_NOT_FOUND});
 		dTransform parent_t = dtransform_default();
 		parent_t.trans = v3(3,0,0);

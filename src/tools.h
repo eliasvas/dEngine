@@ -47,7 +47,7 @@ typedef int32_t   b32;
 typedef char      b8;
 
 #ifdef __cplusplus
-
+#include <string>
 //enables using C-strings in C++ by using this macro
 #define C_TEXT( text ) ((char*)std::string( text ).c_str())
 
@@ -1708,9 +1708,9 @@ INLINE b32 H32_static_ok(void)
 {
     H32_static h;
     H32_static_init(&h, 20);
-    char *s1 = "Alex";
-    char *s2 = "Ilias";
-    char *s3 = "Leo";
+    char *s1 = C_TEXT("Alex");
+    char *s2 = C_TEXT("Ilias");
+    char *s3 = C_TEXT("Leo");
     H32_static_set(&h, hash_str(s3), 21);
     H32_static_set(&h, hash_str(s2), 22);
     b32 res = (H32_static_get(&h, hash_str(s2)) == 22)&&

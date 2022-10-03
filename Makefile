@@ -28,7 +28,7 @@ CPPFLAGS := $(INC_FLAGS) -MMD -MP
 
 # The final build step.
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
-	$(CC) $(OBJS) -std=c++17 -fstack-protector  -w -I./ext/  -L./ext/glfw/build/src -L./ext/vulkan -lshaderc_combined -lglfw3 -L/usr/X11R6/lib  -lX11 -Wl,-Bstatic  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
+	$(CC) $(OBJS) -std=c++17 -w -fstack-protector-all  -I./ext/  -L./ext/glfw/build/src -L./ext/vulkan -lshaderc_combined -lglfw3 -L/usr/X11R6/lib  -lX11 -Wl,-Bstatic  -Wl,-Bdynamic  -lstdc++ -lm -ldl -lpthread -o $@ $(LDFLAGS)
 # Build step for C source
 $(BUILD_DIR)/%.c.o: %.c
 	mkdir -p $(dir $@)
@@ -37,7 +37,7 @@ $(BUILD_DIR)/%.c.o: %.c
 # Build step for C++ source
 $(BUILD_DIR)/%.cpp.o: %.cpp
 	mkdir -p $(dir $@)
-	$(CXX) -std=c++17 -g -w $(CPPFLAGS) $(CXXFLAGS) -I./ext -I./ext/imgui -c $< -o $@
+	$(CXX) -std=c++17 -w -g $(CPPFLAGS) $(CXXFLAGS) -I./ext -I./ext/imgui -c $< -o $@
 
 
 .PHONY: clean
