@@ -7,7 +7,14 @@
 #include "../ext/glfw/include/GLFW/glfw3.h"
 
 
-typedef struct dWindow
+enum dWindowOptions
+{
+    DWINDOW_OPT_VULKAN = 0x1,
+    DWINDOW_OPT_RESIZABLE = 0x2,
+    DWINDOW_OPT_HIDDEN = 0x4
+};
+
+struct dWindow
 {
     GLFWwindow *gwindow;
 
@@ -18,15 +25,7 @@ typedef struct dWindow
     b32 resized;
     b32 fullscreen;
     char title[32];
-}dWindow;
-
-typedef enum dWindowOptions
-{
-    DWINDOW_OPT_VULKAN = 0x1,
-    DWINDOW_OPT_RESIZABLE = 0x2,
-    DWINDOW_OPT_HIDDEN = 0x4
-}dWindowOptions;
-
-b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt);
+    b32 create(char *t, u32 w, u32 h, dWindowOptions opt);
+};
 
 #endif

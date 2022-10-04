@@ -10,8 +10,8 @@
 
 extern dgDevice dd;
 
-dAnimation *animation;
-dAnimator *animator;
+dAnimation animation;
+dAnimator animator;
 dSkeletonInfo info;
 extern dEditor main_editor;
 
@@ -197,10 +197,10 @@ void dmodel_load_gltf(const char *filename, dModel *m){
     hmdefault(info.name_hash, 0xffffffff);
     if (data->animations_count){
 
-        animation = (dAnimation*)malloc(sizeof(dAnimation));
-        memset(animation, 0, sizeof(dAnimation));
-        animator = (dAnimator*)malloc(sizeof(dAnimator));
-        memset(animator, 0, sizeof(dAnimator));
+        //animation = (dAnimation*)malloc(sizeof(dAnimation));
+        memset(&animation, 0, sizeof(dAnimation));
+        //animator = (dAnimator*)malloc(sizeof(dAnimator));
+        memset(&animator, 0, sizeof(dAnimator));
 
         mat4 *ibm = (mat4*)((char*)data->skins[0].inverse_bind_matrices->buffer_view->buffer->data + data->skins[0].inverse_bind_matrices->buffer_view->offset + data->skins[0].inverse_bind_matrices->offset);
         cgltf_node *root_joint = data->skins[0].joints[0];
@@ -218,8 +218,8 @@ void dmodel_load_gltf(const char *filename, dModel *m){
 
         cgltf_animation anim = data->animations[0];
 
-        *animation = danim_load(&anim, &info);
-        *animator = danimator_init(NULL, animation, ibm, 1);
+        animation = danim_load(&anim, &info);
+        animator = danimator_init(NULL, &animation, ibm, 1);
                                                                                         
         
     }
@@ -234,10 +234,10 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
     DPROFILER_START("model_render");
     dgTexture *texture_slots[DG_MAX_DESCRIPTOR_SET_BINDINGS];
     //TODO: animator SHOULDN't be global, also change it to animation controller
-    danimator_animate(animator);
-    animator->model_mat = model;
-    dAnimSocket socket = danimator_make_socket(animator,"mixamorig:LeftHand", m4d(1.0));
-    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(animator, socket), mat4_scale(v3(5,5,5))));
+    danimator_animate(&animator);
+    animator.model_mat = model;
+    dAnimSocket socket = danimator_make_socket(&animator,"mixamorig:LeftHand", m4d(1.0));
+    draw_cube(&dd, mat4_mul(danimator_get_socket_transform(&animator, socket), mat4_scale(v3(5,5,5))));
 
     dg_rendering_begin(ddev, &composition_rt.color_attachments[0], 1, &def_rt.depth_attachment, DG_RENDERING_SETTINGS_NONE);
     dg_set_viewport(ddev,0,0, composition_rt.color_attachments[0].width, composition_rt.color_attachments[0].height);
@@ -253,7 +253,7 @@ void draw_model(dgDevice *ddev, dModel *m, mat4 model)
         {
             dMeshPrimitive *p = &m->meshes[i].primitives[j];
             mat4 object_data[MAX_JOINT_COUNT+1] = {model};
-            memcpy(&object_data[1], animator->gjm, sizeof(mat4)*animator->anim->skeleton_info->joint_count);
+            memcpy(&object_data[1], animator.gjm, sizeof(mat4)*animator.anim->skeleton_info->joint_count);
             memcpy(&object_data[MAX_JOINT_COUNT], &p->m.col, sizeof(vec4));
             
             dg_set_desc_set(ddev,&ddev->anim_pipe, object_data, sizeof(object_data), 1);

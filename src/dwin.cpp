@@ -18,11 +18,11 @@ const u32 indices[] = {
 
 
 
-b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
+b32 dWindow::create(char *t, u32 w, u32 h, dWindowOptions opt)
 {
     glfwInit();
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    dw->gwindow = glfwCreateWindow(w, h, "Window Title", NULL, NULL);
+    this->gwindow = glfwCreateWindow(w, h, "Window Title", NULL, NULL);
     //if (opt & DWINDOW_OPT_VULKAN)printf("Vulkan Baby!!\n");
     /*
     if (SDL_Init(SDL_INIT_VIDEO) < 0)
@@ -51,10 +51,10 @@ b32 dwindow_create(dWindow *dw, char *t, u32 w, u32 h, dWindowOptions opt)
     }
     */
     //sprintf(dw->title, t);
-    dw->width = w;
-    dw->height = h;
-    dw->hidden = opt & DWINDOW_OPT_HIDDEN;
-    dw->resizable = opt & DWINDOW_OPT_RESIZABLE;
+    this->width = w;
+    this->height = h;
+    this->hidden = opt & DWINDOW_OPT_HIDDEN;
+    this->resizable = opt & DWINDOW_OPT_RESIZABLE;
 
     return DSUCCESS;
 }

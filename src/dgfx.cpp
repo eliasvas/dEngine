@@ -1818,7 +1818,7 @@ static VkDescriptorPool dg_create_descriptor_pool(dgDescriptorAllocator *da, u32
     VkDescriptorPoolSize *sizes = NULL;
     for (u32 i = 0; i <= 10; ++i)
     {
-        dbf_push(sizes, (VkDescriptorPoolSize){VkDescriptorType(i), count * (u32)da->pool_sizes[H32_static_get(&da->desc_type_hash, i)]});
+        dbf_push(sizes, (VkDescriptorPoolSize){VkDescriptorType(i), (u32)(count * da->pool_sizes[H32_static_get(&da->desc_type_hash, i)])});
     }
 
     VkDescriptorPoolCreateInfo pool_info = {};
