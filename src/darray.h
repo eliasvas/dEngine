@@ -20,6 +20,11 @@ template<typename T> struct dArray {
     void trim(void);
     //DOC: Returns the number of elements in the Array
     u32 size(void);
+    //DOC: deletes the i'th element, swapping it with the last element
+    //any deallocation must be done per-element, via its .deinit() method
+    void del(u32 index);
+    //DOC: resizes the array, to _at least_ new_size
+    void resize(u32 new_size);
 
     //DOC: pushes an element in the back of the Array
     void push_back(T& v);
@@ -60,6 +65,12 @@ void dArray<T>::trim(void){
     this->set_capacity(this->_size);
 }
 
+template <typename T>
+void dArray<T>::del(u32 index){
+    this->_data[index] = this->_data[this->_size-1];
+    this->_size--;
+}
+
 template<typename T> void darray_grow(dArray<T> *a, uint32_t min_capacity = 0){
     u32 new_capacity = a->_capacity*2 + 8;
     if (new_capacity < min_capacity)
@@ -68,9 +79,10 @@ template<typename T> void darray_grow(dArray<T> *a, uint32_t min_capacity = 0){
 }
 
 template <typename T> 
-void darray_resize(dArray<T> *a, u32 new_size){
-    if (new_size > a->_capacity)darray_grow(a, new_size);
-    a->_size = new_size;
+void dArray<T>::resize(u32 new_size){
+    if (new_size > this->_capacity)
+        darray_grow(this, new_size);
+    this->_size = new_size;
 }
 
 template<typename T> void darray_set_capacity(dArray<T> *a, uint32_t new_capacity){
@@ -78,7 +90,7 @@ template<typename T> void darray_set_capacity(dArray<T> *a, uint32_t new_capacit
         return;
 
     if (new_capacity < a->_size)
-        darray_resize(a, new_capacity);
+        a->resize(new_capacity);
 
     T *new_data = NULL;
     if (new_capacity > 0) {

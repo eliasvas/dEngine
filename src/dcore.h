@@ -14,6 +14,8 @@
 #include "dprofiler.h"
 #include "dlog.h"
 #include "darray.h"
+#include "dmodel.h"
+#include "dqueue.h"
 
 #include "stb/stb_ds.h"
 #include "dentity.h"

@@ -349,3 +349,10 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model)
     DPROFILER_END();
 
 }
+
+
+
+dModelManager model_manager;
+
+extern dMallocAllocator basic_alloc;
+

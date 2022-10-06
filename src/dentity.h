@@ -4,7 +4,7 @@
 #include "assert.h"
 #include "dmem.h"
 #include "dthread.h"
-
+#include "dqueue.h"
 
 //this ECS pretty much follows the stingray approach
 //https://bitsquid.blogspot.com/2017/05/rebuilding-entity-index.html
@@ -24,8 +24,7 @@ u32 dentity_generation(dEntity e);
 typedef struct dEntityManager{
     u8 generation[MAX_GENERATION]; 
     u32 generation_count;
-    u32 free_indices[MAX_FREE_INDICES];
-    u32 indices_start_index, indices_end_index;
+    dQueue<u32> free_indices;
 }dEntityManager;
 
 void dentity_manager_init(dEntityManager *manager);

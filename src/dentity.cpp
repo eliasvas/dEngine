@@ -19,8 +19,7 @@ u32 dentity_generation(dEntity e) {return (e.id >> DENTITY_INDEX_BITS) & DENTITY
 void dentity_manager_init(dEntityManager *manager){
     if (manager == NULL)manager = &entity_manager;
     manager->generation_count = 0;
-    manager->indices_start_index = 0;
-    manager->indices_end_index = 0;
+    manager->free_indices.init();
 }
 
 dEntity dentity_make(u32 index, u8 generation){
@@ -32,22 +31,22 @@ b32 dentity_alive(dEntity e){
 }
 
 //Each time entity is destroyed, its generation in that index is incremented and the
-//index (which points to a generation) is added to the free_indices array, to be reused later
+//index (which points to a generation) is added to the free_indices queue, to be reused later
 void dentity_destroy(dEntity e){
     u32 idx = dentity_index(e);
     ++entity_manager.generation[idx];
-    entity_manager.free_indices[entity_manager.indices_end_index++ % MAX_FREE_INDICES] = idx;
+    entity_manager.free_indices.push_back(idx);
 }
 
-//If we have a lot of unused entity indices (they have been destroyed and then put in free_indices array)
+//If we have a lot of unused entity indices (they have been destroyed and then put in free_indices queue)
 //we take an entry from free_indices, whose data is the index of a free generation that has been inc'ed
 //and use that as our entity ID
 dEntity dentity_create(void){
     u32 idx;
 
-    u32 free_index_count = entity_manager.indices_end_index - entity_manager.indices_start_index;
-    if (free_index_count > 500){
-        idx = entity_manager.free_indices[entity_manager.indices_start_index++  % MAX_FREE_INDICES];
+    if (entity_manager.free_indices.size() > 500){
+        idx = entity_manager.free_indices[0];
+        entity_manager.free_indices.pop_front();
     }else{
         entity_manager.generation[entity_manager.generation_count++ % MAX_GENERATION] = 0;
         idx = entity_manager.generation_count - 1;

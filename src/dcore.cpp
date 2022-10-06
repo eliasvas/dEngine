@@ -15,8 +15,9 @@ extern dConfig engine_config;
 extern dDebugNameCM debug_name_cm;
 extern dProfiler global_profiler;
 extern dTextureManager tex_manager;
-extern dParticleEmitterCM particle_emitter_cm;
+extern dModelManager model_manager;
 
+extern dParticleEmitterCM particle_emitter_cm;
 dEntity parent;
 dEntity child;
 dEntity child2;
@@ -50,6 +51,7 @@ void dcore_init(void)
 
     //create the main window
     main_window.create("Main Window", engine_config.default_resolution.x, engine_config.default_resolution.y, DWINDOW_OPT_VULKAN | DWINDOW_OPT_RESIZABLE);
+
 
 
 

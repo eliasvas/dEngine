@@ -54,4 +54,28 @@ void draw_model_def(dgDevice *ddev, dModel *m, mat4 model);
 void draw_model(dgDevice *ddev, dModel *m, mat4 model);
 
 
+
+
+
+struct dModelHandle {
+    u32 handle;
+};
+#define DMODEL_MAX_FREE_INDICES 2048
+struct dModelManager {
+    dMallocAllocator *allocator;
+    dArray<u8> generation; //tracks the generation of its index, via generation[index]
+    u32 *free_indices[DMODEL_MAX_FREE_INDICES]; //holds indices that have been deleated
+    u32 indices_start_index, indices_end_index;
+
+    dArray<dModel> models; // models[i] is the model at index i
+
+    void init(void);
+    void deinit(void);
+    //DOC: creates a unique handle for a model (or adds a reference count if it exists)
+    dModelHandle create_handle(void);
+    b32 alive(dModelHandle h);
+};
+
+dModelHandle dmodel_handle_make(u32 index, u8 generation);
+
 #endif
