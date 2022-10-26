@@ -17,20 +17,18 @@ static dMaterial dmaterial_basic(void)
 
 
 void dTextureManager::init(void){
-    this->textures_count = 0;
     this->texture_hash = NULL;
-    memset(this->ref_count, 0, sizeof(this->ref_count));
+    this->ref_count.init(16);
+    this->textures.init(16);
     hmdefault(this->texture_hash, DTEXTURE_NOT_FOUND);
 }
 dgTexture* dTextureManager::addTex(char *name, dgImageFormat f){
     u64 name_hash = hash_str(name);
     u32 tex_index = hmget(this->texture_hash, name_hash);
     if (tex_index == DTEXTURE_NOT_FOUND){
-        dgTexture t = dg_create_texture_image(&dd, name, f);
-        tex_index = this->textures_count++;
-        this->ref_count[tex_index] =1;
-        this->textures[tex_index] = t;
-        hmput(this->texture_hash, tex_index, name_hash);
+        tex_index = this->textures.size();
+        this->ref_count.push_back(1);
+        this->textures.push_back(dg_create_texture_image(&dd, name, f));
     }else{
         this->ref_count[tex_index]++;
     }
@@ -48,13 +46,15 @@ void dTextureManager::delTex(char *name){
         this->ref_count[tex_index]--;
         if (this->ref_count[tex_index] <= 0){
             //if texture should be destroyed, swap it with the last one
-            u64 last_tex_hash = hash_str(this->textures[this->textures_count].name);
+            u64 last_tex_hash = hash_str(this->textures[this->textures.size()-1].name);
 
             //delete from the hashmap the last tex index and the "to be deleted index"
             hmdel(this->texture_hash, name_hash);
             hmdel(this->texture_hash, last_tex_hash);
-            this->textures[tex_index] = this->textures[this->textures_count];
-            this->ref_count[tex_index]= this->ref_count[this->textures_count];
+            this->textures[tex_index] = this->textures[this->textures.size()-1];
+            this->textures.pop_back();
+            this->ref_count[tex_index]= this->ref_count[this->textures.size()-1];
+            this->ref_count.pop_back();
             hmput(this->texture_hash, tex_index, last_tex_hash);
         }
     }

@@ -18,8 +18,8 @@ u32 dentity_generation(dEntity e) {return (e.id >> DENTITY_INDEX_BITS) & DENTITY
 
 void dentity_manager_init(dEntityManager *manager){
     if (manager == NULL)manager = &entity_manager;
-    manager->generation_count = 0;
-    manager->free_indices.init();
+    manager->free_indices.init(512);
+    manager->generation.init(512);
 }
 
 dEntity dentity_make(u32 index, u8 generation){
@@ -48,8 +48,9 @@ dEntity dentity_create(void){
         idx = entity_manager.free_indices[0];
         entity_manager.free_indices.pop_front();
     }else{
-        entity_manager.generation[entity_manager.generation_count++ % MAX_GENERATION] = 0;
-        idx = entity_manager.generation_count - 1;
+        u8 z = 0;
+        entity_manager.generation.push_back(z);
+        idx = entity_manager.generation.size() - 1;
         //ensures indices dont loop through, dince generation (last 8 bits)should be 0 in ths case
         assert(idx < (1 <<  DENTITY_INDEX_BITS));
     }

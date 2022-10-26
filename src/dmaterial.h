@@ -3,6 +3,7 @@
 #include "tools.h"
 #include "stb/stb_ds.h"
 #include "dgfx.h"
+#include "darray.h"
 
 typedef enum dMaterialSettings
 {
@@ -33,9 +34,8 @@ static dMaterial dmaterial_basic(void);
 #define DTEXTURE_NOT_FOUND 0xFFFFFFFF
 
 struct dTextureManager{
-    dgTexture textures[DTEXTURE_MANAGER_MAX_TEXTURES]; //TODO: this should be completely dynamic
-    u32 ref_count[DTEXTURE_MANAGER_MAX_TEXTURES];
-    u32 textures_count;
+    dArray<dgTexture> textures;
+    dArray<u32> ref_count;
 
     struct {u64 key; u32 value;}*texture_hash;//maps texture's name hash to index in textures array
 

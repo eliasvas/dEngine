@@ -9,10 +9,10 @@
 //this ECS pretty much follows the stingray approach
 //https://bitsquid.blogspot.com/2017/05/rebuilding-entity-index.html
 
-typedef struct dEntity
-{
+typedef struct dEntity{
     u32 id;
 }dEntity;
+
 u32 dentity_index(dEntity e);
 u32 dentity_generation(dEntity e);
 
@@ -22,8 +22,7 @@ u32 dentity_generation(dEntity e);
 #define MAX_FREE_INDICES 2048
 #define MAX_GENERATION 2048 * 32
 typedef struct dEntityManager{
-    u8 generation[MAX_GENERATION]; 
-    u32 generation_count;
+    dArray<u8> generation;
     dQueue<u32> free_indices;
 }dEntityManager;
 
