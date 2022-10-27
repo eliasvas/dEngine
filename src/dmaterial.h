@@ -4,6 +4,7 @@
 #include "stb/stb_ds.h"
 #include "dgfx.h"
 #include "darray.h"
+#include "dhandle.h"
 
 typedef enum dMaterialSettings
 {
@@ -30,10 +31,12 @@ struct dMaterial
 
 
 static dMaterial dmaterial_basic(void);
-#define DTEXTURE_MANAGER_MAX_TEXTURES 100
+
 #define DTEXTURE_NOT_FOUND 0xFFFFFFFF
 
 struct dTextureManager{
+    dHandleManager tex_handles;
+
     dArray<dgTexture> textures;
     dArray<u32> ref_count;
 
@@ -44,5 +47,6 @@ struct dTextureManager{
     void delTex(char *name);
     void deinit();
 };
+
 
 #endif

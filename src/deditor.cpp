@@ -88,7 +88,7 @@ void dui_init(void)
     ImGui::StyleColorsDark();
 
 	//this initializes imgui for GLFW
-    ImGui_ImplGlfw_InitForVulkan(main_window.gwindow,0);
+    ImGui_ImplGlfw_InitForVulkan(main_window.gwindow,1);
 
 	//this initializes imgui for Vulkan
 	ImGui_ImplVulkan_InitInfo init_info = {};
@@ -288,6 +288,10 @@ void deditor_update(dEditor *editor, float dt){
 	io.AddMouseButtonEvent(0,dkey_down(DK_LMB));
 	io.AddMouseButtonEvent(1,dkey_down(DK_RMB));
 	io.AddMouseButtonEvent(2,dkey_down(DK_MMB));
+	for (u32 i = 0; i < 'Z'-'A';++i)
+		io.AddKeyEvent(ImGuiKey_A +i,dkey_down((dKey)((u32)DK_A + i)));
+	for (u32 i = 0; i < '9'-'0';++i)
+		io.AddKeyEvent(ImGuiKey_0 +i,dkey_down((dKey)((u32)DK_0 + i)));
 }
 
 

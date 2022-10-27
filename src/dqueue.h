@@ -15,6 +15,7 @@ struct dQueue {
     T &operator[](u32 i);
 
     void init(u32 cap = 32);
+    void deinit(void);
     //DOC: the number of elements in the queue
     u32 size(void);
     //DOC: the amount of free space in the queue
@@ -38,6 +39,13 @@ void dQueue<T>::init(u32 cap){
     this->_offset = 0;
     this->_size = 0;
     this->data.init(cap);
+}
+
+template <typename T>
+void dQueue<T>::deinit(void){
+    this->_offset = 0;
+    this->_size = 0;
+    this->data.deinit();
 }
 
 template <typename T> inline T & dQueue<T>::operator[](uint32_t i)

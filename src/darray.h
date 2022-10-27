@@ -14,6 +14,8 @@ template<typename T> struct dArray {
 	T &operator[](u32 i);
     //DOC: Initializes a Dynamic Array of type 'T' and 'size' elements
     void init(u32 size);
+    //DOC: frees all the memory
+    void deinit(void);
     //DOC: Clears the Array, along with the memory
     void clear(void);
     //DOC: Makes the Array's length equal to its capacity
@@ -53,6 +55,15 @@ void dArray<T>::init(u32 size){
     this->_capacity = 0;
     darray_set_capacity(this, size);
     assert(this->_capacity == size);
+}
+
+template <typename T>
+void dArray<T>::deinit(void){
+    this->_allocator = NULL;
+    this->_size = 0;
+    this->_capacity = 0;
+    this->_allocator->free(this->_data);
+    this->_data=NULL;
 }
 
 template <typename T>

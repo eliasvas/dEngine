@@ -692,7 +692,7 @@ static void dg_cleanup_swapchain(dgDevice *ddev)
     //clear depth attachment of swapchain
 }
 
-static void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
+void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex)
 {
     vkDestroyImage(ddev->device, tex->image,NULL);
     vkDestroyImageView(ddev->device, tex->view,NULL);

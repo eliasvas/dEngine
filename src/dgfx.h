@@ -240,6 +240,7 @@ void dg_draw(dgDevice *ddev, u32 vertex_count,u32 index_count);
 void dg_wait_idle(dgDevice *ddev);
 dgTexture dg_create_texture_image_wdata(dgDevice *ddev,void *data, u32 tex_w,u32 tex_h, dgImageFormat format, u32 layer_count, u32 mip_levels);
 dgTexture dg_create_texture_image(dgDevice *ddev, char *filename, dgImageFormat format);
+void dg_cleanup_texture(dgDevice *ddev, dgTexture *tex);
 
 void dg_buf_destroy(dgBuffer *buf);
 VkResult dg_buf_map(dgBuffer *buf, VkDeviceSize size, VkDeviceSize offset);
